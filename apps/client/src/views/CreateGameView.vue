@@ -6,6 +6,7 @@ import { useGameStore } from "../stores/game";
 
 const router = useRouter();
 const store = useGameStore();
+const staticDemo = import.meta.env.VITE_STATIC_DEMO === "true";
 const mobileDevice = computed(() => window.matchMedia("(max-width: 760px), (pointer: coarse)").matches);
 
 function createTvGame(): void {
@@ -21,30 +22,31 @@ async function createMobileGame(): Promise<void> {
 <template>
   <main class="create-game">
     <div class="create-game__intro">
-      <p class="eyebrow">Nouvelle expédition</p>
-      <h1>Préparez votre<br /><em>expédition.</em></h1>
-      <p>Chaque consortium garde ses décisions sur son téléphone. Choisissez où projeter la carte et le journal de bord communs.</p>
+      <p class="eyebrow">{{ staticDemo ? 'Laboratoire UX statique' : 'Nouvelle expédition' }}</p>
+      <h1>{{ staticDemo ? 'Explorez une' : 'Préparez votre' }}<br /><em>{{ staticDemo ? 'partie simulée.' : 'expédition.' }}</em></h1>
+      <p v-if="staticDemo">Testez l’interface avec des données réalistes. Les actions sont exécutées localement sur cet appareil, sans compte ni serveur de jeu.</p>
+      <p v-else>Chaque consortium garde ses décisions sur son téléphone. Choisissez où projeter la carte et le journal de bord communs.</p>
     </div>
 
     <div class="create-game__choices">
       <button type="button" class="mode-card mode-card--tv" :disabled="store.pending" @click="createTvGame">
         <span class="mode-card__icon"><MonitorUp :size="42" aria-hidden="true" /></span>
-        <span class="mode-card__tag">{{ mobileDevice ? 'Avec un autre écran' : 'Recommandé sur cet appareil' }}</span>
-        <strong>Pont de commandement</strong>
-        <span>La carte stellaire, les trajectoires et les événements sont projetés sur une TV ou un grand écran.</span>
-        <b>Activer le pont de commandement</b>
+        <span class="mode-card__tag">{{ staticDemo ? 'Aperçu grand écran' : mobileDevice ? 'Avec un autre écran' : 'Recommandé sur cet appareil' }}</span>
+        <strong>{{ staticDemo ? 'Interface TV simulée' : 'Pont de commandement' }}</strong>
+        <span>{{ staticDemo ? 'Observez la carte, les portefeuilles et les événements comme ils apparaîtront sur l’écran commun.' : 'La carte stellaire, les trajectoires et les événements sont projetés sur une TV ou un grand écran.' }}</span>
+        <b>{{ staticDemo ? 'Explorer l’écran commun' : 'Activer le pont de commandement' }}</b>
       </button>
 
       <button type="button" class="mode-card mode-card--mobile" :disabled="store.pending" @click="createMobileGame">
         <span class="mode-card__icon"><Smartphone :size="42" aria-hidden="true" /></span>
-        <span class="mode-card__tag">{{ mobileDevice ? 'Recommandé sur cet appareil' : 'Sans écran partagé' }}</span>
-        <strong>Flotte mobile</strong>
-        <span>Chaque téléphone affiche les actions, la carte et les positions. Le créateur partage le code et garde les commandes de bord.</span>
-        <b>{{ store.pending ? 'Création…' : 'Lancer depuis ce terminal' }}</b>
+        <span class="mode-card__tag">{{ staticDemo ? 'Prototype interactif' : mobileDevice ? 'Recommandé sur cet appareil' : 'Sans écran partagé' }}</span>
+        <strong>{{ staticDemo ? 'Parcours sur téléphone' : 'Flotte mobile' }}</strong>
+        <span>{{ staticDemo ? 'Jouez un tour, parcourez la carte, consultez vos ressources et essayez plusieurs situations de jeu.' : 'Chaque téléphone affiche les actions, la carte et les positions. Le créateur partage le code et garde les commandes de bord.' }}</span>
+        <b>{{ store.pending ? 'Chargement…' : staticDemo ? 'Commencer le test mobile' : 'Lancer depuis ce terminal' }}</b>
       </button>
     </div>
 
-    <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> 2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.</p>
+    <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ staticDemo ? 'Orion et Lyra sont simulés localement. Deux appareils ne seront pas synchronisés.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
     <div v-if="store.error" class="error-toast" @click="store.error = ''">{{ store.error }}</div>
   </main>
 </template>

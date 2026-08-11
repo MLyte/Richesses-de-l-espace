@@ -61,6 +61,17 @@ npm start               # production, après le build
 npm run smoke           # vérification HTTP du build
 ```
 
+### Laboratoire UX statique
+
+Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/` pour tester l’interface sur de vrais appareils :
+
+```powershell
+npm run build:static
+npm run check:static
+```
+
+Le dossier à envoyer est `apps/client/dist`. Il contient une simulation locale interactive avec Orion et Lyra et plusieurs situations de jeu. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure d’upload et les limites du test.
+
 Le build de production est servi sur `http://localhost:3000/display` et écoute sur `0.0.0.0`.
 
 Pour un hébergement Internet, placez le serveur derrière un reverse proxy HTTPS compatible WebSocket et définissez l’origine publique :

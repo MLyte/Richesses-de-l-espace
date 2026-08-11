@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "concurrently -k -n SERVER,CLIENT -c yellow,cyan \"npm run dev -w @richesses-espace/server\" \"npm run dev -w @richesses-espace/client\"",
     "build": "npm run build -w @richesses-espace/client && npm run build -w @richesses-espace/server",
+    "build:static": "cross-env VITE_STATIC_DEMO=true VITE_APP_BASE=/richesses-espace/ npm run build -w @richesses-espace/client",
+    "check:static": "node scripts/check-static-build.mjs",
     "start": "cross-env NODE_ENV=production node apps/server/dist/index.js",
     "smoke": "node scripts/smoke-production.mjs",
     "test": "vitest run",

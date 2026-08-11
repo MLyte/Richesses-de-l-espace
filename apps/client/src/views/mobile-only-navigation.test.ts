@@ -34,6 +34,11 @@ describe("mobile-only game navigation", () => {
     expect(playerView).toContain("'title-actions--with-primary': hasFixedPrimaryTurnAction");
   });
 
+  it("keeps error toasts visible above the bottom navigation", () => {
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*z-index:\s*90/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*bottom:\s*calc\(5\.4rem/s);
+  });
+
   it("keeps the bottom navigation visible on the resources page", () => {
     expect(playerView).toContain('v-if="mobileOnly" active="resources"');
     expect(playerView).toContain('@play="showMobilePlay" @map="showMobileMap"');

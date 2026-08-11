@@ -301,6 +301,18 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.phone-shell:has(.controller-screen--mobile-only) > .error-toast {
+  z-index: 90;
+  right: auto;
+  bottom: calc(5.4rem + env(safe-area-inset-bottom));
+  left: 50%;
+  width: min(calc(100% - 2rem), 420px);
+  max-width: none;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 154, 131, .72);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .38);
+}
 .controller-screen--mobile-only { padding-bottom: calc(17rem + env(safe-area-inset-bottom)); }
 .controller-screen--mobile-only .spectator-map-button { display: inline-flex; align-items: center; gap: .45rem; min-height: 48px; margin-top: 1.2rem; padding: 0 1rem; }
 .controller-screen--mobile-only .dice-button,

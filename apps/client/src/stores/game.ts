@@ -4,6 +4,15 @@ import type { CommandResult, PlayerGameView, PublicGameView, SessionResult, Trad
 import type { GameEvent } from "@richesses-espace/game";
 import { playEventSound, playMoveStep, setActionReminder } from "../services/audio";
 import { playErrorHaptic, playEventHaptic } from "../services/haptics";
+import {
+  loadStaticDemo,
+  resetStaticDemo,
+  runStaticDemoCommand,
+  selectStaticDemoPlayer,
+  type StaticDemoPlayerId,
+  type StaticDemoScenarioId,
+  type StaticDemoSnapshot
+} from "../demo/static-game";
 
 type Role = "admin" | "player" | null;
 type DiceAnimationState = { eventId: number; playerId: string; dice: [number, number]; total: number; rolling: boolean };
@@ -11,6 +20,7 @@ type PersistentNotification = { key: string; event: GameEvent };
 const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
 const silentNotificationTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"]);
 const mandatoryActionNames = new Set(["ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "END_TURN"]);
+const staticDemoBuild = import.meta.env.VITE_STATIC_DEMO === "true";
 
 export const useGameStore = defineStore("game", {
   state: () => ({
@@ -28,14 +38,61 @@ export const useGameStore = defineStore("game", {
     notifications: [] as PersistentNotification[],
     diceAnimation: null as DiceAnimationState | null,
     visualPlayerPositions: {} as Record<string, number>,
-    movingPlayerId: null as string | null
+    movingPlayerId: null as string | null,
+    staticDemo: staticDemoBuild,
+    demoScenario: "turn" as StaticDemoScenarioId,
+    demoPlayerId: "lyra" as StaticDemoPlayerId
   }),
   getters: {
     me(state) { return state.game?.players.find((player) => player.id === state.player?.playerId) ?? null; },
     activePlayer(state) { return state.game?.players.find((player) => player.id === state.game?.activePlayerId) ?? null; }
   },
   actions: {
+    applyStaticDemoSnapshot(snapshot: StaticDemoSnapshot) {
+      const previous = this.game;
+      for (const player of snapshot.game.players) {
+        const previousPlayer = previous?.players.find((item) => item.id === player.id);
+        if (!previousPlayer) this.visualPlayerPositions[player.id] = player.position;
+        else if (previousPlayer.position !== player.position) this.visualPlayerPositions[player.id] = previousPlayer.position;
+        else if (this.movingPlayerId !== player.id) this.visualPlayerPositions[player.id] = player.position;
+      }
+      this.game = snapshot.game;
+      this.player = snapshot.player;
+      this.role = snapshot.player ? "player" : "admin";
+      this.sessionToken = null;
+      this.connected = true;
+      this.error = "";
+      this.demoScenario = snapshot.scenario;
+      this.demoPlayerId = snapshot.playerId;
+      setActionReminder(Boolean(snapshot.player?.allowedActions.some((action) => mandatoryActionNames.has(action))));
+      for (const event of snapshot.events) this.enqueueEvent(event);
+    },
+    setStaticDemoScenario(scenario: StaticDemoScenarioId) {
+      this.eventQueue = [];
+      this.notifications = [];
+      this.animatedEvent = null;
+      this.diceAnimation = null;
+      this.movingPlayerId = null;
+      const mode = this.game?.displayMode ?? "MOBILE_ONLY";
+      this.applyStaticDemoSnapshot(resetStaticDemo(scenario, mode, this.role !== "admin"));
+    },
+    switchStaticDemoPlayer(playerId: StaticDemoPlayerId) {
+      this.applyStaticDemoSnapshot(selectStaticDemoPlayer(playerId));
+    },
+    restartStaticDemo() {
+      this.eventQueue = [];
+      this.notifications = [];
+      this.animatedEvent = null;
+      this.diceAnimation = null;
+      this.movingPlayerId = null;
+      const mode = this.game?.displayMode ?? "MOBILE_ONLY";
+      this.applyStaticDemoSnapshot(resetStaticDemo(this.demoScenario, mode, this.role !== "admin"));
+    },
     connect() {
+      if (this.staticDemo) {
+        this.applyStaticDemoSnapshot(loadStaticDemo("MOBILE_ONLY"));
+        return;
+      }
       if (this.socket) return;
       this.socket = io({ autoConnect: true });
       this.socket.on("connect", () => {
@@ -154,10 +211,15 @@ export const useGameStore = defineStore("game", {
       }
     },
     async command<T = undefined>(event: string, payload?: unknown): Promise<T | undefined> {
-      this.connect();
       this.pending = true;
       this.error = "";
       try {
+        if (this.staticDemo) {
+          const result = runStaticDemoCommand(event, payload);
+          this.applyStaticDemoSnapshot(result.snapshot);
+          return result.data as T | undefined;
+        }
+        this.connect();
         const result = await new Promise<CommandResult<T>>((resolve) => {
           if (payload === undefined) this.socket!.emit(event, resolve);
           else this.socket!.emit(event, payload, resolve);
@@ -171,6 +233,10 @@ export const useGameStore = defineStore("game", {
       } finally { this.pending = false; }
     },
     async createDisplaySession() {
+      if (this.staticDemo) {
+        this.applyStaticDemoSnapshot(loadStaticDemo("TV", false));
+        return;
+      }
       this.connect();
       const existing = sessionStorage.getItem("richesses-espace:admin");
       if (existing) {
@@ -183,6 +249,10 @@ export const useGameStore = defineStore("game", {
       }
     },
     async createMobileSession(): Promise<string | undefined> {
+      if (this.staticDemo) {
+        this.applyStaticDemoSnapshot(loadStaticDemo("MOBILE_ONLY"));
+        return "DEMO";
+      }
       this.connect();
       const session = await this.command<SessionResult>("room:create", { displayMode: "MOBILE_ONLY" });
       if (!session) return undefined;

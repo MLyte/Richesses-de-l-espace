@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
 import App from "./App.vue";
 import DisplayView from "./views/DisplayView.vue";
 import PlayerView from "./views/PlayerView.vue";
@@ -10,7 +10,7 @@ import "./styles.css";
 import "./theme-space.css";
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: import.meta.env.VITE_STATIC_DEMO === "true" ? createWebHashHistory(import.meta.env.BASE_URL) : createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: "/", component: CreateGameView },
     { path: "/display", component: DisplayView },
