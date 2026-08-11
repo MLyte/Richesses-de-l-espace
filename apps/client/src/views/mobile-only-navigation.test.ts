@@ -8,10 +8,11 @@ const board = readFileSync(fileURLToPath(new URL("../components/WorldBoard.vue",
 
 describe("mobile-only game navigation", () => {
   it("separates the phone-only map from the TV controller experience", () => {
-        expect(playerView).toContain('store.game?.displayMode === "MOBILE_ONLY"');
-        expect(playerView).toContain('const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY")');
-        expect(playerView).not.toContain("route.query.demo");
-        expect(playerView).not.toContain("Mode démo");
+    expect(playerView).toContain('store.game?.displayMode === "MOBILE_ONLY"');
+    expect(playerView).toContain('const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY")');
+    expect(playerView).not.toContain("route.query.demo");
+    expect(playerView).toContain('searchParams.get("preview") === "mobile"');
+    expect(playerView).toContain('await import("../demo/mobile-preview")');
     expect(playerView).toContain('v-if="mobileOnly && mobilePanel === \'map\'"');
     expect(playerView).toContain('<WorldBoard :board="store.game.board"');
     expect(playerView).toContain("mobileOnly ? 'La carte suit les mouvements de toute la flotte.' : 'Suivez les mouvements sur l’écran commun.'");

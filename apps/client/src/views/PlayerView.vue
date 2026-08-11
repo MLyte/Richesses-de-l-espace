@@ -18,6 +18,9 @@ import { ArrowLeftRight, Dices, HandCoins, Map as MapIcon, Menu, PackageOpen, Pa
 const route = useRoute();
 const store = useGameStore();
 const code = String(route.params.code ?? "").toUpperCase();
+const searchParams = new URLSearchParams(window.location.search);
+const mobilePreview = import.meta.env.DEV && searchParams.get("preview") === "mobile";
+const previewPlayerId = searchParams.get("player") === "orion" ? "orion" : "lyra";
 const name = ref("");
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
@@ -38,7 +41,20 @@ const mobilePanel = ref<"play" | "map">("play");
 const mobileMapScale = ref(1);
 const mobileMapViewport = ref<HTMLElement | null>(null);
 
-onMounted(() => {
+onMounted(async () => {
+  if (mobilePreview) {
+    store.socket?.disconnect();
+    store.socket = null;
+    const { createMobilePreviewGame, createMobilePreviewPlayer } = await import("../demo/mobile-preview");
+    store.game = createMobilePreviewGame();
+    store.player = createMobilePreviewPlayer(previewPlayerId);
+    store.role = "player";
+    store.sessionToken = null;
+    store.connected = true;
+    store.error = "";
+    store.visualPlayerPositions = Object.fromEntries(store.game.players.map((player) => [player.id, player.position]));
+    return;
+  }
   void store.resumePlayer(code);
 });
 const me = computed(() => store.me);
@@ -147,6 +163,10 @@ watch(() => store.game?.activePlayerId, () => {
 });
 
 async function run(action: () => Promise<unknown>) {
+  if (mobilePreview) {
+    store.error = "Aperçu solo : les commandes réseau sont désactivées, mais la carte et le portefeuille restent interactifs.";
+    return;
+  }
   try { await action(); } catch { /* affiché */ }
 }
 async function join() {
