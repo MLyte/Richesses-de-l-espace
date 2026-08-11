@@ -8,6 +8,8 @@ const index = await readFile(indexPath, "utf8");
 if (!index.includes('href="/richesses-espace/favicon.svg"')) throw new Error("Le favicon n’utilise pas la base /richesses-espace/.");
 if (!index.includes('src="/richesses-espace/assets/')) throw new Error("Le script principal n’utilise pas la base /richesses-espace/.");
 if (!index.includes('href="/richesses-espace/assets/')) throw new Error("La feuille de style n’utilise pas la base /richesses-espace/.");
+const buildId = index.match(/<meta name="richesses-build" content="([^"]+)"/i)?.[1];
+if (!buildId) throw new Error("L’identifiant de build est absent de index.html.");
 
 const assetFiles = await readdir(path.join(dist, "assets"));
 const scriptName = assetFiles.find((name) => name.endsWith(".js"));
@@ -25,4 +27,4 @@ for (const required of ["favicon.svg", "space-background.jpg", "cards/space-art-
   if (!(await stat(file)).isFile()) throw new Error(`Fichier statique absent : ${required}`);
 }
 
-console.log("Build statique valide : base URL, bundle UX et médias prêts pour /richesses-espace/.");
+console.log(`Build statique valide (${buildId}) : base URL, bundle UX et médias prêts pour /richesses-espace/.`);

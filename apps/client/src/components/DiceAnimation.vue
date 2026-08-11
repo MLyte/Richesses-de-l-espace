@@ -4,6 +4,7 @@ import DieFace from "./DieFace.vue";
 
 const props = defineProps<{ dice: [number, number]; total: number; rolling: boolean; compact?: boolean }>();
 const faces = ref<[number, number]>([1, 1]);
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 let timer: number | null = null;
 
 function stopTimer() {
@@ -18,6 +19,7 @@ watch(() => props.rolling, (rolling) => {
     return;
   }
   faces.value = [Math.ceil(Math.random() * 6), Math.ceil(Math.random() * 6)];
+  if (reducedMotion.matches) return;
   timer = window.setInterval(() => {
     faces.value = [Math.ceil(Math.random() * 6), Math.ceil(Math.random() * 6)];
   }, 78);

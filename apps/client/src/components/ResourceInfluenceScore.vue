@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { ASSETS, RESOURCES, SECTORS } from "@richesses-espace/game";
+import { useAccessibleModal } from "../composables/useAccessibleModal";
 
 const props = withDefaults(defineProps<{ resourceId: string; assetIds: readonly string[]; compact?: boolean; showRoyaltiesDetails?: boolean }>(), {
   showRoyaltiesDetails: true
 });
 const royaltiesOpen = ref(false);
+const royaltiesDialog = ref<HTMLElement | null>(null);
+const { onKeydown: onRoyaltiesKeydown } = useAccessibleModal(royaltiesOpen, royaltiesDialog, () => { royaltiesOpen.value = false; });
 const resource = computed(() => RESOURCES.find((item) => item.id === props.resourceId)!);
 const sector = computed(() => SECTORS.find((item) => item.id === resource.value.sectorId)!);
 const titles = computed(() => ASSETS.filter((asset) => asset.resourceId === props.resourceId && props.assetIds.includes(asset.id)));
@@ -36,7 +39,7 @@ const activeThreshold = computed(() => [...thresholds].reverse().find((threshold
 
   <Teleport to="body">
     <div v-if="showRoyaltiesDetails && royaltiesOpen" class="resource-rent-backdrop" @click.self="royaltiesOpen = false">
-      <section class="resource-rent-dialog" role="dialog" aria-modal="true" :aria-label="`Loyers de ${resource.name}`">
+      <section ref="royaltiesDialog" class="resource-rent-dialog" role="dialog" aria-modal="true" :aria-label="`Droits d’extraction de ${resource.name}`" tabindex="-1" @keydown="onRoyaltiesKeydown">
         <button class="resource-rent-dialog__close" type="button" aria-label="Fermer" @click="royaltiesOpen = false">×</button>
         <p class="eyebrow">Barème de la ressource</p>
         <h2>{{ resource.name }}</h2>

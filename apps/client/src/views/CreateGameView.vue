@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { MonitorUp, Smartphone, UsersRound } from "@lucide/vue";
+import ErrorToast from "../components/ErrorToast.vue";
 import { useGameStore } from "../stores/game";
 
 const router = useRouter();
@@ -48,7 +49,7 @@ async function createMobileGame(): Promise<void> {
     </div>
 
     <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ staticDemo ? 'Orion et Lyra sont simulés localement. Deux appareils ne seront pas synchronisés.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
-    <div v-if="store.error" class="error-toast" @click="store.error = ''">{{ store.error }}</div>
+    <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>
 
@@ -91,10 +92,10 @@ async function createMobileGame(): Promise<void> {
     gap: .15rem .7rem;
   }
   .mode-card--tv .mode-card__icon { grid-column: 1; grid-row: 1 / span 2; width: 42px; height: 42px; border-radius: 12px; }
-  .mode-card--tv .mode-card__tag { grid-column: 2; grid-row: 1; align-self: end; font-size: .62rem; }
+  .mode-card--tv .mode-card__tag { grid-column: 2; grid-row: 1; align-self: end; font-size: .75rem; }
   .mode-card--tv strong { grid-column: 2; grid-row: 2; align-self: start; font-size: 1rem; }
   .mode-card--tv > span:nth-of-type(3) { display: none; }
-  .mode-card--tv .mode-card__mobile-note { display: block; grid-column: 2; grid-row: 3; color: #9ec2d8; font-size: .68rem; line-height: 1.35; }
-  .mode-card--tv b { grid-column: 3; grid-row: 1 / span 3; align-self: center; padding: .58rem .65rem; color: #c9e8f4; border: 1px solid #72a9c2; border-radius: 10px; background: #0b243a; font-size: .65rem; }
+  .mode-card--tv .mode-card__mobile-note { display: block; grid-column: 2 / -1; grid-row: 3; color: #c9e8f4; font-size: .75rem; line-height: 1.4; }
+  .mode-card--tv b { grid-column: 1 / -1; grid-row: 4; min-height: 44px; display: grid; place-items: center; padding: .65rem .75rem; color: #c9e8f4; border: 1px solid #72a9c2; border-radius: 10px; background: #0b243a; font-size: .8rem; }
 }
 </style>

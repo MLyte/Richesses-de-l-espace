@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS } from "@richesses-espace/protocol";
+import ErrorToast from "../components/ErrorToast.vue";
+import { useAccessibleModal } from "../composables/useAccessibleModal";
 import { useGameStore } from "../stores/game";
 import AssetCard from "../components/AssetCard.vue";
 import LandingNotice from "../components/LandingNotice.vue";
@@ -25,8 +27,17 @@ const previewPlayerId = searchParams.get("player") === "orion" ? "orion" : "lyra
 const name = ref("");
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
+const colorLabels: Record<string, string> = {
+  "#e05f42": "Corail",
+  "#3784a6": "Bleu spatial",
+  "#75a341": "Vert orbital",
+  "#e4a72f": "Or solaire",
+  "#9666b4": "Violet cosmique",
+  "#28a394": "Turquoise"
+};
 const joining = ref(false);
 const tradeOpen = ref(false);
+const tradeDialog = ref<HTMLElement | null>(null);
 const tradeMode = ref<"purchase" | "sale" | "exchange" | "alliance">("exchange");
 const tradeTargetId = ref("");
 const offeredResourceId = ref("");
@@ -37,8 +48,11 @@ const bidAmount = ref(1);
 const auctionSelection = ref<string[]>([]);
 const purchaseSelection = ref<string[]>([]);
 const portfolioOpen = ref(false);
+const portfolioDialog = ref<HTMLElement | null>(null);
 const portfolioPage = ref(0);
 const mobilePanel = ref<"play" | "map">("play");
+const { onKeydown: onTradeKeydown } = useAccessibleModal(tradeOpen, tradeDialog, () => { tradeOpen.value = false; });
+const { onKeydown: onPortfolioKeydown } = useAccessibleModal(portfolioOpen, portfolioDialog, () => { portfolioOpen.value = false; });
 
 onMounted(async () => {
   if (mobilePreview) {
@@ -196,17 +210,18 @@ async function finishAsHost() {
             <button v-else type="button" class="danger" @click="finishAsHost">Terminer</button>
           </div>
         </details>
-        <HelpOverlay compact /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" />
+        <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
       </div>
     </header>
+    <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. Tour de {{ store.activePlayer?.name }}. {{ isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
 
     <section v-if="!store.player" class="join-screen">
       <p class="eyebrow">Expédition {{ code }}</p>
       <h1>Embarquez pour<br><em>l’expédition.</em></h1>
       <form class="join-form" @submit.prevent="join">
         <label>Votre prénom<input v-model="name" maxlength="20" autocomplete="name" placeholder="Mathieu" required /></label>
-        <fieldset><legend>Votre couleur</legend><div class="color-picker"><button v-for="choice in PLAYER_COLORS" :key="choice" type="button" :class="{ selected: color === choice }" :style="{ '--choice': choice }" @click="color = choice" /></div></fieldset>
-        <fieldset><legend>Votre animal</legend><div class="symbol-picker"><button v-for="choice in PLAYER_SYMBOLS" :key="choice.id" type="button" :title="choice.label" :aria-label="choice.label" :class="{ selected: symbol === choice.id }" @click="symbol = choice.id"><PlayerTokenIcon :symbol="choice.id" /></button></div></fieldset>
+        <fieldset><legend>Votre couleur</legend><div class="color-picker"><button v-for="choice in PLAYER_COLORS" :key="choice" type="button" :aria-label="colorLabels[choice]" :aria-pressed="color === choice" :class="{ selected: color === choice }" :style="{ '--choice': choice }" @click="color = choice" /></div></fieldset>
+        <fieldset><legend>Votre animal</legend><div class="symbol-picker"><button v-for="choice in PLAYER_SYMBOLS" :key="choice.id" type="button" :title="choice.label" :aria-label="choice.label" :aria-pressed="symbol === choice.id" :class="{ selected: symbol === choice.id }" @click="symbol = choice.id"><PlayerTokenIcon :symbol="choice.id" /></button></div></fieldset>
         <button class="primary-button" :disabled="joining || !name.trim()">Rejoindre la flotte</button>
       </form>
     </section>
@@ -291,8 +306,8 @@ async function finishAsHost() {
         <button v-if="!mobileOnly" class="portfolio-fab" :class="{ 'portfolio-fab--with-trades': allowed('PROPOSE_TRADE') && tradeTargets.length, 'portfolio-fab--with-primary': hasPrimaryTurnAction }" type="button" @click="openPortfolio"><PackageOpen :size="20" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <Teleport to="body">
           <div v-if="portfolioOpen" class="portfolio-backdrop" @click.self="portfolioOpen = false">
-            <section class="portfolio-drawer" :class="{ 'portfolio-drawer--with-navigation': mobileOnly }" aria-label="Vos ressources">
-              <header><div class="section-title section-title--portfolio"><span>Type de ressources</span><b :style="{ color: activePortfolioPage?.sector.color }">{{ activePortfolioPage?.sector.name ?? 'Vos ressources' }}</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }}</small></div></header>
+            <section ref="portfolioDialog" class="portfolio-drawer" :class="{ 'portfolio-drawer--with-navigation': mobileOnly }" role="dialog" aria-modal="true" aria-labelledby="portfolio-title" tabindex="-1" @keydown="onPortfolioKeydown">
+              <header><div class="section-title section-title--portfolio"><span>Type de ressources</span><b id="portfolio-title" :style="{ color: activePortfolioPage?.sector.color }">{{ activePortfolioPage?.sector.name ?? 'Vos ressources' }}</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }}</small></div></header>
               <div v-if="!myAssets.length" class="empty-portfolio">Vos futures parts apparaîtront ici.</div>
               <div v-else class="resource-score-list resource-score-list--drawer"><ResourceInfluenceScore v-for="resource in visibleResources" :key="resource.id" :resource-id="resource.id" :asset-ids="me.assetIds" /></div>
               <footer v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></footer>
@@ -305,10 +320,10 @@ async function finishAsHost() {
         <MobileGameNavigation v-if="mobileOnly && !portfolioOpen" :active="mobilePanel" :has-immediate-action="hasImmediateAction" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" @resources="openPortfolio" />
 
         <div v-if="tradeOpen" class="trade-backdrop" @click.self="tradeOpen = false">
-          <form class="trade-form" @submit.prevent="submitTrade">
-            <button type="button" class="help-close" @click="tradeOpen = false">×</button>
+          <form ref="tradeDialog" class="trade-form" role="dialog" aria-modal="true" aria-labelledby="trade-dialog-title" tabindex="-1" @keydown="onTradeKeydown" @submit.prevent="submitTrade">
+            <button type="button" class="help-close" aria-label="Fermer la proposition" @click="tradeOpen = false">×</button>
             <p class="eyebrow">{{ tradeMode === 'sale' ? 'Vente de concessions' : tradeMode === 'purchase' ? 'Achat entre consortiums' : tradeMode === 'alliance' ? 'Consortium conjoint' : 'Échange de ressources' }}</p>
-            <h2>{{ tradeMode === 'sale' ? 'Vendre un groupe complet' : tradeMode === 'purchase' ? 'Faire une offre d’achat' : tradeMode === 'alliance' ? 'Unir vos portefeuilles et votre pion' : 'Échanger deux groupes complets' }}</h2>
+            <h2 id="trade-dialog-title">{{ tradeMode === 'sale' ? 'Vendre un groupe complet' : tradeMode === 'purchase' ? 'Faire une offre d’achat' : tradeMode === 'alliance' ? 'Unir vos portefeuilles et votre pion' : 'Échanger deux groupes complets' }}</h2>
             <p class="trade-rule-note">{{ tradeMode === 'alliance' ? 'Chaque associé paie à la Banque interstellaire la moitié du prix d’achat cumulé de toutes les concessions. Le pion du portefeuille le plus précieux devient le pion pilote.' : 'Toutes les concessions de la ressource choisie sont incluses dans l’accord, quel que soit leur monde d’origine.' }}</p>
             <label>Partenaire<select v-model="tradeTargetId" @change="resetRequestedResource"><option v-for="player in tradeTargets" :key="player.id" :value="player.id">{{ player.name }}</option></select></label>
             <div v-if="tradeMode !== 'alliance'" class="trade-form-grid">
@@ -321,7 +336,7 @@ async function finishAsHost() {
       </section>
     </template>
     <section v-else class="loading-state"><span class="spinner" /><p>Connexion au relais spatial…</p></section>
-    <div v-if="store.error" class="error-toast" @click="store.error = ''">{{ store.error }}</div>
+    <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>
 

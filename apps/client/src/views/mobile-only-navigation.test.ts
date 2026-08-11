@@ -46,6 +46,12 @@ describe("mobile-only game navigation", () => {
     expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*bottom:\s*calc\(5\.4rem/s);
   });
 
+  it("keeps the low-landscape layout scrollable instead of stacking fixed docks", () => {
+    expect(theme).toMatch(/@media \(max-width: 760px\) and \(max-height: 500px\)/);
+    expect(theme).toMatch(/\.controller-screen--mobile-only \.title-actions--with-primary\s*\{[^}]*position:\s*static/s);
+    expect(theme).toMatch(/\.mobile-only-navigation\s*\{[^}]*position:\s*static/s);
+  });
+
   it("keeps the bottom navigation visible on the resources page", () => {
     expect(playerView).toContain('v-if="mobileOnly" active="resources"');
     expect(playerView).toContain('@play="showMobilePlay" @map="showMobileMap"');
@@ -58,7 +64,7 @@ describe("mobile-only game navigation", () => {
     expect(mobileRoute).toContain("Array.from({ length: props.board.length }");
     expect(mobileRoute).toContain("routeOrigin.value - beforeCount + offset");
     expect(mobileRoute).toContain("Case {{ focusedIndex + 1 }}");
-    expect(mobileRoute).toContain('scrollIntoView({ block: "center", behavior })');
+    expect(mobileRoute).toContain('behavior: reducedMotion.matches ? "auto" : behavior');
     expect(mobileRoute).toContain("props.turnNumber, props.activePlayerId");
     expect(mobileRoute).toContain('@click="focusPlayer(player)"');
     expect(mobileRoute).not.toContain("WorldBoard");

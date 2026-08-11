@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { nextTick, onMounted, ref } from "vue";
 import { FlaskConical, MousePointerClick, WifiOff } from "@lucide/vue";
 
 const SESSION_KEY = "richesses-espace:static-demo-welcome-seen";
 const dialog = ref<HTMLDialogElement | null>(null);
-const remaining = ref(3);
-let countdown: number | null = null;
 
 function wasSeen(): boolean {
   try { return window.sessionStorage.getItem(SESSION_KEY) === "1"; }
@@ -17,15 +15,8 @@ function remember(): void {
   catch { /* Le stockage peut être bloqué en navigation privée stricte. */ }
 }
 
-function stopCountdown(): void {
-  if (countdown !== null) window.clearInterval(countdown);
-  countdown = null;
-}
-
 function close(): void {
-  if (remaining.value > 0) return;
   remember();
-  stopCountdown();
   if (typeof dialog.value?.close === "function") dialog.value.close();
   else dialog.value?.removeAttribute("open");
 }
@@ -35,13 +26,7 @@ onMounted(async () => {
   await nextTick();
   if (typeof dialog.value?.showModal === "function") dialog.value.showModal();
   else dialog.value?.setAttribute("open", "");
-  countdown = window.setInterval(() => {
-    remaining.value = Math.max(0, remaining.value - 1);
-    if (remaining.value === 0) stopCountdown();
-  }, 1_000);
 });
-
-onBeforeUnmount(stopCountdown);
 </script>
 
 <template>
@@ -57,10 +42,7 @@ onBeforeUnmount(stopCountdown);
       <article><FlaskConical :size="21" aria-hidden="true" /><div><strong>Plusieurs situations sont disponibles</strong><p>Ouvrez la languette « Démo UX » pour tester un achat, un paiement, une enchère, un échange, une pause ou une fin de partie.</p></div></article>
     </div>
 
-    <button type="button" class="static-welcome__close" :disabled="remaining > 0" @click="close">
-      <span>{{ remaining > 0 ? 'Prenez un instant pour lire' : 'Accéder à la démo' }}</span>
-      <b aria-live="polite">{{ remaining }}</b>
-    </button>
+    <button type="button" class="static-welcome__close" @click="close">Accéder à la démo</button>
     <small>Ce message ne sera affiché qu’une fois pendant cette session.</small>
   </dialog>
 </template>
@@ -81,8 +63,6 @@ onBeforeUnmount(stopCountdown);
 .static-welcome__facts p { margin-top: .22rem; color: #9fc3d3; font-size: .75rem; line-height: 1.45; }
 .static-welcome__close { display: grid; grid-template-columns: 1fr 38px; align-items: center; width: 100%; min-height: 56px; margin-top: 1rem; padding: .5rem .55rem .5rem 1rem; color: #06111f; border: 0; border-radius: 12px; background: #35d0e2; font: 800 .88rem Manrope, sans-serif; }
 .static-welcome__close b { display: grid; place-items: center; width: 38px; height: 38px; color: #eef8fc; border-radius: 50%; background: #0b2840; font: 700 .95rem "IBM Plex Mono", monospace; }
-.static-welcome__close:disabled { color: #c4dbe6; background: #20435b; opacity: 1; cursor: wait; }
-.static-welcome__close:disabled b { background: #102a43; }
 .static-welcome > small { display: block; margin-top: .65rem; color: #789caf; font-size: .68rem; text-align: center; }
 @media (max-width: 520px) {
   .static-welcome { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); padding: 1.15rem; border-radius: 17px; }

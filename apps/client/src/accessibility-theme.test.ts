@@ -77,4 +77,18 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
   it("keeps the mobile action dock in the dark spatial palette", () => {
     expect(theme).toMatch(/\.controller-screen \.action-row\s*\{[^}]*background:\s*rgba\(5, 22, 38, \.98\)/s);
   });
+
+  it("keeps all form fields and dynamic status labels on opaque compliant surfaces", () => {
+    expect(theme).toMatch(/\.bid-controls input,[\s\S]*\.trade-form select,[\s\S]*\.join-form input\s*\{[^}]*color:\s*#f3f8fc[^}]*background:\s*#071827/s);
+    expect(theme).toMatch(/\.landing-notice__status,[\s\S]*\.event-notification small\s*\{[^}]*color:\s*#f3f8fc[^}]*background:\s*#0b243a/s);
+  });
+
+  it("does not reintroduce the cream theme in the final theme layer", () => {
+    expect(theme.toLowerCase()).not.toContain("#fffdf4");
+  });
+
+  it("restores document scrolling for mobile zoom and low landscape viewports", () => {
+    expect(theme).toMatch(/body:has\(\.phone-shell \.controller-screen\),[\s\S]*overflow-y:\s*auto !important/s);
+    expect(theme).toMatch(/@media \(max-width: 760px\) and \(max-height: 500px\)[\s\S]*\.mobile-only-navigation\s*\{[^}]*position:\s*static/s);
+  });
 });

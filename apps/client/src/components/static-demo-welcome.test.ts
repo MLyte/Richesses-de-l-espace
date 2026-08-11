@@ -9,11 +9,10 @@ describe("static demo welcome dialog", () => {
     expect(source).toContain("window.sessionStorage.setItem(SESSION_KEY, \"1\")");
   });
 
-  it("requires the complete three-second countdown", () => {
-    expect(source).toContain("const remaining = ref(3)");
-    expect(source).toContain("remaining.value = Math.max(0, remaining.value - 1)");
-    expect(source).toContain(':disabled="remaining > 0"');
-    expect(source).toContain("{{ remaining }}");
+  it("does not force a timed reading delay", () => {
+    expect(source).not.toContain("setInterval");
+    expect(source).not.toContain(":disabled");
+    expect(source).toContain("Accéder à la démo");
   });
 
   it("explains the limitations of the static beta", () => {

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import QrcodeVue from "qrcode.vue";
 import { ASSETS, LEVER_CARDS, RESOURCES, TREND_CARDS } from "@richesses-espace/game";
 import { useGameStore } from "../stores/game";
 import LandingNotice from "../components/LandingNotice.vue";
 import WorldBoard from "../components/WorldBoard.vue";
+import ErrorToast from "../components/ErrorToast.vue";
 import SoundToggle from "../components/SoundToggle.vue";
 import HelpOverlay from "../components/HelpOverlay.vue";
 import DiceAnimation from "../components/DiceAnimation.vue";
@@ -18,7 +19,13 @@ import { splitPlayerWings } from "./display-layout";
 
 const store = useGameStore();
 const route = useRoute();
-onMounted(() => { void store.createDisplaySession(); });
+const fullscreen = ref(Boolean(document.fullscreenElement));
+function syncFullscreen(): void { fullscreen.value = Boolean(document.fullscreenElement); }
+onMounted(() => {
+  document.addEventListener("fullscreenchange", syncFullscreen);
+  void store.createDisplaySession();
+});
+onBeforeUnmount(() => document.removeEventListener("fullscreenchange", syncFullscreen));
 
 const joinUrl = computed(() => store.game?.joinUrls[0] ?? (store.game ? `${location.origin}/play/${store.game.code}` : ""));
 const crewSlots = computed(() => Array.from({ length: 6 }, (_, index) => store.game?.players[index] ?? null));
@@ -74,10 +81,10 @@ async function toggleFullscreen() {
         <summary><Menu :size="19" aria-hidden="true" /> <span>Menu</span></summary>
         <div class="game-menu__popover">
           <div class="game-menu__heading"><strong>Expédition {{ store.game.code }}</strong><span>Ronde {{ store.game.roundNumber }} · sans limite</span></div>
-          <div class="game-menu__tools"><HelpOverlay compact /><button class="fullscreen-trigger" type="button" @click="toggleFullscreen"><Maximize2 :size="18" aria-hidden="true" /><span>Plein écran</span></button><SoundToggle /><RouterLink class="game-menu__link" to="/credits">Crédits visuels</RouterLink></div>
+          <div class="game-menu__tools"><HelpOverlay compact /><button class="fullscreen-trigger" type="button" :aria-pressed="fullscreen" @click="toggleFullscreen"><Maximize2 :size="18" aria-hidden="true" /><span>{{ fullscreen ? 'Quitter le plein écran' : 'Plein écran' }}</span></button><SoundToggle /><RouterLink class="game-menu__link" to="/credits">Crédits visuels</RouterLink></div>
         </div>
       </details>
-      <template v-else><HelpOverlay compact /><button class="fullscreen-trigger" type="button" @click="toggleFullscreen"><Maximize2 :size="18" aria-hidden="true" /><span>Plein écran</span></button><SoundToggle /><RouterLink class="text-link" to="/credits">Crédits</RouterLink></template>
+      <template v-else><HelpOverlay compact /><button class="fullscreen-trigger" type="button" :aria-pressed="fullscreen" @click="toggleFullscreen"><Maximize2 :size="18" aria-hidden="true" /><span>{{ fullscreen ? 'Quitter le plein écran' : 'Plein écran' }}</span></button><SoundToggle /><RouterLink class="text-link" to="/credits">Crédits</RouterLink></template>
     </header>
 
     <section v-if="!store.game" class="loading-state"><span class="spinner" /><p>Ouverture du relais spatial…</p></section>
@@ -205,6 +212,6 @@ async function toggleFullscreen() {
       </section>
     </template>
 
-    <div v-if="store.error" class="error-toast" @click="store.error = ''">{{ store.error }}</div>
+    <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>

@@ -19,6 +19,7 @@ const focusedIndex = ref(0);
 const routeOrigin = ref(0);
 const followsActivePlayer = ref(true);
 const routeWindow = ref<HTMLElement | null>(null);
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 let scrollFrame = 0;
 const activePlayer = computed(() => props.players.find((player) => player.id === props.activePlayerId) ?? null);
 const activePosition = computed(() => activePlayer.value ? positionOf(activePlayer.value) : 0);
@@ -88,7 +89,7 @@ async function scrollToIndex(index: number, behavior: ScrollBehavior): Promise<v
   focusedIndex.value = wrap(index);
   await nextTick();
   const target = routeWindow.value?.querySelector<HTMLElement>(`[data-board-index="${focusedIndex.value}"]`);
-  target?.scrollIntoView({ block: "center", behavior });
+  target?.scrollIntoView({ block: "center", behavior: reducedMotion.matches ? "auto" : behavior });
 }
 
 function moveFocus(delta: number): void {
@@ -158,7 +159,7 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
       <button type="button" aria-label="Case suivante" @click="moveFocus(1)"><ChevronRight :size="22" aria-hidden="true" /></button>
     </div>
 
-    <div ref="routeWindow" class="route-window" aria-label="Toutes les cases du circuit" @scroll.passive="syncFocusedCase">
+    <div ref="routeWindow" class="route-window" aria-label="Toutes les cases du circuit" tabindex="0" @scroll.passive="syncFocusedCase">
       <button
         v-for="entry in centeredEntries"
         :key="entry.index"
@@ -196,11 +197,11 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
 .route-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .route-header > div { min-width: 0; }
 .route-header span, .route-header strong { display: block; }
-.route-header span { color: #6fddea; font: 700 .57rem "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .13em; }
+.route-header span { color: #6fddea; font: 700 .75rem "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .1em; }
 .route-header strong { margin-top: .18rem; overflow: hidden; font-size: .92rem; text-overflow: ellipsis; white-space: nowrap; }
-.route-header button { display: inline-flex; align-items: center; gap: .3rem; flex: 0 0 auto; min-height: 38px; padding: 0 .65rem; color: #d9edf5; border: 1px solid rgba(114, 169, 194, .55); border-radius: 999px; background: #0b2840; font-size: .65rem; font-weight: 800; }
+.route-header button { display: inline-flex; align-items: center; gap: .3rem; flex: 0 0 auto; min-height: 44px; padding: 0 .75rem; color: #d9edf5; border: 1px solid rgba(114, 169, 194, .55); border-radius: 999px; background: #0b2840; font-size: .8rem; font-weight: 800; }
 .route-navigation { display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; align-items: center; gap: .65rem; }
-.route-navigation > button { display: grid; place-items: center; width: 42px; height: 42px; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 12px; background: #153f5d; }
+.route-navigation > button { display: grid; place-items: center; width: 44px; height: 44px; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 12px; background: #153f5d; }
 .route-navigation > div { min-width: 0; }
 .route-navigation b { display: flex; justify-content: space-between; color: #f3f8fc; font: 700 .65rem "IBM Plex Mono", monospace; }
 .route-navigation b span { color: #8fb6ca; font-weight: 600; }
@@ -215,10 +216,10 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
 .focused .route-stop__marker { color: #06111f; background: var(--stop-color); box-shadow: 0 0 0 4px color-mix(in srgb, var(--stop-color) 20%, transparent); }
 .route-stop__copy { min-width: 0; }
 .route-stop__copy small, .route-stop__copy strong, .route-stop__copy em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.route-stop__copy small { color: var(--stop-color); font: 700 .5rem "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .08em; }
-.route-stop__copy strong { margin-top: .15rem; font-size: .7rem; line-height: 1.2; }
-.focused .route-stop__copy strong { font-size: .86rem; }
-.route-stop__copy em { margin-top: .25rem; color: #b8d3df; font-size: .58rem; font-style: normal; }
+.route-stop__copy small { color: #c9e8f4; font: 700 .7rem "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .06em; }
+.route-stop__copy strong { margin-top: .15rem; font-size: .875rem; line-height: 1.25; }
+.focused .route-stop__copy strong { font-size: 1rem; }
+.route-stop__copy em { margin-top: .25rem; color: #c9e8f4; font-size: .75rem; font-style: normal; }
 .route-stop__players { display: flex; padding-left: .25rem; }
 .route-stop__players i, .route-roster > button > i { display: grid; place-items: center; width: 29px; height: 29px; margin-left: -5px; color: #07131f; border: 2px solid #eef8fa; border-radius: 50%; }
 .route-stop__players i :deep(svg), .route-roster > button > i :deep(svg) { width: 17px; height: 17px; }
@@ -227,9 +228,9 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
 .route-roster > button.active { border-color: #35d0e2; background: #153f5d; box-shadow: inset 0 0 0 1px rgba(53, 208, 226, .26); }
 .route-roster > button > i { margin-left: 0; }
 .route-roster span, .route-roster b, .route-roster small { display: block; }
-.route-roster b { font-size: .66rem; }
-.route-roster b em { margin-left: .28rem; color: #f6c64d; font-size: .47rem; font-style: normal; text-transform: uppercase; }
-.route-roster small { margin-top: .12rem; color: #9fc3d3; font-size: .53rem; }
+.route-roster b { font-size: .8rem; }
+.route-roster b em { margin-left: .28rem; color: #f6c64d; font-size: .65rem; font-style: normal; text-transform: uppercase; }
+.route-roster small { margin-top: .12rem; color: #c9e8f4; font-size: .75rem; }
 @media (max-height: 710px) {
   .mobile-route-map { gap: .4rem; }
   .route-stop { min-height: 45px; }

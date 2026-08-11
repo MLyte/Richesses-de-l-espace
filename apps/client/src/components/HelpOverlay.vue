@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useAccessibleModal } from "../composables/useAccessibleModal";
 
 defineProps<{ compact?: boolean }>();
 const open = ref(false);
+const dialog = ref<HTMLElement | null>(null);
+const { onKeydown } = useAccessibleModal(open, dialog, () => { open.value = false; });
 
 const tvSteps = [
   ["1", "Lancez les dés", "Un double coûte sa valeur à la Banque. Il ne donne pas de tour supplémentaire."],
@@ -18,7 +21,7 @@ const tvSteps = [
   <button class="help-trigger" type="button" @click="open = true">? <span>Aide</span></button>
   <Teleport to="body">
     <div v-if="open" class="help-backdrop" role="presentation" @click.self="open = false">
-      <section class="help-dialog" :class="{ 'help-dialog--compact': compact }" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <section ref="dialog" class="help-dialog" :class="{ 'help-dialog--compact': compact }" role="dialog" aria-modal="true" aria-labelledby="help-title" tabindex="-1" @keydown="onKeydown">
         <button class="help-close" type="button" aria-label="Fermer l’aide" @click="open = false">×</button>
 
         <template v-if="compact">

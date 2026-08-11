@@ -14,7 +14,7 @@ const selectedScenario = computed({
 
 <template>
   <details class="static-demo-controls">
-    <summary><FlaskConical :size="16" aria-hidden="true" /> Démo UX</summary>
+    <summary aria-label="Ouvrir le laboratoire de démo"><FlaskConical :size="18" aria-hidden="true" /><span>Démo UX</span></summary>
     <div class="static-demo-controls__panel">
       <header><strong>Laboratoire statique</strong><small>Aucune synchronisation entre appareils</small></header>
       <label>Situation
@@ -44,15 +44,17 @@ const selectedScenario = computed({
 .static-demo-controls header small { color: #9ec2d8; font-weight: 600; }
 .static-demo-controls label, .static-demo-controls fieldset { display: grid; gap: .35rem; margin: 0; padding: 0; border: 0; color: #9ec2d8; }
 .static-demo-controls legend { margin-bottom: .35rem; }
-.static-demo-controls select, .static-demo-controls button, .static-demo-controls a { min-height: 38px; padding: .48rem .65rem; color: #eef8fc; border: 1px solid rgba(158, 194, 216, .42); border-radius: 9px; background: #102f49; font: inherit; text-decoration: none; }
+.static-demo-controls select, .static-demo-controls button, .static-demo-controls a { min-height: 44px; padding: .55rem .7rem; color: #eef8fc; border: 1px solid rgba(158, 194, 216, .42); border-radius: 9px; background: #102f49; font: inherit; text-decoration: none; }
 .static-demo-controls select { width: 100%; }
 .static-demo-controls fieldset div, .static-demo-controls__actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
 .static-demo-controls button { display: flex; align-items: center; justify-content: center; gap: .35rem; cursor: pointer; }
 .static-demo-controls button.selected { color: #06111f; border-color: #35d0e2; background: #35d0e2; }
 .static-demo-controls__actions a { display: grid; place-items: center; }
 @media (max-width: 760px) {
-  .static-demo-controls { top: 50%; right: 0; bottom: auto; transform: translateY(-50%); }
-  .static-demo-controls:not([open]) summary { padding: .62rem .34rem; border-right: 0; border-radius: 12px 0 0 12px; writing-mode: vertical-rl; }
+  .static-demo-controls { top: auto; right: .65rem; bottom: calc(5.4rem + env(safe-area-inset-bottom)); transform: none; }
+  .static-demo-controls:not([open]) summary { width: 46px; height: 46px; padding: 0; justify-content: center; border-radius: 50%; }
+  .static-demo-controls:not([open]) summary span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
   .static-demo-controls[open] { top: auto; right: .65rem; bottom: calc(5.4rem + env(safe-area-inset-bottom)); transform: none; }
+  .static-demo-controls__panel { max-height: calc(100dvh - 7rem); overflow-y: auto; }
 }
 </style>
