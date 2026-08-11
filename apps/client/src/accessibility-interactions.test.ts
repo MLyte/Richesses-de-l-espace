@@ -40,4 +40,11 @@ describe("WCAG interaction semantics", () => {
     expect(dice).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
     expect(routeMap).toContain('reducedMotion.matches ? "auto" : behavior');
   });
+
+  it("separates purchase percentages and keeps units attached to their values", () => {
+    expect(player).toContain('class="title-selection__copy"');
+    expect(player).toContain("{{ title.share }}&nbsp;%");
+    expect(player).toContain("{{ title.basePrice }}&nbsp;cr.");
+    expect(player).toContain("{{ purchaseTotal }}&nbsp;crédits");
+  });
 });
