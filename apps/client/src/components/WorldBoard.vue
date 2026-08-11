@@ -121,7 +121,7 @@ const tiles = computed(() => props.board.map((space, index) => {
           <text class="tile-special__code" :x="tileWidth / 2" :y="tileHeight * .8" text-anchor="middle">{{ tile.special.code }}</text>
         </template>
 
-        <g v-for="(player, offset) in playersAt(tile.index)" :key="player.id" class="tile-pawn" :transform="`translate(${pawnPosition(tile.index, offset, playersAt(tile.index).length).x} ${pawnPosition(tile.index, offset, playersAt(tile.index).length).y})`">
+        <g v-for="(player, offset) in playersAt(tile.index)" :key="player.id" class="tile-pawn" :data-player-id="player.id" :transform="`translate(${pawnPosition(tile.index, offset, playersAt(tile.index).length).x} ${pawnPosition(tile.index, offset, playersAt(tile.index).length).y})`">
           <circle class="pawn-glow" :class="{ active: player.id === activePlayerId }" r="1.72" :fill="player.color" />
           <circle class="pawn-shell" r="1.34" fill="#081f33" :stroke="player.color" />
           <circle class="pawn-active-ring" :class="{ active: player.id === activePlayerId }" r="1.5" />

@@ -39,7 +39,7 @@ async function createMobileGame(): Promise<void> {
         <span class="mode-card__icon"><Smartphone :size="42" aria-hidden="true" /></span>
         <span class="mode-card__tag">{{ mobileDevice ? 'Recommandé sur cet appareil' : 'Sans écran partagé' }}</span>
         <strong>Flotte mobile</strong>
-        <span>Le créateur devient capitaine de mission : il transmet le code, lance l’expédition et garde les commandes de bord.</span>
+        <span>Chaque téléphone affiche les actions, la carte et les positions. Le créateur partage le code et garde les commandes de bord.</span>
         <b>{{ store.pending ? 'Création…' : 'Lancer depuis ce terminal' }}</b>
       </button>
     </div>

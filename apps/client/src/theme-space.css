@@ -250,6 +250,110 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .portfolio-fab { position: fixed; z-index: 71; left: max(1rem, env(safe-area-inset-left)); bottom: calc(6.15rem + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: .45rem; min-height: 50px; padding: 0 .85rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #124a68; box-shadow: 0 10px 26px rgba(0, 0, 0, .36); font-weight: 800; }
 .portfolio-fab b { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; color: #06111f; background: #35d0e2; font: 700 .7rem "IBM Plex Mono"; }
 .portfolio-fab--with-trades.portfolio-fab--with-primary { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
+
+/* Le téléphone devient l'écran commun uniquement dans le mode MOBILE_ONLY. */
+.mobile-only-navigation {
+  position: fixed;
+  z-index: 80;
+  right: 0;
+  bottom: 0;
+  left: 50%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(100%, 520px);
+  min-height: calc(68px + env(safe-area-inset-bottom));
+  padding: .42rem .55rem calc(.42rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  border-top: 1px solid rgba(114, 169, 194, .62);
+  background: rgba(5, 22, 38, .97);
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, .4);
+  backdrop-filter: blur(16px);
+}
+.mobile-only-navigation button {
+  position: relative;
+  display: grid;
+  grid-template-rows: 23px auto;
+  place-items: center;
+  gap: .12rem;
+  min-width: 0;
+  min-height: 58px;
+  padding: .35rem .25rem;
+  color: #a9c8d8;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font: inherit;
+  font-size: .69rem;
+  font-weight: 800;
+}
+.mobile-only-navigation button.active { color: #06111f; background: #35d0e2; }
+.mobile-only-navigation button > b {
+  position: absolute;
+  top: .18rem;
+  right: .3rem;
+  max-width: 58px;
+  overflow: hidden;
+  padding: .12rem .3rem;
+  color: #06111f;
+  border-radius: 999px;
+  background: #f6c64d;
+  font: 800 .48rem "IBM Plex Mono", monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.controller-screen--mobile-only { padding-bottom: calc(17rem + env(safe-area-inset-bottom)); }
+.controller-screen--mobile-only .spectator-map-button { display: inline-flex; align-items: center; gap: .45rem; min-height: 48px; margin-top: 1.2rem; padding: 0 1rem; }
+.controller-screen--mobile-only .dice-button,
+.controller-screen--mobile-only .payment-button,
+.controller-screen--mobile-only .bankruptcy-button,
+.controller-screen--mobile-only .end-turn-action .primary-button,
+.controller-screen--mobile-only .lever-purchase-action .primary-button,
+.controller-screen--mobile-only .trade-response > .wide-button { bottom: calc(5.4rem + env(safe-area-inset-bottom)); }
+.controller-screen--mobile-only .action-row,
+.controller-screen--mobile-only .liquidation-list { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
+.controller-screen--mobile-only .title-actions { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
+.controller-screen--mobile-only .title-actions--with-primary { bottom: calc(10.65rem + env(safe-area-inset-bottom)); }
+
+.mobile-map-panel {
+  position: fixed;
+  z-index: 75;
+  top: calc(70px + env(safe-area-inset-top));
+  bottom: calc(68px + env(safe-area-inset-bottom));
+  left: 50%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: .65rem;
+  width: min(100%, 520px);
+  padding: .75rem .75rem .65rem;
+  transform: translateX(-50%);
+  color: #f3f8fc;
+  background: radial-gradient(circle at 50% 34%, rgba(28, 86, 113, .32), transparent 50%), #06111f;
+}
+.mobile-map-context { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.mobile-map-context > div:first-child { min-width: 0; }
+.mobile-map-context span, .mobile-map-context strong, .mobile-map-context small { display: block; }
+.mobile-map-context span { color: #8fb6ca; font: 700 .56rem "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .1em; }
+.mobile-map-context strong { margin-top: .15rem; overflow: hidden; font-size: .98rem; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-map-context small { margin-top: .1rem; overflow: hidden; color: #b8d3df; font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-map-zoom { display: grid; grid-template-columns: 36px auto 36px; align-items: center; gap: .25rem; flex: 0 0 auto; }
+.mobile-map-zoom button { width: 36px; height: 36px; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 10px; background: #153f5d; font-size: 1.15rem; }
+.mobile-map-zoom b { min-width: 44px; color: #b8d3df; font: 700 .58rem "IBM Plex Mono", monospace; text-align: center; }
+.mobile-map-viewport { min-height: 0; overflow: auto; border: 1px solid rgba(114, 169, 194, .52); border-radius: 14px; background: #03101e; overscroll-behavior: contain; scrollbar-color: #2c7998 #071c30; }
+.mobile-map-board { position: relative; min-width: 0; max-width: none; transition: width .18s ease, height .18s ease; }
+.mobile-map-board .world-board { position: relative; inset: auto; width: 100%; height: 100%; padding: .45rem; }
+.mobile-map-board .world-board > svg { width: 100%; height: 100%; max-height: none; overflow: visible; }
+.mobile-map-roster { display: flex; gap: .45rem; overflow-x: auto; padding-bottom: .1rem; scrollbar-width: thin; }
+.mobile-map-roster > button { display: grid; grid-template-columns: 30px minmax(94px, auto); align-items: center; gap: .45rem; flex: 0 0 auto; min-height: 50px; padding: .4rem .55rem; color: #d9edf5; border: 1px solid rgba(114, 169, 194, .45); border-radius: 11px; background: #0b2840; text-align: left; }
+.mobile-map-roster > button.active { border-color: #35d0e2; box-shadow: inset 0 0 0 1px rgba(53, 208, 226, .4); }
+.mobile-map-roster > button.mine { background: #153f5d; }
+.mobile-map-roster .player-token { width: 30px; height: 30px; border-radius: 50%; }
+.mobile-map-roster span, .mobile-map-roster b, .mobile-map-roster small { display: block; min-width: 0; }
+.mobile-map-roster b { overflow: hidden; font-size: .67rem; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-map-roster b em { margin-left: .3rem; color: #f6c64d; font-size: .48rem; font-style: normal; text-transform: uppercase; }
+.mobile-map-roster small { max-width: 120px; margin-top: .1rem; overflow: hidden; color: #9fc3d3; font-size: .54rem; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) {
+  .mobile-map-panel { top: calc(58px + env(safe-area-inset-top)); }
+}
 .portfolio-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .76); backdrop-filter: blur(8px); }
 .portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: .8rem; width: min(100%, 520px); height: min(88dvh, 760px); margin: 0 auto; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom)); color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow: hidden; }
 .portfolio-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }

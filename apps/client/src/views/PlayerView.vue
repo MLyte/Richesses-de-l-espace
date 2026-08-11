@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS } from "@richesses-espace/game";
-import { PLAYER_COLORS, PLAYER_SYMBOLS } from "@richesses-espace/protocol";
+import { PLAYER_COLORS, PLAYER_SYMBOLS, type PublicPlayerView } from "@richesses-espace/protocol";
 import { useGameStore } from "../stores/game";
 import AssetCard from "../components/AssetCard.vue";
 import LandingNotice from "../components/LandingNotice.vue";
@@ -12,8 +12,9 @@ import DiceAnimation from "../components/DiceAnimation.vue";
 import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
+import WorldBoard from "../components/WorldBoard.vue";
 import { activeDemoGame, activeDemoPlayer, pausedDemoGame, pausedDemoPlayer } from "../demo/paused-game";
-import { ArrowLeftRight, Dices, HandCoins, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
+import { ArrowLeftRight, Dices, HandCoins, Map as MapIcon, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
 
 const route = useRoute();
 const store = useGameStore();
@@ -37,6 +38,9 @@ const auctionSelection = ref<string[]>([]);
 const purchaseSelection = ref<string[]>([]);
 const portfolioOpen = ref(false);
 const portfolioPage = ref(0);
+const mobilePanel = ref<"play" | "map">("play");
+const mobileMapScale = ref(1);
+const mobileMapViewport = ref<HTMLElement | null>(null);
 
 onMounted(() => {
   if (isPausedDemo || isActiveDemo) {
@@ -73,6 +77,29 @@ const portfolioPageCount = computed(() => Math.max(1, resourcePortfolioPages.val
 const activePortfolioPage = computed(() => resourcePortfolioPages.value[portfolioPage.value] ?? null);
 const visibleResources = computed(() => activePortfolioPage.value?.resources ?? []);
 function openPortfolio() { portfolioPage.value = 0; portfolioOpen.value = true; }
+function centerMobileMap(playerId?: string, behavior: ScrollBehavior = "smooth") {
+  const viewport = mobileMapViewport.value;
+  if (!viewport || !playerId) return;
+  const marker = viewport.querySelector<SVGGElement>(`[data-player-id="${CSS.escape(playerId)}"]`);
+  if (!marker) return;
+  const viewportRect = viewport.getBoundingClientRect();
+  const markerRect = marker.getBoundingClientRect();
+  viewport.scrollBy({
+    left: markerRect.left - viewportRect.left - viewport.clientWidth / 2 + markerRect.width / 2,
+    top: markerRect.top - viewportRect.top - viewport.clientHeight / 2 + markerRect.height / 2,
+    behavior
+  });
+}
+async function showMobileMap(playerId = store.game?.activePlayerId ?? undefined) {
+  mobilePanel.value = "map";
+  await nextTick();
+  centerMobileMap(playerId, "auto");
+}
+async function changeMobileMapScale(delta: number) {
+  mobileMapScale.value = Math.min(1.6, Math.max(.75, Math.round((mobileMapScale.value + delta) * 100) / 100));
+  await nextTick();
+  centerMobileMap(store.game?.activePlayerId ?? undefined, "auto");
+}
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
 const auctionLotAssets = computed(() => store.game?.auction?.lots[store.game.auction.currentLotIndex]?.map((id) => ASSETS.find((asset) => asset.id === id)!).filter(Boolean) ?? []);
@@ -85,8 +112,11 @@ const targetResources = computed(() => RESOURCES.filter((resource) => tradeTarge
 const anyTargetHasResources = computed(() => tradeTargets.value.some((player) => player.assetIds.length));
 const isMyTurn = computed(() => store.game?.activePlayerId === me.value?.id);
 const isPhoneHost = computed(() => Boolean(store.player?.isHost));
+const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY");
 const canHostStart = computed(() => Boolean(isPhoneHost.value && store.game && store.game.players.length >= 2 && store.game.players.every((player) => player.connected && player.ready)));
 const hasPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || allowed("END_TURN"));
+const immediateActions = new Set(["ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "REJECT_TRADE", "END_TURN"]);
+const hasImmediateAction = computed(() => store.player?.allowedActions.some((action) => immediateActions.has(action)) ?? false);
 const currentTrade = computed(() => store.game?.tradeOffer ?? null);
 const tradeProposer = computed(() => store.game?.players.find((player) => player.id === currentTrade.value?.proposerId) ?? null);
 const tradeTargetPlayer = computed(() => store.game?.players.find((player) => player.id === currentTrade.value?.targetId) ?? null);
@@ -112,8 +142,20 @@ const personalMoneyNotice = computed(() => {
   if (!event || !me.value || !["payment_due", "payment_completed"].includes(event.type)) return null;
   return event.data?.payerId === me.value.id || event.data?.recipientId === me.value.id ? event.message : null;
 });
+const mobileMapContext = computed(() => {
+  const active = store.activePlayer;
+  const space = active && store.game ? store.game.board[store.visualPlayerPositions[active.id] ?? active.position] : null;
+  return { active, space };
+});
+const playerSpaceLabel = (player: PublicPlayerView) => store.game?.board[store.visualPlayerPositions[player.id] ?? player.position]?.name ?? `Case ${player.position + 1}`;
 watch(() => store.game?.auction?.mode === "selection" ? `${store.game.turnNumber}:${store.game.auction.sellerId}:${store.game.landedSpaceId}` : null, () => { auctionSelection.value = []; });
 watch(() => store.game?.pendingPurchase ? `${store.game.turnNumber}:${store.game.landedSpaceId}` : null, () => { purchaseSelection.value = []; });
+watch(() => store.player?.allowedActions.join("|") ?? "", () => {
+  if (mobileOnly.value && hasImmediateAction.value) mobilePanel.value = "play";
+});
+watch(() => store.game?.activePlayerId, () => {
+  if (mobileOnly.value && mobilePanel.value === "map") void nextTick(() => centerMobileMap(store.game?.activePlayerId ?? undefined));
+});
 
 async function run(action: () => Promise<unknown>) { try { await action(); } catch { /* affiché */ } }
 async function join() {
@@ -196,10 +238,24 @@ async function finishAsHost() {
         <div class="mini-roster"><span v-for="player in store.game.players" :key="player.id"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i>{{ player.name }}</span></div>
       </section>
 
-      <section v-else class="controller-screen">
+      <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly && mobilePanel === 'map' }">
         <DiceAnimation v-if="store.diceAnimation && store.diceAnimation.playerId === me.id" class="dice-animation-phone" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" compact />
         <Transition name="event"><div v-if="personalMoneyNotice" class="personal-money-notice">{{ personalMoneyNotice }}</div></Transition>
         <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b></div></div>
+        <section v-if="mobileOnly && mobilePanel === 'map'" class="mobile-map-panel" aria-label="Carte de la partie">
+          <header class="mobile-map-context">
+            <div><span>Tour en cours</span><strong>{{ mobileMapContext.active?.name ?? 'Expédition' }}</strong><small>{{ mobileMapContext.space?.name ?? 'Position en cours de calcul' }}</small></div>
+            <div class="mobile-map-zoom" aria-label="Zoom de la carte"><button type="button" aria-label="Réduire la carte" :disabled="mobileMapScale <= .75" @click="changeMobileMapScale(-.2)">−</button><b>{{ Math.round(mobileMapScale * 100) }} %</b><button type="button" aria-label="Agrandir la carte" :disabled="mobileMapScale >= 1.6" @click="changeMobileMapScale(.2)">+</button></div>
+          </header>
+          <div ref="mobileMapViewport" class="mobile-map-viewport">
+            <div class="mobile-map-board" :style="{ width: `${Math.round(780 * mobileMapScale)}px`, height: `${Math.round(345 * mobileMapScale)}px` }">
+              <WorldBoard :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :visual-positions="store.visualPlayerPositions" />
+            </div>
+          </div>
+          <div class="mobile-map-roster" aria-label="Position des joueurs">
+            <button v-for="player in store.game.players" :key="player.id" type="button" :class="{ active: player.id === store.game.activePlayerId, mine: player.id === me.id }" @click="centerMobileMap(player.id)"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i><span><b>{{ player.name }}<em v-if="player.id === me.id">Vous</em></b><small>{{ playerSpaceLabel(player) }}</small></span></button>
+          </div>
+        </section>
         <div v-if="store.game.phase === 'PAUSED'" class="state-message pause-phone"><span class="pause-phone__icon" aria-label="Partie en pause"><Pause :size="25" aria-hidden="true" /></span><h2>{{ store.game.pauseReason === 'PLAYER_DISCONNECTED' ? (pausedPlayer?.connected ? 'Connexion rétablie' : 'Connexion interrompue') : 'Pause de l’hôte' }}</h2><p v-if="pausedPlayer && !pausedPlayer.connected"><strong>{{ pausedPlayer.name }}</strong> a perdu la connexion. La partie est gelée jusqu’à son retour, sans modifier les soldes ni le tour.</p><p v-else-if="pausedPlayer"><strong>{{ pausedPlayer.name }}</strong> est revenu·e. L’hôte peut maintenant reprendre la partie depuis son téléphone.</p><p v-else>L’hôte a suspendu la partie. Gardez cette page ouverte : la reprise apparaîtra automatiquement.</p></div>
         <div v-else-if="store.game.phase === 'FINISHED'" class="state-message final-phone"><p class="eyebrow">Partie terminée</p><h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2><p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p></div>
         <div v-else-if="me.bankrupt" class="state-message bankruptcy-state"><p class="eyebrow">Faillite déclarée</p><h2>Vous quittez la partie.</h2><p>Vous restez spectateur jusqu’au classement final.</p></div>
@@ -227,7 +283,7 @@ async function finishAsHost() {
         </div>
         <div v-else-if="payment && me.id === payment.recipientId" class="payment-receiver-state"><AssetCard v-if="landedAsset" :asset-id="landedAsset.id" :owner="me.name" compact /><div class="state-message"><span class="waiting-pulse" /><p class="eyebrow">Droit attendu</p><h2>{{ paymentPayer?.name }} vous doit {{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }}.</h2><p>Vous serez crédité dès que le transfert sera confirmé sur son téléphone.</p></div></div>
         <div v-else-if="pendingLeverCard && (allowed('BUY_LEVER') || allowed('PASS_LEVER'))" class="lever-purchase-action"><p class="eyebrow">Station technologique</p><div class="joker-card"><span>TECHNOLOGIE</span><h2>{{ pendingLeverCard.title }}</h2><p>{{ pendingLeverCard.description }}</p><b>{{ store.player?.pendingLever?.price }} crédits</b></div><div class="action-row"><button class="secondary-button" :disabled="store.pending" @click="run(store.passLever)">Passer</button><button class="primary-button" :disabled="store.pending || me.capital < (store.player?.pendingLever?.price ?? 0)" @click="run(store.buyLever)">Acquérir</button></div></div>
-        <div v-else-if="!allowed('ROLL_DICE') && !allowed('BUY_ASSET') && !allowed('PASS_ASSET') && !allowed('PAY_RETURNS') && !allowed('END_TURN')" class="spectator-state"><div class="state-message"><span class="waiting-pulse" /><h2>Tour de {{ store.activePlayer?.name }}</h2><p>Suivez les mouvements sur l’écran commun.</p></div><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /></div>
+        <div v-else-if="!allowed('ROLL_DICE') && !allowed('BUY_ASSET') && !allowed('PASS_ASSET') && !allowed('PAY_RETURNS') && !allowed('END_TURN')" class="spectator-state"><div class="state-message"><span class="waiting-pulse" /><h2>Tour de {{ store.activePlayer?.name }}</h2><p>{{ mobileOnly ? 'La carte suit les mouvements de toute la flotte.' : 'Suivez les mouvements sur l’écran commun.' }}</p><button v-if="mobileOnly" type="button" class="secondary-button spectator-map-button" @click="showMobileMap()"><MapIcon :size="19" aria-hidden="true" />Voir la carte</button></div><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /></div>
         <div v-else-if="allowed('ROLL_DICE')" class="primary-action action-card action-card--roll"><p class="eyebrow">À vous de jouer</p><h1>Faites avancer l’expédition.</h1><button class="dice-button" :disabled="store.pending" @click="run(store.roll)"><Dices :size="28" aria-hidden="true" />Lancer les dés</button></div>
         <div v-else-if="pendingAsset && allowed('BUY_ASSET')" class="purchase-action country-purchase">
           <p class="eyebrow">{{ store.game.pendingPurchase?.source === 'classic' ? `${pendingCountry?.continent} · ${pendingCountry?.name}` : store.game.pendingPurchase?.source === 'regional' ? 'Portail sectoriel' : 'Portail galactique' }}</p>
@@ -256,7 +312,7 @@ async function finishAsHost() {
 
         <div v-if="lastCard" class="drawn-card"><p class="eyebrow">{{ store.game.lastCard?.kind === 'trend' ? 'Événement révélé' : 'Technologie obtenue' }}</p><h3>{{ lastCard.title }}</h3><p>{{ lastCard.description }}</p></div>
         <section v-if="leverCards.length" class="lever-hand"><div class="section-title"><span>Vos technologies</span><b>{{ leverCards.length }}</b></div><article v-for="lever in leverCards" :key="lever.id"><div><strong>{{ lever.title }}</strong><p>{{ lever.description }}</p></div><button :disabled="!canUseLever(lever.kind) || store.pending" @click="run(() => store.useLever(lever.id))">Activer</button></article></section>
-        <button class="portfolio-fab" :class="{ 'portfolio-fab--with-trades': allowed('PROPOSE_TRADE') && tradeTargets.length, 'portfolio-fab--with-primary': hasPrimaryTurnAction }" type="button" @click="openPortfolio"><PackageOpen :size="20" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
+        <button v-if="!mobileOnly" class="portfolio-fab" :class="{ 'portfolio-fab--with-trades': allowed('PROPOSE_TRADE') && tradeTargets.length, 'portfolio-fab--with-primary': hasPrimaryTurnAction }" type="button" @click="openPortfolio"><PackageOpen :size="20" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <Teleport to="body">
           <div v-if="portfolioOpen" class="portfolio-backdrop" @click.self="portfolioOpen = false">
             <section class="portfolio-drawer" aria-label="Vos ressources">
@@ -267,6 +323,12 @@ async function finishAsHost() {
             </section>
           </div>
         </Teleport>
+
+        <nav v-if="mobileOnly" class="mobile-only-navigation" aria-label="Navigation de la partie">
+          <button type="button" :class="{ active: mobilePanel === 'play' }" :aria-current="mobilePanel === 'play' ? 'page' : undefined" @click="mobilePanel = 'play'"><Dices :size="21" aria-hidden="true" /><span>Jouer</span><b v-if="hasImmediateAction">Action</b></button>
+          <button type="button" :class="{ active: mobilePanel === 'map' }" :aria-current="mobilePanel === 'map' ? 'page' : undefined" @click="showMobileMap()"><MapIcon :size="21" aria-hidden="true" /><span>Carte</span><b v-if="store.game.activePlayerId">{{ store.activePlayer?.name }}</b></button>
+          <button type="button" :aria-expanded="portfolioOpen" @click="openPortfolio"><PackageOpen :size="21" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
+        </nav>
 
         <div v-if="tradeOpen" class="trade-backdrop" @click.self="tradeOpen = false">
           <form class="trade-form" @submit.prevent="submitTrade">

@@ -46,7 +46,7 @@ Deux joueurs peuvent former un consortium conjoint : chacun paie à la banque la
 
 ## TV, mobile et accessibilité
 
-La TV n’affiche que le plateau, les mouvements, les événements et les informations publiques ; les actions restent sur les téléphones. En mode mobile uniquement, l’hôte peut créer, lancer, mettre en pause, reprendre et terminer la partie depuis son appareil. Les actions obligatoires restent ancrées en bas, les notifications persistent jusqu’à lecture et le retour haptique est utilisé lorsqu’il est disponible.
+En mode TV, l’écran commun affiche le plateau, les mouvements, les événements et les informations publiques ; les actions privées restent sur les téléphones. En mode mobile uniquement, chaque joueur dispose d’une navigation Jouer, Carte et Ressources : le plateau et les positions sont consultables sur tous les téléphones, tandis que l’hôte peut créer, lancer, mettre en pause, reprendre et terminer la partie depuis son appareil. Les actions obligatoires restent prioritaires, les notifications persistent jusqu’à lecture et le retour haptique est utilisé lorsqu’il est disponible.
 
 La palette sonore Web Audio respecte le réglage muet : impulsion de tour, déplacement feutré, achat, transfert, perte et rappel discret d’une action attendue. Aucun son ne bloque la partie.
 
