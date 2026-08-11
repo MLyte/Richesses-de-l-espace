@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS } from "@richesses-espace/protocol";
@@ -15,8 +15,7 @@ import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
 import MobileRouteMap from "../components/MobileRouteMap.vue";
-import MobileGameNavigation from "../components/MobileGameNavigation.vue";
-import { ArrowLeftRight, Dices, HandCoins, Map as MapIcon, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
+import { ArrowLeftRight, Dices, HandCoins, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
 
 const route = useRoute();
 const store = useGameStore();
@@ -50,7 +49,8 @@ const purchaseSelection = ref<string[]>([]);
 const portfolioOpen = ref(false);
 const portfolioDialog = ref<HTMLElement | null>(null);
 const portfolioPage = ref(0);
-const mobilePanel = ref<"play" | "map">("play");
+const turnToast = ref<string | null>(null);
+let turnToastTimer = 0;
 const { onKeydown: onTradeKeydown } = useAccessibleModal(tradeOpen, tradeDialog, () => { tradeOpen.value = false; });
 const { onKeydown: onPortfolioKeydown } = useAccessibleModal(portfolioOpen, portfolioDialog, () => { portfolioOpen.value = false; });
 
@@ -95,14 +95,6 @@ const portfolioPageCount = computed(() => Math.max(1, resourcePortfolioPages.val
 const activePortfolioPage = computed(() => resourcePortfolioPages.value[portfolioPage.value] ?? null);
 const visibleResources = computed(() => activePortfolioPage.value?.resources ?? []);
 function openPortfolio() { portfolioPage.value = 0; portfolioOpen.value = true; }
-function showMobilePlay() {
-  portfolioOpen.value = false;
-  mobilePanel.value = "play";
-}
-function showMobileMap() {
-  portfolioOpen.value = false;
-  mobilePanel.value = "map";
-}
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
 const auctionLotAssets = computed(() => store.game?.auction?.lots[store.game.auction.currentLotIndex]?.map((id) => ASSETS.find((asset) => asset.id === id)!).filter(Boolean) ?? []);
@@ -119,8 +111,6 @@ const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY");
 const canHostStart = computed(() => Boolean(isPhoneHost.value && store.game && store.game.players.length >= 2 && store.game.players.every((player) => player.connected && player.ready)));
 const hasPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || allowed("END_TURN"));
 const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")));
-const immediateActions = new Set(["ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "REJECT_TRADE", "END_TURN"]);
-const hasImmediateAction = computed(() => store.player?.allowedActions.some((action) => immediateActions.has(action)) ?? false);
 const currentTrade = computed(() => store.game?.tradeOffer ?? null);
 const tradeProposer = computed(() => store.game?.players.find((player) => player.id === currentTrade.value?.proposerId) ?? null);
 const tradeTargetPlayer = computed(() => store.game?.players.find((player) => player.id === currentTrade.value?.targetId) ?? null);
@@ -146,11 +136,21 @@ const personalMoneyNotice = computed(() => {
   if (!event || !me.value || !["payment_due", "payment_completed"].includes(event.type)) return null;
   return event.data?.payerId === me.value.id || event.data?.recipientId === me.value.id ? event.message : null;
 });
+const mobileLiveNotice = computed(() => store.animatedEvent?.message ?? turnToast.value);
 watch(() => store.game?.auction?.mode === "selection" ? `${store.game.turnNumber}:${store.game.auction.sellerId}:${store.game.landedSpaceId}` : null, () => { auctionSelection.value = []; });
 watch(() => store.game?.pendingPurchase ? `${store.game.turnNumber}:${store.game.landedSpaceId}` : null, () => { purchaseSelection.value = []; });
-watch(() => store.player?.allowedActions.join("|") ?? "", () => {
-  if (mobileOnly.value && hasImmediateAction.value) mobilePanel.value = "play";
+watch(() => store.game ? `${store.game.turnNumber}:${store.game.activePlayerId}:${store.game.phase}:${store.player?.allowedActions.join("|") ?? ""}` : null, () => {
+  window.clearTimeout(turnToastTimer);
+  if (!mobileOnly.value || !store.activePlayer) { turnToast.value = null; return; }
+  turnToast.value = isMyTurn.value ? "À vous de jouer" : `Tour de ${store.activePlayer.name}`;
+  turnToastTimer = window.setTimeout(() => { turnToast.value = null; }, 2800);
+}, { immediate: true });
+watch(() => store.animatedEvent?.id ?? null, (eventId) => {
+  if (!eventId) return;
+  window.clearTimeout(turnToastTimer);
+  turnToast.value = null;
 });
+onBeforeUnmount(() => window.clearTimeout(turnToastTimer));
 
 async function run(action: () => Promise<unknown>) {
   if (mobilePreview) {
@@ -200,6 +200,9 @@ async function finishAsHost() {
     <header class="phone-header">
       <div class="brand compact"><span class="brand-mark"><GameIcon name="reward" /></span><span>RICHESSES DE L’ESPACE</span></div>
       <div class="phone-tools">
+        <button v-if="mobileOnly && store.game?.phase !== 'LOBBY' && me" type="button" class="phone-resource-button" @click="openPortfolio">
+          <PackageOpen :size="19" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b>
+        </button>
         <details v-if="isPhoneHost && store.game?.phase !== 'LOBBY'" class="mobile-host-menu">
           <summary aria-label="Commandes de l’hôte"><Menu :size="18" aria-hidden="true" /></summary>
           <div>
@@ -214,6 +217,7 @@ async function finishAsHost() {
       </div>
     </header>
     <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. Tour de {{ store.activePlayer?.name }}. {{ isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
+    <Transition name="event"><div v-if="mobileOnly && mobileLiveNotice" :key="mobileLiveNotice" class="mobile-live-toast" role="status" aria-live="polite">{{ mobileLiveNotice }}</div></Transition>
 
     <section v-if="!store.player" class="join-screen">
       <p class="eyebrow">Expédition {{ code }}</p>
@@ -240,17 +244,17 @@ async function finishAsHost() {
         <div class="mini-roster"><span v-for="player in store.game.players" :key="player.id"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i>{{ player.name }}</span></div>
       </section>
 
-      <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly && mobilePanel === 'map' }">
+      <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly }">
         <DiceAnimation v-if="store.diceAnimation && store.diceAnimation.playerId === me.id" class="dice-animation-phone" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" compact />
         <Transition name="event"><div v-if="personalMoneyNotice" class="personal-money-notice">{{ personalMoneyNotice }}</div></Transition>
         <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b></div></div>
-        <section v-if="mobileOnly && mobilePanel === 'map'" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">
+        <section v-if="mobileOnly" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">
           <MobileRouteMap :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :current-player-id="me.id" :turn-number="store.game.turnNumber" :ownership="store.game.ownership" :visual-positions="store.visualPlayerPositions" />
         </section>
-        <div v-if="store.game.phase === 'PAUSED'" class="state-message pause-phone"><span class="pause-phone__icon" aria-label="Partie en pause"><Pause :size="25" aria-hidden="true" /></span><h2>{{ store.game.pauseReason === 'PLAYER_DISCONNECTED' ? (pausedPlayer?.connected ? 'Connexion rétablie' : 'Connexion interrompue') : 'Pause de l’hôte' }}</h2><p v-if="pausedPlayer && !pausedPlayer.connected"><strong>{{ pausedPlayer.name }}</strong> a perdu la connexion. La partie est gelée jusqu’à son retour, sans modifier les soldes ni le tour.</p><p v-else-if="pausedPlayer"><strong>{{ pausedPlayer.name }}</strong> est revenu·e. L’hôte peut maintenant reprendre la partie depuis son téléphone.</p><p v-else>L’hôte a suspendu la partie. Gardez cette page ouverte : la reprise apparaîtra automatiquement.</p></div>
-        <div v-else-if="store.game.phase === 'FINISHED'" class="state-message final-phone"><p class="eyebrow">Partie terminée</p><h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2><p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p></div>
-        <div v-else-if="me.bankrupt" class="state-message bankruptcy-state"><p class="eyebrow">Faillite déclarée</p><h2>Vous quittez la partie.</h2><p>Vous restez spectateur jusqu’au classement final.</p></div>
-        <div v-else-if="currentTrade" class="trade-response">
+        <div v-if="store.game.phase === 'PAUSED'" class="state-message pause-phone mobile-map-overlay"><span class="pause-phone__icon" aria-label="Partie en pause"><Pause :size="25" aria-hidden="true" /></span><h2>{{ store.game.pauseReason === 'PLAYER_DISCONNECTED' ? (pausedPlayer?.connected ? 'Connexion rétablie' : 'Connexion interrompue') : 'Pause de l’hôte' }}</h2><p v-if="pausedPlayer && !pausedPlayer.connected"><strong>{{ pausedPlayer.name }}</strong> a perdu la connexion. La partie est gelée jusqu’à son retour, sans modifier les soldes ni le tour.</p><p v-else-if="pausedPlayer"><strong>{{ pausedPlayer.name }}</strong> est revenu·e. L’hôte peut maintenant reprendre la partie depuis son téléphone.</p><p v-else>L’hôte a suspendu la partie. Gardez cette page ouverte : la reprise apparaîtra automatiquement.</p></div>
+        <div v-else-if="store.game.phase === 'FINISHED'" class="state-message final-phone mobile-map-overlay"><p class="eyebrow">Partie terminée</p><h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2><p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p></div>
+        <div v-else-if="me.bankrupt" class="state-message bankruptcy-state mobile-map-overlay"><p class="eyebrow">Faillite déclarée</p><h2>Vous quittez la partie.</h2><p>Vous restez spectateur jusqu’au classement final.</p></div>
+        <div v-else-if="currentTrade" class="trade-response mobile-map-overlay">
           <p class="eyebrow">{{ currentTrade.kind === 'alliance' ? 'Consortium conjoint proposé' : 'Transaction entre joueurs' }}</p><h2>{{ tradeProposer?.name }} propose un accord à {{ tradeTargetPlayer?.name }}.</h2>
           <p v-if="currentTrade.kind === 'alliance'">Les portefeuilles seront réunis sous le pion le plus précieux. Chaque associé versera <strong>{{ currentTrade.allianceTax }} crédits</strong> à la Banque interstellaire.</p>
           <div v-else class="trade-summary"><div><span>{{ tradeProposer?.name }} cède</span><b>{{ resourceGroupLabel(tradeProposer, currentTrade.offeredResourceId) }}</b><small v-if="currentTrade.offeredCredits">+ {{ currentTrade.offeredCredits }} crédit(s)</small></div><div><span>{{ tradeTargetPlayer?.name }} cède</span><b>{{ resourceGroupLabel(tradeTargetPlayer, currentTrade.requestedResourceId) }}</b><small v-if="currentTrade.requestedCredits">+ {{ currentTrade.requestedCredits }} crédit(s)</small></div></div>
@@ -258,7 +262,7 @@ async function finishAsHost() {
           <button v-else-if="allowed('REJECT_TRADE')" class="secondary-button wide-button" @click="run(store.rejectTrade)">Retirer mon offre</button>
           <p v-else class="waiting-copy">La réponse est attendue sur le téléphone de {{ tradeTargetPlayer?.name }}.</p>
         </div>
-        <div v-else-if="store.game.auction && auctionAsset" class="auction-phone">
+        <div v-else-if="store.game.auction && auctionAsset" class="auction-phone mobile-map-overlay">
           <template v-if="store.game.auction.mode === 'selection'">
             <p class="eyebrow">Marché orbital · dé rouge {{ store.game.auction.redDie }}</p><h2>{{ auctionSeller?.name }} doit sélectionner {{ store.game.auction.targetCount }} concession{{ store.game.auction.targetCount > 1 ? 's' : '' }}.</h2>
             <div v-if="allowed('SELECT_AUCTION_ASSETS')" class="auction-selection"><label v-for="assetId in me.assetIds" :key="assetId" :class="{ selected: auctionSelection.includes(assetId) }"><input v-model="auctionSelection" type="checkbox" :value="assetId" /><span>{{ assetName(assetId) }}</span><b>{{ ASSETS.find(asset => asset.id === assetId)?.purchasePrice }}&nbsp;cr.</b></label><button class="primary-button wide-button" :disabled="!auctionSelection.length || store.pending" @click="run(() => store.selectAuctionAssets(auctionSelection))">Confirmer les lots</button><p>Les concessions d’une même ressource sont vendues ensemble. Si vous ne possédez que de grands portefeuilles, le groupe choisi reste entier même s’il dépasse le dé rouge.</p></div>
@@ -272,11 +276,11 @@ async function finishAsHost() {
             <p v-else class="waiting-copy">{{ store.game.auction.sellerId === me.id ? 'Vous êtes le vendeur et recevrez le prix final.' : store.game.auction.leaderId === me.id ? 'Votre offre est en tête.' : 'Vous avez quitté cet appel d’offres.' }}</p>
           </template>
         </div>
-        <div v-else-if="payment && me.id === payment.recipientId" class="payment-receiver-state"><AssetCard v-if="landedAsset" :asset-id="landedAsset.id" :owner="me.name" compact /><div class="state-message"><span class="waiting-pulse" /><p class="eyebrow">Droit attendu</p><h2>{{ paymentPayer?.name }} vous doit {{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }}.</h2><p>Vous serez crédité dès que le transfert sera confirmé sur son téléphone.</p></div></div>
-        <div v-else-if="pendingLeverCard && (allowed('BUY_LEVER') || allowed('PASS_LEVER'))" class="lever-purchase-action"><p class="eyebrow">Station technologique</p><div class="joker-card"><span>TECHNOLOGIE</span><h2>{{ pendingLeverCard.title }}</h2><p>{{ pendingLeverCard.description }}</p><b>{{ store.player?.pendingLever?.price }} crédits</b></div><div class="action-row"><button class="secondary-button" :disabled="store.pending" @click="run(store.passLever)">Passer</button><button class="primary-button" :disabled="store.pending || me.capital < (store.player?.pendingLever?.price ?? 0)" @click="run(store.buyLever)">Acquérir</button></div></div>
-        <div v-else-if="!allowed('ROLL_DICE') && !allowed('BUY_ASSET') && !allowed('PASS_ASSET') && !allowed('PAY_RETURNS') && !allowed('END_TURN')" class="spectator-state"><div class="state-message"><span class="waiting-pulse" /><h2>Tour de {{ store.activePlayer?.name }}</h2><p>{{ mobileOnly ? 'La carte suit les mouvements de toute la flotte.' : 'Suivez les mouvements sur l’écran commun.' }}</p><button v-if="mobileOnly" type="button" class="secondary-button spectator-map-button" @click="showMobileMap()"><MapIcon :size="19" aria-hidden="true" />Voir la carte</button></div><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /></div>
-        <div v-else-if="allowed('ROLL_DICE')" class="primary-action action-card action-card--roll"><p class="eyebrow">À vous de jouer</p><h1>Faites avancer l’expédition.</h1><button class="dice-button" :disabled="store.pending" @click="run(store.roll)"><Dices :size="28" aria-hidden="true" />Lancer les dés</button></div>
-        <div v-else-if="pendingAsset && allowed('BUY_ASSET')" class="purchase-action country-purchase">
+        <div v-else-if="payment && me.id === payment.recipientId && !mobileOnly" class="payment-receiver-state"><AssetCard v-if="landedAsset" :asset-id="landedAsset.id" :owner="me.name" compact /><div class="state-message"><span class="waiting-pulse" /><p class="eyebrow">Droit attendu</p><h2>{{ paymentPayer?.name }} vous doit {{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }}.</h2><p>Vous serez crédité dès que le transfert sera confirmé sur son téléphone.</p></div></div>
+        <div v-else-if="pendingLeverCard && (allowed('BUY_LEVER') || allowed('PASS_LEVER'))" class="lever-purchase-action mobile-map-overlay"><p class="eyebrow">Station technologique</p><div class="joker-card"><span>TECHNOLOGIE</span><h2>{{ pendingLeverCard.title }}</h2><p>{{ pendingLeverCard.description }}</p><b>{{ store.player?.pendingLever?.price }} crédits</b></div><div class="action-row"><button class="secondary-button" :disabled="store.pending" @click="run(store.passLever)">Passer</button><button class="primary-button" :disabled="store.pending || me.capital < (store.player?.pendingLever?.price ?? 0)" @click="run(store.buyLever)">Acquérir</button></div></div>
+        <div v-else-if="!mobileOnly && !allowed('ROLL_DICE') && !allowed('BUY_ASSET') && !allowed('PASS_ASSET') && !allowed('PAY_RETURNS') && !allowed('END_TURN')" class="spectator-state"><div class="state-message"><span class="waiting-pulse" /><h2>Tour de {{ store.activePlayer?.name }}</h2><p>Suivez les mouvements sur l’écran commun.</p></div><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /></div>
+        <div v-else-if="allowed('ROLL_DICE')" class="primary-action action-card action-card--roll mobile-map-overlay"><p class="eyebrow">À vous de jouer</p><h1>Faites avancer l’expédition.</h1><button class="dice-button" :disabled="store.pending" @click="run(store.roll)"><Dices :size="28" aria-hidden="true" />Lancer les dés</button></div>
+        <div v-else-if="pendingAsset && allowed('BUY_ASSET')" class="purchase-action country-purchase mobile-map-overlay">
           <p class="eyebrow">{{ store.game.pendingPurchase?.source === 'classic' ? `${pendingCountry?.continent} · ${pendingCountry?.name}` : store.game.pendingPurchase?.source === 'regional' ? 'Portail sectoriel' : 'Portail galactique' }}</p>
           <h2>{{ store.game.pendingPurchase?.source === 'classic' ? `Choisissez jusqu’à ${store.game.pendingPurchase?.maxAssets} concessions du monde` : store.game.pendingPurchase?.label }}</h2>
           <p v-if="store.game.pendingPurchase?.source === 'classic'">Après ce choix, les droits de <strong>{{ pendingResource?.name }}</strong> seront calculés pour tous les détenteurs atteignant 30 %.</p>
@@ -285,13 +289,13 @@ async function finishAsHost() {
           <div class="purchase-total"><span>{{ purchaseSelection.length }}&nbsp;concession(s)</span><b>{{ purchaseTotal }}&nbsp;crédits</b></div>
           <div class="action-row"><button class="secondary-button" :disabled="store.pending" @click="run(store.pass)">Ne rien acheter</button><button class="primary-button" :disabled="store.pending || !purchaseSelection.length || me.capital < purchaseTotal" @click="run(() => store.buy(purchaseSelection))">Acheter la sélection</button></div>
         </div>
-        <div v-else-if="payment && (allowed('PAY_RETURNS') || allowed('DECLARE_BANKRUPTCY'))" class="payment-action">
+        <div v-else-if="payment && (allowed('PAY_RETURNS') || allowed('DECLARE_BANKRUPTCY'))" class="payment-action mobile-map-overlay">
           <AssetCard :asset-id="payment.assetId" :owner="paymentRecipient?.name ?? null" />
           <div class="payment-summary"><p class="eyebrow">Droit d’extraction obligatoire</p><h2>{{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }} à verser</h2><p v-if="allowed('DECLARE_BANKRUPTCY')">Vos liquidités sont insuffisantes. Vous pouvez d’abord vendre un portefeuille complet via « Vendre ». Sinon, la Banque interstellaire couvrira la dette et vos concessions retourneront aux registres.</p><p v-else>Ce droit rémunère {{ paymentRecipient?.name }}. Le tour ne peut pas se terminer avant votre confirmation.</p><button v-if="allowed('PAY_RETURNS')" class="primary-button payment-button" :disabled="store.pending" @click="run(store.payReturns)">Payer {{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }}</button><button v-if="allowed('DECLARE_BANKRUPTCY')" class="bankruptcy-button" @click="run(store.declareBankruptcy)">Perdre la licence</button></div>
         </div>
-        <div v-else-if="allowed('END_TURN')" class="end-turn-action"><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /><div><p class="eyebrow">Case résolue</p><h2>Vous avez pris connaissance de son effet.</h2><button class="primary-button" :disabled="store.pending" @click="run(store.endTurn)">Terminer le tour</button></div></div>
+        <div v-else-if="allowed('END_TURN')" class="end-turn-action mobile-map-overlay"><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /><div><p class="eyebrow">Case résolue</p><h2>Vous avez pris connaissance de son effet.</h2><button class="primary-button" :disabled="store.pending" @click="run(store.endTurn)">Terminer le tour</button></div></div>
 
-        <aside v-if="allowed('PROPOSE_TRADE') && tradeTargets.length" class="title-actions" :class="{ 'title-actions--with-primary': hasFixedPrimaryTurnAction }" aria-label="Transferts de concessions">
+        <aside v-if="!mobileOnly && allowed('PROPOSE_TRADE') && tradeTargets.length" class="title-actions" :class="{ 'title-actions--with-primary': hasFixedPrimaryTurnAction }" aria-label="Transferts de concessions">
           <p v-if="isMyTurn && me.capital === 0">Plus de liquidités : vous pouvez vendre un groupe complet avant de lancer les dés ou de terminer votre tour.</p>
           <div class="title-actions__grid-four">
             <button v-if="isMyTurn" type="button" :disabled="!anyTargetHasResources || me.capital <= 0" @click="openTrade('purchase')"><ShoppingCart :size="20" aria-hidden="true" /><span>Acheter</span></button>
@@ -302,23 +306,29 @@ async function finishAsHost() {
         </aside>
 
         <div v-if="lastCard" class="drawn-card"><p class="eyebrow">{{ store.game.lastCard?.kind === 'trend' ? 'Événement révélé' : 'Technologie obtenue' }}</p><h3>{{ lastCard.title }}</h3><p>{{ lastCard.description }}</p></div>
-        <section v-if="leverCards.length" class="lever-hand"><div class="section-title"><span>Vos technologies</span><b>{{ leverCards.length }}</b></div><article v-for="lever in leverCards" :key="lever.id"><div><strong>{{ lever.title }}</strong><p>{{ lever.description }}</p></div><button :disabled="!canUseLever(lever.kind) || store.pending" @click="run(() => store.useLever(lever.id))">Activer</button></article></section>
+        <section v-if="leverCards.length && !mobileOnly" class="lever-hand"><div class="section-title"><span>Vos technologies</span><b>{{ leverCards.length }}</b></div><article v-for="lever in leverCards" :key="lever.id"><div><strong>{{ lever.title }}</strong><p>{{ lever.description }}</p></div><button :disabled="!canUseLever(lever.kind) || store.pending" @click="run(() => store.useLever(lever.id))">Activer</button></article></section>
         <button v-if="!mobileOnly" class="portfolio-fab" :class="{ 'portfolio-fab--with-trades': allowed('PROPOSE_TRADE') && tradeTargets.length, 'portfolio-fab--with-primary': hasPrimaryTurnAction }" type="button" @click="openPortfolio"><PackageOpen :size="20" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <Teleport to="body">
           <div v-if="portfolioOpen" class="portfolio-backdrop" @click.self="portfolioOpen = false">
-            <section ref="portfolioDialog" class="portfolio-drawer" :class="{ 'portfolio-drawer--with-navigation': mobileOnly }" role="dialog" aria-modal="true" aria-labelledby="portfolio-title" tabindex="-1" @keydown="onPortfolioKeydown">
-              <header><div class="section-title section-title--portfolio"><span>Type de ressources</span><b id="portfolio-title" :style="{ color: activePortfolioPage?.sector.color }">{{ activePortfolioPage?.sector.name ?? 'Vos ressources' }}</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }}</small></div></header>
+            <section ref="portfolioDialog" class="portfolio-drawer" role="dialog" aria-modal="true" aria-labelledby="portfolio-title" tabindex="-1" @keydown="onPortfolioKeydown">
+              <header><div class="section-title section-title--portfolio"><span>Type de ressources</span><b id="portfolio-title" :style="{ color: activePortfolioPage?.sector.color }">{{ activePortfolioPage?.sector.name ?? 'Vos ressources' }}</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }} · {{ me.capital }}&nbsp;crédits</small></div></header>
               <div v-if="!myAssets.length" class="empty-portfolio">Vos futures parts apparaîtront ici.</div>
               <div v-else class="resource-score-list resource-score-list--drawer"><ResourceInfluenceScore v-for="resource in visibleResources" :key="resource.id" :resource-id="resource.id" :asset-ids="me.assetIds" /></div>
               <footer v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></footer>
-              <MobileGameNavigation v-if="mobileOnly" active="resources" :has-immediate-action="hasImmediateAction" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" />
-              <button v-else class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
+              <section v-if="mobileOnly && leverCards.length" class="lever-hand lever-hand--portfolio"><div class="section-title"><span>Vos technologies</span><b>{{ leverCards.length }}</b></div><article v-for="lever in leverCards" :key="lever.id"><div><strong>{{ lever.title }}</strong><p>{{ lever.description }}</p></div><button :disabled="!canUseLever(lever.kind) || store.pending" @click="run(() => store.useLever(lever.id))">Activer</button></article></section>
+              <aside v-if="mobileOnly && allowed('PROPOSE_TRADE') && tradeTargets.length" class="portfolio-actions" aria-label="Transferts de concessions">
+                <span>Transactions</span>
+                <div class="title-actions__grid-four">
+                  <button v-if="isMyTurn" type="button" :disabled="!anyTargetHasResources || me.capital <= 0" @click="openTrade('purchase')"><ShoppingCart :size="20" aria-hidden="true" /><span>Acheter</span></button>
+                  <button v-if="isMyTurn" type="button" :disabled="!myResources.length" @click="openTrade('sale')"><HandCoins :size="20" aria-hidden="true" /><span>Vendre</span></button>
+                  <button type="button" :disabled="!myResources.length || !anyTargetHasResources" @click="openTrade('exchange')"><ArrowLeftRight :size="20" aria-hidden="true" /><span>Échanger</span></button>
+                  <button v-if="!me.allianceId" type="button" @click="openTrade('alliance')"><Users :size="20" aria-hidden="true" /><span>S’allier</span></button>
+                </div>
+              </aside>
+              <button class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
             </section>
           </div>
         </Teleport>
-
-        <MobileGameNavigation v-if="mobileOnly && !portfolioOpen" :active="mobilePanel" :has-immediate-action="hasImmediateAction" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" @resources="openPortfolio" />
-
         <div v-if="tradeOpen" class="trade-backdrop" @click.self="tradeOpen = false">
           <form ref="tradeDialog" class="trade-form" role="dialog" aria-modal="true" aria-labelledby="trade-dialog-title" tabindex="-1" @keydown="onTradeKeydown" @submit.prevent="submitTrade">
             <button type="button" class="help-close" aria-label="Fermer la proposition" @click="tradeOpen = false">×</button>

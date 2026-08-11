@@ -320,6 +320,50 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   display: grid; flex: 0 0 40px; place-items: center; width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; aspect-ratio: 1; border-radius: 50%;
 }
 .phone-tools .help-trigger > span { display: none; }
+.phone-resource-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  min-height: 44px;
+  padding: 0 .65rem;
+  color: #f3f8fc;
+  border: 1px solid #72a9c2;
+  border-radius: 999px;
+  background: #124a68;
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 800;
+}
+.phone-resource-button b {
+  display: grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 .3rem;
+  color: #06111f;
+  border-radius: 999px;
+  background: #35d0e2;
+  font: 800 .7rem "IBM Plex Mono", monospace;
+}
+.mobile-live-toast {
+  position: fixed;
+  z-index: 96;
+  top: calc(66px + env(safe-area-inset-top));
+  left: 50%;
+  width: min(calc(100% - 2rem), 430px);
+  padding: .75rem 1rem;
+  transform: translateX(-50%);
+  color: #f3f8fc;
+  border: 1px solid rgba(111, 221, 234, .72);
+  border-radius: 12px;
+  background: rgba(11, 36, 58, .96);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .38);
+  font-size: .875rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+}
 .title-actions button { opacity: 1; color: #f3f8fc; border-color: #72a9c2; background: #0b243a; }
 .symbol-picker button { opacity: 1; color: #f3f8fc; border-color: #72a9c2; background: #0b243a; }
 .title-actions button:disabled { color: #b9d8e5; border-color: #6b899c; background: #132b3d; }
@@ -332,78 +376,10 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .portfolio-fab--with-trades.portfolio-fab--with-primary { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
 
 /* Le téléphone devient l'écran commun uniquement dans le mode MOBILE_ONLY. */
-.mobile-only-navigation {
-  position: fixed;
-  z-index: 80;
-  right: 0;
-  bottom: 0;
-  left: 50%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: .5rem;
-  width: min(100%, 520px);
-  min-height: calc(68px + env(safe-area-inset-bottom));
-  padding: .42rem .55rem calc(.42rem + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  border-top: 1px solid rgba(114, 169, 194, .62);
-  background: rgba(5, 22, 38, .97);
-  box-shadow: 0 -12px 36px rgba(0, 0, 0, .4);
-  backdrop-filter: blur(16px);
-}
-.mobile-only-navigation button {
-  position: relative;
-  display: grid;
-  grid-template-rows: 23px auto;
-  place-items: center;
-  gap: .12rem;
-  min-width: 0;
-  min-height: 58px;
-  padding: .35rem .25rem;
-  color: #a9c8d8;
-  border: 1px solid rgba(105, 181, 214, .3);
-  border-radius: 12px;
-  background: #0b243a;
-  font: inherit;
-  font-size: .69rem;
-  font-weight: 800;
-}
-.mobile-only-navigation button.active { color: #06111f; border-color: #35d0e2; background: #35d0e2; }
-.mobile-only-navigation__notification {
-  position: absolute;
-  top: .42rem;
-  right: .48rem;
-  width: 12px;
-  height: 12px;
-  border: 2px solid #06111f;
-  border-radius: 50%;
-  background: #ff4d5e;
-  box-shadow: 0 0 0 2px rgba(255, 77, 94, .25), 0 0 12px rgba(255, 77, 94, .9);
-  animation: navigation-notification-pulse 1.35s ease-in-out infinite;
-}
-@keyframes navigation-notification-pulse {
-  50% { box-shadow: 0 0 0 5px rgba(255, 77, 94, 0), 0 0 16px rgba(255, 77, 94, 1); }
-}
-.mobile-only-navigation button > b {
-  position: absolute;
-  top: .18rem;
-  right: .3rem;
-  max-width: 58px;
-  overflow: hidden;
-  padding: .12rem .3rem;
-  color: #06111f;
-  border-radius: 999px;
-  background: #f6c64d;
-  font: 800 .48rem "IBM Plex Mono", monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-@media (prefers-reduced-motion: reduce) {
-  .mobile-only-navigation__notification { animation: none; }
-}
 .phone-shell:has(.controller-screen--mobile-only) > .error-toast {
   z-index: 90;
   right: auto;
-  bottom: calc(5.4rem + env(safe-area-inset-bottom));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   left: 50%;
   width: min(calc(100% - 2rem), 420px);
   max-width: none;
@@ -412,17 +388,17 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, .38);
 }
-.controller-screen--mobile-only { padding-bottom: calc(17rem + env(safe-area-inset-bottom)); }
-.controller-screen--mobile-only:has(.end-turn-action) {
-  padding-bottom: calc(5.4rem + env(safe-area-inset-bottom));
-}
+.controller-screen--mobile-only { padding-bottom: env(safe-area-inset-bottom); }
 .controller-screen--mobile-only .spectator-map-button { display: inline-flex; align-items: center; gap: .45rem; min-height: 48px; margin-top: 1.2rem; padding: 0 1rem; }
 .controller-screen--mobile-only .dice-button,
 .controller-screen--mobile-only .payment-button,
 .controller-screen--mobile-only .bankruptcy-button,
 .controller-screen--mobile-only .end-turn-action .primary-button,
 .controller-screen--mobile-only .lever-purchase-action .primary-button,
-.controller-screen--mobile-only .trade-response > .wide-button { bottom: calc(5.4rem + env(safe-area-inset-bottom)); }
+.controller-screen--mobile-only .trade-response > .wide-button {
+  bottom: calc(5.4rem + env(safe-area-inset-bottom));
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .34), 0 0 0 .75rem rgba(5, 22, 38, .98);
+}
 .controller-screen--mobile-only .action-row,
 .controller-screen--mobile-only .liquidation-list { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
 .controller-screen--mobile-only .title-actions { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
@@ -440,7 +416,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   position: fixed;
   z-index: 75;
   top: calc(70px + env(safe-area-inset-top));
-  bottom: calc(68px + env(safe-area-inset-bottom));
+  bottom: env(safe-area-inset-bottom);
   left: 50%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -478,8 +454,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   .mobile-map-panel { top: calc(58px + env(safe-area-inset-top)); }
 }
 .portfolio-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .76); backdrop-filter: blur(8px); }
-.portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: .8rem; width: min(100%, 520px); height: min(88dvh, 760px); margin: 0 auto; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom)); color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow: hidden; }
-.portfolio-drawer.portfolio-drawer--with-navigation { padding-bottom: calc(5.4rem + env(safe-area-inset-bottom)); }
+.portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, auto) auto auto; gap: .8rem; width: min(100%, 520px); height: auto; max-height: calc(100dvh - .35rem); margin: 0 auto; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom)); color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow-x: hidden; overflow-y: auto; }
 .portfolio-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
 .portfolio-close { display: inline-flex; align-items: center; justify-content: center; justify-self: end; gap: .35rem; min-width: 112px; min-height: 46px; padding: 0 .8rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #102a43; font-weight: 800; }
 .portfolio-drawer .section-title--portfolio { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: .2rem .55rem; }
@@ -501,6 +476,12 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .portfolio-pager span { color: #c9e8f4; font: 700 .75rem "IBM Plex Mono"; }
 .portfolio-pager button { min-height: 46px; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 10px; background: #153f5d; font-weight: 800; }
 .portfolio-pager button:last-child { background: #1d718d; }
+.portfolio-actions { display: grid; gap: .55rem; padding-top: .75rem; border-top: 1px solid rgba(114, 169, 194, .45); }
+.portfolio-actions > span { color: #c9e8f4; font: 800 .75rem "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+.portfolio-actions .title-actions__grid-four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; }
+.portfolio-actions button { display: grid; place-items: center; gap: .3rem; min-width: 0; min-height: 58px; padding: .45rem .25rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 10px; background: #0b243a; font: inherit; font-size: .75rem; font-weight: 800; }
+.portfolio-actions button:disabled { color: #b9d8e5; border-color: #6b899c; background: #132b3d; }
+.lever-hand--portfolio { position: static; width: 100%; max-height: 34dvh; overflow-y: auto; }
 
 @media (max-width: 600px) {
   .phone-shell { padding-inline: 1rem; }
@@ -513,7 +494,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 }
 
 @media (max-height: 660px) and (max-width: 600px) {
-  .portfolio-drawer { height: calc(100dvh - .35rem); gap: .55rem; padding-top: .7rem; }
+  .portfolio-drawer { height: auto; max-height: calc(100dvh - .35rem); gap: .55rem; padding-top: .7rem; }
   .resource-score-list--drawer { gap: .42rem; }
   .resource-score-list--drawer .resource-score { padding: .48rem .62rem; }
   .portfolio-drawer .resource-score header > span { font-size: .82rem; }
@@ -736,6 +717,15 @@ button:disabled {
     font-size: clamp(.58rem, .52vw, .72rem);
     line-height: 1.3;
   }
+  .players-panel .panel-heading,
+  .players-panel .player-identity strong,
+  .players-panel .player-metrics,
+  .players-panel .player-assets,
+  .players-panel .resource-score.compact header > span,
+  .players-panel .resource-score.compact header > strong,
+  .players-panel .resource-score.compact footer {
+    font-size: clamp(.875rem, .72vw, 1.05rem);
+  }
 
   .context-panel {
     top: var(--tv-panel-top);
@@ -753,8 +743,8 @@ button:disabled {
   .market-overlay,
   .card-reveal-common {
     inset: auto !important;
-    top: 50%;
-    left: 50%;
+    top: 50% !important;
+    left: 50% !important;
     width: var(--tv-center-width);
     max-width: var(--tv-center-width);
     max-height: calc(100dvh - var(--tv-panel-top) - var(--tv-panel-top));
@@ -831,6 +821,11 @@ button:disabled {
 .joker-card :is(span, h2, p, b) { color: #f3f8fc; }
 .asset-card { border-color: #72a9c2; }
 .asset-card__sector { color: #f3f8fc; background: #071827; }
+.asset-card__wash {
+  background: linear-gradient(180deg, rgba(4, 15, 28, .76), rgba(4, 15, 28, .92));
+  mix-blend-mode: normal;
+}
+.asset-card :is(p, footer, .asset-card__owner) { color: #f3f8fc; }
 .scan-card,
 .scan-card :is(span, b, a) { color: #06111f; }
 .world-board--tabletop .pawn-symbol.player-token-icon { color: #06111f; }
@@ -861,16 +856,75 @@ button:disabled {
   .controller-screen--mobile-only > .controller-meta {
     flex: 0 0 auto;
   }
-  .controller-screen--mobile-only > :is(
-      .primary-action.action-card--roll,
-      .end-turn-action,
-      .spectator-state
-    ) {
-    margin-top: auto;
+  .controller-screen--map > :not(.mobile-map-panel):not(.mobile-map-overlay):not(.dice-animation-phone) {
+    visibility: hidden;
+    pointer-events: none;
   }
-  .controller-screen--mobile-only:has(.end-turn-action),
-  .controller-screen--mobile-only:has(.spectator-state) {
-    padding-bottom: calc(10.65rem + env(safe-area-inset-bottom)) !important;
+  .controller-screen--map > .mobile-map-overlay {
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .controller-screen--map > .mobile-map-overlay:not(.action-card--roll):not(.end-turn-action) {
+    position: fixed;
+    z-index: 86;
+    top: calc(58px + env(safe-area-inset-top));
+    right: auto;
+    bottom: 0;
+    left: 50%;
+    width: min(100%, 520px);
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    overflow-x: hidden;
+    overflow-y: auto;
+    color: #f3f8fc;
+    background: linear-gradient(180deg, rgba(7, 28, 48, .97), #06111f 38%);
+  }
+  .controller-screen--map > .mobile-map-overlay :is(.action-row, .liquidation-list, .payment-button, .bankruptcy-button, .trade-response > .wide-button) {
+    position: static;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    margin: 1rem 0 0;
+    padding-right: 1rem;
+    padding-left: 1rem;
+    transform: none;
+  }
+  .controller-screen--map > .action-card--roll,
+  .controller-screen--map > .end-turn-action {
+    position: fixed;
+    z-index: 88;
+    right: auto;
+    bottom: calc(.75rem + env(safe-area-inset-bottom));
+    left: 50%;
+    width: min(calc(100% - 1.5rem), 500px);
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    transform: translateX(-50%);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .controller-screen--map > .action-card--roll > :not(.dice-button),
+  .controller-screen--map > .end-turn-action > :not(div),
+  .controller-screen--map > .end-turn-action > div > :not(.primary-button) { display: none; }
+  .controller-screen--map > .action-card--roll .dice-button,
+  .controller-screen--map > .end-turn-action .primary-button {
+    position: static;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    min-height: 58px;
+    margin: 0;
+    padding: .85rem 1rem;
+    transform: none;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .46), 0 0 0 1px rgba(255, 255, 255, .12);
+  }
+  .controller-screen--map:has(> .action-card--roll, > .end-turn-action) .mobile-map-panel {
+    bottom: calc(96px + env(safe-area-inset-bottom));
   }
   .phone-shell:has(.controller-screen) { scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
   .phone-tools .help-trigger,
@@ -883,41 +937,89 @@ button:disabled {
     min-height: 44px;
   }
   .phone-header .brand { font-size: .875rem; }
+  .phone-shell:has(.controller-screen--mobile-only) .phone-header .brand { display: none; }
+  .phone-shell:has(.controller-screen--mobile-only) .phone-tools { width: 100%; justify-content: flex-end; }
+  .phone-shell:has(.controller-screen--mobile-only) .phone-resource-button { margin-right: auto; }
   .controller-meta span,
   .eyebrow { font-size: .75rem; }
   .title-actions button { font-size: .8125rem; }
-  .mobile-only-navigation button { font-size: .8rem; }
-  .mobile-only-navigation button > b {
-    min-width: 20px;
-    height: 20px;
-    display: grid;
-    place-items: center;
-    padding: 0 .32rem;
-    font-size: .6875rem;
+  .credits-shell .back-link,
+  .credits-grid a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: .875rem;
+  }
+  .join-form label,
+  .join-form legend,
+  .title-actions button {
+    font-size: .875rem;
   }
   .resource-score__rent-button,
   .portfolio-drawer .resource-score__rent-button { min-height: 44px; font-size: .8125rem; }
+
+  .controller-screen .payment-action .asset-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 220px;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+
+  body:has(.static-demo-controls) .controller-screen--mobile-only:not(.controller-screen--map) :is(
+      .dice-button,
+      .payment-button,
+      .bankruptcy-button,
+      .end-turn-action .primary-button,
+      .lever-purchase-action .primary-button,
+      .trade-response > .wide-button
+    ) {
+    right: 4.5rem;
+  }
+  body:has(.static-demo-controls) .controller-screen--mobile-only:not(.controller-screen--map) :is(.action-row, .liquidation-list) {
+    padding-right: 4.5rem;
+  }
+  body:has(.create-game, .controller-screen--map, .portfolio-backdrop) .static-demo-controls {
+    display: none;
+  }
+}
+
+@media (max-width: 340px) {
+  .phone-header .brand > span:last-child { display: none; }
 }
 
 @media (max-width: 760px) and (max-height: 500px) {
   .controller-screen--mobile-only,
-  .controller-screen--mobile-only:has(.end-turn-action) {
-    padding-bottom: calc(5.4rem + env(safe-area-inset-bottom));
+  .controller-screen--mobile-only:has(.end-turn-action),
+  .controller-screen--mobile-only:has(.spectator-state) {
+    padding-bottom: env(safe-area-inset-bottom) !important;
   }
-  .controller-screen--mobile-only .title-actions,
-  .controller-screen--mobile-only .title-actions--with-primary {
+  .controller-screen--mobile-only:not(.controller-screen--map) :is(
+      .dice-button,
+      .payment-button,
+      .bankruptcy-button,
+      .end-turn-action .primary-button,
+      .lever-purchase-action .primary-button,
+      .trade-response > .wide-button,
+      .action-row,
+      .liquidation-list
+    ) {
+    position: static;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    margin: 1rem 0 0;
+    padding-right: 1rem;
+    padding-left: 1rem;
+    transform: none;
+  }
+  .controller-screen--mobile-only:not(.controller-screen--map) .title-actions,
+  .controller-screen--mobile-only:not(.controller-screen--map) .title-actions--with-primary {
     position: static;
     inset: auto;
     width: 100%;
     max-width: none;
     margin: 1rem 0;
-  }
-  .mobile-only-navigation {
-    position: static;
-    left: auto;
-    width: 100%;
-    margin-top: 1rem;
-    transform: none;
   }
 }
 

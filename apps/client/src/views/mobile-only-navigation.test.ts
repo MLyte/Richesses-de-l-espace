@@ -5,58 +5,54 @@ import { describe, expect, it } from "vitest";
 const playerView = readFileSync(fileURLToPath(new URL("./PlayerView.vue", import.meta.url)), "utf8");
 const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.meta.url)), "utf8");
 const mobileRoute = readFileSync(fileURLToPath(new URL("../components/MobileRouteMap.vue", import.meta.url)), "utf8");
-const mobileNavigation = readFileSync(fileURLToPath(new URL("../components/MobileGameNavigation.vue", import.meta.url)), "utf8");
 
-describe("mobile-only game navigation", () => {
-  it("separates the phone-only map from the TV controller experience", () => {
+describe("mobile-only map-first experience", () => {
+  it("uses the route as the permanent phone game surface", () => {
     expect(playerView).toContain('store.game?.displayMode === "MOBILE_ONLY"');
     expect(playerView).toContain('const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY")');
     expect(playerView).not.toContain("route.query.demo");
     expect(playerView).toContain('searchParams.get("preview") === "mobile"');
     expect(playerView).toContain('await import("../demo/mobile-preview")');
-    expect(playerView).toContain('v-if="mobileOnly && mobilePanel === \'map\'"');
+    expect(playerView).toContain('v-if="mobileOnly" class="mobile-map-panel mobile-map-panel--route"');
     expect(playerView).toContain('<MobileRouteMap :board="store.game.board"');
     expect(playerView).not.toContain('<WorldBoard :board="store.game.board"');
-    expect(playerView).toContain("mobileOnly ? 'La carte suit les mouvements de toute la flotte.' : 'Suivez les mouvements sur l’écran commun.'");
+    expect(playerView).not.toContain("mobilePanel");
+    expect(playerView).not.toContain("MobileGameNavigation");
   });
 
-  it("offers play, map and resources without covering mandatory actions", () => {
-    expect(playerView).toContain("<MobileGameNavigation");
-    expect(mobileNavigation).toContain('class="mobile-only-navigation"');
-    expect(mobileNavigation).toContain("<span>Jouer</span>");
-    expect(mobileNavigation).toContain("<span>Carte</span>");
-    expect(mobileNavigation).toContain("<span>Ressources</span>");
-    expect(mobileNavigation).toContain('class="mobile-only-navigation__notification"');
-    expect(mobileNavigation).not.toContain(">Action<");
-    expect(mobileNavigation).not.toContain("activePlayerName");
-    expect(theme).toMatch(/\.mobile-only-navigation\s*\{[^}]*gap:\s*\.5rem/s);
-    expect(theme).toMatch(/\.mobile-only-navigation button\s*\{[^}]*border:\s*1px solid rgba\(105, 181, 214, \.3\)[^}]*background:\s*#0b243a/s);
-    expect(theme).toMatch(/\.mobile-only-navigation__notification\s*\{[^}]*background:\s*#ff4d5e/s);
-    expect(theme).toMatch(/\.controller-screen--mobile-only \.dice-button[\s\S]*bottom:\s*calc\(5\.4rem/);
+  it("keeps resources permanently available without a bottom menu", () => {
+    expect(playerView).toContain('class="phone-resource-button" @click="openPortfolio"');
+    expect(playerView).toContain('<span>Ressources</span><b>{{ myAssets.length }}</b>');
+    expect(playerView).toContain("{{ me.capital }}&nbsp;crédits");
+    expect(theme).toMatch(/\.phone-resource-button\s*\{[^}]*min-height:\s*44px[^}]*background:\s*#124a68/s);
+    expect(theme).toMatch(/\.mobile-map-panel\s*\{[^}]*bottom:\s*env\(safe-area-inset-bottom\)/s);
   });
 
-  it("does not reserve an empty fixed-action row when end turn is inline", () => {
-    expect(playerView).toContain('const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")))');
-    expect(playerView).toContain("'title-actions--with-primary': hasFixedPrimaryTurnAction");
-    expect(theme).toMatch(/\.controller-screen--mobile-only:has\(\.end-turn-action\)\s*\{[^}]*padding-bottom:\s*calc\(5\.4rem/s);
+  it("renders roll and end-turn as contextual bottom actions", () => {
+    expect(playerView).toContain('action-card--roll mobile-map-overlay');
+    expect(playerView).toContain('end-turn-action mobile-map-overlay');
+    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*fixed[^}]*bottom:\s*calc\(\.75rem/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll > :not\(\.dice-button\)[\s\S]*display:\s*none/s);
   });
 
-  it("keeps error toasts visible above the bottom navigation", () => {
+  it("shows turn and event information as ephemeral live notifications", () => {
+    expect(playerView).toContain('const mobileLiveNotice = computed(() => store.animatedEvent?.message ?? turnToast.value)');
+    expect(playerView).toContain('class="mobile-live-toast" role="status" aria-live="polite"');
+    expect(playerView).toContain('turnToastTimer = window.setTimeout(() => { turnToast.value = null; }, 2800)');
+    expect(playerView).toContain('watch(() => store.animatedEvent?.id ?? null');
+    expect(theme).toMatch(/\.mobile-live-toast\s*\{[^}]*pointer-events:\s*none/s);
+  });
+
+  it("keeps errors visible without reserving a removed navigation dock", () => {
     expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*z-index:\s*90/s);
-    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*bottom:\s*calc\(5\.4rem/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*bottom:\s*calc\(1rem/s);
   });
 
-  it("keeps the low-landscape layout scrollable instead of stacking fixed docks", () => {
-    expect(theme).toMatch(/@media \(max-width: 760px\) and \(max-height: 500px\)/);
-    expect(theme).toMatch(/\.controller-screen--mobile-only \.title-actions--with-primary\s*\{[^}]*position:\s*static/s);
-    expect(theme).toMatch(/\.mobile-only-navigation\s*\{[^}]*position:\s*static/s);
-  });
-
-  it("keeps the bottom navigation visible on the resources page", () => {
-    expect(playerView).toContain('v-if="mobileOnly" active="resources"');
-    expect(playerView).toContain('@play="showMobilePlay" @map="showMobileMap"');
-    expect(mobileNavigation).toContain("active === 'resources'");
-    expect(theme).toMatch(/\.portfolio-drawer\.portfolio-drawer--with-navigation\s*\{[^}]*padding-bottom:\s*calc\(5\.4rem/s);
+  it("moves optional transactions and technologies into the resources drawer", () => {
+    expect(playerView).toContain('class="portfolio-actions" aria-label="Transferts de concessions"');
+    expect(playerView).toContain('class="lever-hand lever-hand--portfolio"');
+    expect(playerView).toContain('v-if="!mobileOnly && allowed(\'PROPOSE_TRADE\') && tradeTargets.length"');
+    expect(theme).toMatch(/\.portfolio-actions \.title-actions__grid-four\s*\{[^}]*grid-template-columns:\s*repeat\(4/s);
   });
 
   it("lists the whole route around the player and recenters at turn start", () => {
@@ -67,6 +63,8 @@ describe("mobile-only game navigation", () => {
     expect(mobileRoute).toContain('behavior: reducedMotion.matches ? "auto" : behavior');
     expect(mobileRoute).toContain("props.turnNumber, props.activePlayerId");
     expect(mobileRoute).toContain('@click="focusPlayer(player)"');
+    expect(mobileRoute).toContain('v-for="player in players"');
+    expect(mobileRoute).toContain('v-for="player in entry.players"');
     expect(mobileRoute).not.toContain("WorldBoard");
   });
 });

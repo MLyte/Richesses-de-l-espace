@@ -89,7 +89,7 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
 
   it("restores document scrolling for mobile zoom and low landscape viewports", () => {
     expect(theme).toMatch(/body:has\(\.phone-shell \.controller-screen\),[\s\S]*overflow-y:\s*auto !important/s);
-    expect(theme).toMatch(/@media \(max-width: 760px\) and \(max-height: 500px\)[\s\S]*\.mobile-only-navigation\s*\{[^}]*position:\s*static/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay:not\([\s\S]*overflow-y:\s*auto/s);
   });
 
   it("does not add a second viewport or legacy bottom padding below controller pages", () => {
@@ -97,9 +97,27 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
     expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\) \.controller-screen\s*\{[^}]*min-height:\s*calc\(100dvh - 58px - env\(safe-area-inset-top\)\) !important/s);
   });
 
-  it("anchors short mobile actions directly above the lower docks", () => {
+  it("anchors contextual actions over the permanent mobile map", () => {
     expect(theme).toMatch(/\.controller-screen--mobile-only\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
-    expect(theme).toMatch(/\.controller-screen--mobile-only > :is\([\s\S]*\.primary-action\.action-card--roll,[\s\S]*\.end-turn-action,[\s\S]*\.spectator-state[\s\S]*\)\s*\{[^}]*margin-top:\s*auto/s);
-    expect(theme).toMatch(/\.controller-screen--mobile-only:has\(\.end-turn-action\),[\s\S]*\.controller-screen--mobile-only:has\(\.spectator-state\)\s*\{[^}]*padding-bottom:\s*calc\(10\.65rem \+ env\(safe-area-inset-bottom\)\) !important/s);
+    expect(theme).toMatch(/\.controller-screen--map > :not\(\.mobile-map-panel\):not\(\.mobile-map-overlay\)[^}]*visibility:\s*hidden/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*fixed/s);
+    expect(theme).toMatch(/\.controller-screen--map:has\(> \.action-card--roll, > \.end-turn-action\) \.mobile-map-panel\s*\{[^}]*bottom:\s*calc\(96px/s);
+  });
+
+  it("keeps TV overlays centered and mobile landscape actions in normal flow", () => {
+    expect(theme).toMatch(/\.pause-overlay,[\s\S]*inset:\s*auto !important;[\s\S]*top:\s*50% !important;[\s\S]*left:\s*50% !important;/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay :is\([\s\S]*\.action-row,[\s\S]*\.liquidation-list[\s\S]*\)\s*\{[^}]*position:\s*static/s);
+  });
+
+  it("prevents narrow payment cards and illustrated card contrast regressions", () => {
+    expect(theme).toMatch(/\.controller-screen \.payment-action \.asset-card\s*\{[^}]*width:\s*100%[^}]*aspect-ratio:\s*auto/s);
+    expect(theme).toMatch(/\.asset-card__wash\s*\{[^}]*rgba\(4, 15, 28, \.76\)[^}]*mix-blend-mode:\s*normal/s);
+  });
+
+  it("keeps narrow headers, short states and supporting pages readable", () => {
+    expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay:not\([\s\S]*top:\s*calc\(58px[^}]*overflow-y:\s*auto/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) \.phone-resource-button\s*\{[^}]*margin-right:\s*auto/s);
+    expect(theme).toMatch(/@media \(max-width: 340px\)[\s\S]*\.phone-header \.brand > span:last-child\s*\{[^}]*display:\s*none/s);
+    expect(theme).toMatch(/\.credits-shell \.back-link,[\s\S]*\.credits-grid a\s*\{[^}]*min-height:\s*44px[^}]*font-size:\s*\.875rem/s);
   });
 });

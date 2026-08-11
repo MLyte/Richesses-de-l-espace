@@ -1176,8 +1176,7 @@ h1 em {
   box-shadow: 0 5px 0 rgba(24, 50, 74, .1);
 }
 .action-card--roll { background: linear-gradient(145deg, rgba(246, 198, 77, .25), rgba(255, 253, 244, .96)); }
-.phone-lobby .identity-card { background: #fffdf4; }
-.symbol-picker button { border-width: 2px; background: #fffdf4; box-shadow: 0 3px 0 rgba(24, 50, 74, .1); }
+.symbol-picker button { border-width: 2px; }
 .controller-screen .payment-button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .title-actions { margin: 1rem 0; padding: .8rem; border: 2px solid var(--line); border-radius: var(--card-radius); background: #fffdf4; box-shadow: 0 4px 0 rgba(24, 50, 74, .1); }
 .title-actions > p { margin: 0 0 .65rem; color: #9a3f30; font-size: .78rem; font-weight: 750; line-height: 1.4; }

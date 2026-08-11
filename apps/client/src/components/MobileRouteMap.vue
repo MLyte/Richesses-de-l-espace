@@ -210,16 +210,17 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
 .route-window { position: relative; display: grid; align-content: start; gap: .35rem; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: calc(50% - 44px) .08rem; scroll-behavior: smooth; scroll-snap-type: y proximity; scrollbar-color: #2c7998 transparent; scrollbar-width: thin; }
 .route-window::before { position: absolute; z-index: 0; top: 0; bottom: 0; left: 36px; width: 2px; background: #2c7998; content: ""; }
 .route-stop { position: relative; z-index: 1; display: grid; grid-template-columns: 25px 30px minmax(0, 1fr) auto; align-items: center; gap: .45rem; min-height: 52px; padding: .4rem .55rem; color: #c4dbe6; border: 1px solid rgba(114, 169, 194, .2); border-radius: 12px; background: rgba(7, 28, 48, .94); scroll-snap-align: center; text-align: left; transition: min-height .16s ease, background .16s ease, border-color .16s ease; }
-.route-stop.focused { min-height: 88px; color: #f3f8fc; border-color: color-mix(in srgb, var(--stop-color) 72%, #ffffff 28%); background: linear-gradient(105deg, color-mix(in srgb, var(--stop-color) 18%, #071c30 82%), #0b2840); box-shadow: 0 10px 30px rgba(0, 0, 0, .24), inset 3px 0 0 var(--stop-color); }
-.route-stop__number { color: #8fb6ca; font: 700 .58rem "IBM Plex Mono", monospace; text-align: right; }
+.route-stop.focused { min-height: 96px; color: #f3f8fc; border-color: color-mix(in srgb, var(--stop-color) 72%, #ffffff 28%); background: linear-gradient(105deg, color-mix(in srgb, var(--stop-color) 18%, #071c30 82%), #0b2840); box-shadow: 0 10px 30px rgba(0, 0, 0, .24), inset 3px 0 0 var(--stop-color); }
+.route-stop__number { color: #8fb6ca; font: 700 .75rem "IBM Plex Mono", monospace; text-align: right; }
 .route-stop__marker { display: grid; place-items: center; width: 30px; height: 30px; color: var(--stop-color); border: 2px solid var(--stop-color); border-radius: 50%; background: #06111f; }
 .focused .route-stop__marker { color: #06111f; background: var(--stop-color); box-shadow: 0 0 0 4px color-mix(in srgb, var(--stop-color) 20%, transparent); }
 .route-stop__copy { min-width: 0; }
 .route-stop__copy small, .route-stop__copy strong, .route-stop__copy em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.route-stop__copy small { color: #c9e8f4; font: 700 .7rem "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .06em; }
+.route-stop__copy small { color: #c9e8f4; font: 700 .875rem "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .04em; }
 .route-stop__copy strong { margin-top: .15rem; font-size: .875rem; line-height: 1.25; }
 .focused .route-stop__copy strong { font-size: 1rem; }
 .route-stop__copy em { margin-top: .25rem; color: #c9e8f4; font-size: .75rem; font-style: normal; }
+.route-stop.focused .route-stop__copy :is(small, strong, em) { overflow: visible; text-overflow: clip; white-space: normal; }
 .route-stop__players { display: flex; padding-left: .25rem; }
 .route-stop__players i, .route-roster > button > i { display: grid; place-items: center; width: 29px; height: 29px; margin-left: -5px; color: #07131f; border: 2px solid #eef8fa; border-radius: 50%; }
 .route-stop__players i :deep(svg), .route-roster > button > i :deep(svg) { width: 17px; height: 17px; }
