@@ -14,20 +14,11 @@ import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import PaymentTransfer from "../components/PaymentTransfer.vue";
 import GameIcon from "../components/GameIcon.vue";
 import { HelpCircle, Maximize2, Menu, Pause } from "@lucide/vue";
-import { activeDemoGame, pausedDemoGame } from "../demo/paused-game";
 import { splitPlayerWings } from "./display-layout";
 
 const store = useGameStore();
 const route = useRoute();
-onMounted(() => {
-  if (route.query.demo === "pause" || route.query.demo === "active") {
-    store.game = route.query.demo === "active" ? activeDemoGame() : pausedDemoGame();
-    store.role = "admin";
-    store.connected = true;
-    return;
-  }
-  void store.createDisplaySession();
-});
+onMounted(() => { void store.createDisplaySession(); });
 
 const joinUrl = computed(() => store.game?.joinUrls[0] ?? (store.game ? `${location.origin}/play/${store.game.code}` : ""));
 const crewSlots = computed(() => Array.from({ length: 6 }, (_, index) => store.game?.players[index] ?? null));

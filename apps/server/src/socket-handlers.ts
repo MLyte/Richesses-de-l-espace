@@ -24,8 +24,8 @@ function errorMessage(code: string): string {
   return ({ ROOM_NOT_FOUND: "Partie introuvable.", INVALID_COLOR: "Couleur invalide.", INVALID_SYMBOL: "Symbole invalide.", INVALID_NAME: "Choisissez un prénom de 1 à 20 caractères.", SESSION_NOT_FOUND: "Cette session a expiré." } as Record<string, string>)[code] ?? "Action impossible.";
 }
 
-function safe<T>(ack: Ack<T>, action: () => T): void {
-  try { ack({ ok: true, data: action() }); }
+async function safe<T>(ack: Ack<T>, action: () => T | Promise<T>): Promise<void> {
+  try { ack({ ok: true, data: await action() }); }
   catch (error) {
     const code = error instanceof RuleError ? error.code : error instanceof Error ? error.message : "UNKNOWN_ERROR";
     const message = error instanceof RuleError ? error.message : errorMessage(code);
@@ -116,29 +116,45 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       return;
     }
     if (room.state.phase !== "AUCTION" || !deadline) return;
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const before = room.state.revision;
-      room.state = closeExpiredAuction(room.state, Date.now());
-      if (room.state.revision !== before) publish(room);
+      const next = closeExpiredAuction(room.state, Date.now());
+      if (next.revision !== before) {
+        const previous = room.state;
+        room.state = next;
+        try {
+          await store.save(room);
+          publish(room);
+        } catch (error) {
+          room.state = previous;
+          console.error("Impossible de sauvegarder la clôture de l’enchère", error);
+        }
+      }
       scheduleAuction(room);
     }, Math.max(0, deadline - Date.now()) + 5);
     auctionTimers.set(room.state.code, timer);
   }
 
-  function resumeRoom(room: Room): void {
+  async function resumeRoom(room: Room): Promise<void> {
     const pausedAt = auctionPausedAt.get(room.state.code);
     let next = resumeGame(room.state);
     if (pausedAt && next.auction?.mode === "bidding" && next.auction.deadline) {
       next = { ...next, auction: { ...next.auction, deadline: next.auction.deadline + Date.now() - pausedAt } };
     }
     auctionPausedAt.delete(room.state.code);
+    const previous = room.state;
     room.state = next;
+    try { await store.save(room); }
+    catch (error) { room.state = previous; throw error; }
     publish(room);
     scheduleAuction(room);
   }
 
-  function mutate(room: Room, mutation: (state: GameState) => GameState): void {
+  async function mutate(room: Room, mutation: (state: GameState) => GameState): Promise<void> {
+    const previous = room.state;
     room.state = mutation(room.state);
+    try { await store.save(room); }
+    catch (error) { room.state = previous; throw error; }
     publish(room);
     scheduleAuction(room);
   }
@@ -159,7 +175,21 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     return result;
   }
 
-  function detachSession(socket: Socket): void {
+  const attempts = new Map<string, { count: number; resetAt: number }>();
+  function allow(socket: Socket, action: "create" | "join"): void {
+    const now = Date.now();
+    const limit = action === "create" ? 8 : 30;
+    const key = `${action}:${socket.handshake.address}`;
+    const current = attempts.get(key);
+    if (!current || current.resetAt <= now) {
+      attempts.set(key, { count: 1, resetAt: now + 15 * 60_000 });
+      return;
+    }
+    if (current.count >= limit) throw new RuleError("RATE_LIMITED", "Trop de tentatives. Réessayez dans quelques minutes.");
+    current.count += 1;
+  }
+
+  async function detachSession(socket: Socket): Promise<void> {
     const previous = sessionOf(socket);
     if (!previous.code) return;
     socket.leave(previous.code);
@@ -171,6 +201,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
         const disconnectedPlayer = room.state.players.find((player) => player.id === previous.playerId);
         const mustPause = Boolean(disconnectedPlayer && !disconnectedPlayer.bankrupt && !disconnectedPlayer.mergedIntoId);
         if (mustPause && room.state.status === "PLAYING" && room.state.phase !== "PAUSED" && room.state.phase !== "FINISHED") room.state = pauseGame(room.state, "PLAYER_DISCONNECTED", previous.playerId);
+        await store.save(room);
         broadcast(room);
         scheduleAuction(room);
       }
@@ -182,71 +213,73 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     socket.on("room:create", (payloadOrAck: { displayMode?: DisplayMode } | Ack<SessionResult>, maybeAck?: Ack<SessionResult>) => {
       const payload = typeof payloadOrAck === "function" ? {} : payloadOrAck;
       const ack = typeof payloadOrAck === "function" ? payloadOrAck : maybeAck!;
-      safe(ack, () => {
-      const displayMode: DisplayMode = payload?.displayMode === "MOBILE_ONLY" ? "MOBILE_ONLY" : "TV";
-      detachSession(socket);
-      const room = store.create(displayMode);
-      const session = sessionOf(socket);
-      Object.assign(session, { code: room.state.code, role: "admin", token: room.adminToken });
-      socket.join(room.state.code);
-      broadcast(room);
-      return { code: room.state.code, token: room.adminToken, role: "admin" as const, displayMode, joinUrls: getJoinUrls(room.state.code, publicPort, publicOrigin) };
+      void safe(ack, async () => {
+        allow(socket, "create");
+        const displayMode: DisplayMode = payload?.displayMode === "MOBILE_ONLY" ? "MOBILE_ONLY" : "TV";
+        await detachSession(socket);
+        const { room, adminToken } = store.create(displayMode);
+        await store.save(room);
+        Object.assign(sessionOf(socket), { code: room.state.code, role: "admin", token: adminToken });
+        socket.join(room.state.code);
+        broadcast(room);
+        return { code: room.state.code, token: adminToken, role: "admin" as const, displayMode, joinUrls: getJoinUrls(room.state.code, publicPort, publicOrigin) };
       });
     });
 
-    socket.on("room:join", (payload: { code?: string; name?: string; color?: string; symbol?: string; hostToken?: string }, ack: Ack<SessionResult>) => safe(ack, () => {
+    socket.on("room:join", (payload: { code?: string; name?: string; color?: string; symbol?: string; hostToken?: string }, ack: Ack<SessionResult>) => void safe(ack, async () => {
+      allow(socket, "join");
       const name = payload.name?.trim() ?? "";
       if (name.length < 1 || name.length > 20) throw new Error("INVALID_NAME");
-      const { room, playerId, playerToken, isHost } = store.join(payload.code?.trim().toUpperCase() ?? "", name, payload.color ?? "", payload.symbol ?? "", payload.hostToken);
-      detachSession(socket);
-      Object.assign(sessionOf(socket), { code: room.state.code, role: "player", token: playerToken, playerId, isHost });
-      socket.join(room.state.code);
-      broadcast(room);
-      return { code: room.state.code, token: playerToken, role: "player" as const, playerId, isHost, displayMode: room.displayMode };
+      const joined = store.join(payload.code?.trim().toUpperCase() ?? "", name, payload.color ?? "", payload.symbol ?? "", payload.hostToken);
+      await detachSession(socket);
+      await store.save(joined.room);
+      Object.assign(sessionOf(socket), { code: joined.room.state.code, role: "player", token: joined.playerToken, playerId: joined.playerId, isHost: joined.isHost });
+      socket.join(joined.room.state.code);
+      broadcast(joined.room);
+      return { code: joined.room.state.code, token: joined.playerToken, role: "player" as const, playerId: joined.playerId, isHost: joined.isHost, displayMode: joined.room.displayMode };
     }));
 
-    socket.on("session:resume", (payload: { token?: string }, ack: Ack<SessionResult>) => safe(ack, () => {
+    socket.on("session:resume", (payload: { token?: string }, ack: Ack<SessionResult>) => void safe(ack, async () => {
       const found = payload.token ? store.findByToken(payload.token) : undefined;
       if (!found || !payload.token) throw new Error("SESSION_NOT_FOUND");
       const session = sessionOf(socket);
-      if (session.code && (session.code !== found.room.state.code || session.token !== payload.token)) detachSession(socket);
+      if (session.code && (session.code !== found.room.state.code || session.token !== payload.token)) await detachSession(socket);
       Object.assign(session, { code: found.room.state.code, role: found.role, token: payload.token, playerId: found.playerId, isHost: found.isHost });
       socket.join(found.room.state.code);
-      if (found.role === "player" && found.playerId) found.room.state = setPlayerConnected(found.room.state, found.playerId, true);
+      if (found.role === "player" && found.playerId) {
+        found.room.state = setPlayerConnected(found.room.state, found.playerId, true);
+        await store.save(found.room);
+      }
       broadcast(found.room);
       return { code: found.room.state.code, token: payload.token, role: found.role, displayMode: found.room.displayMode, ...(found.isHost !== undefined ? { isHost: found.isHost } : {}), ...(found.playerId ? { playerId: found.playerId } : {}), ...(found.role === "admin" ? { joinUrls: getJoinUrls(found.room.state.code, publicPort, publicOrigin) } : {}) };
     }));
 
-    socket.on("lobby:set-ready", (payload: { ready?: boolean }, ack: Ack) => safe(ack, () => {
-      const { room, session } = requireRoom(socket, "player");
-      mutate(room, (state) => setPlayerReady(state, session.playerId!, Boolean(payload.ready)));
-      return undefined;
-    }));
-
-    socket.on("game:start", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, startGame); return undefined; }));
-    socket.on("turn:roll", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => rollDice(state, session.playerId!)); return undefined; }));
-    socket.on("purchase:buy", (payload: { assetIds?: string[] }, ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => buyPendingAsset(state, session.playerId!, payload.assetIds)); return undefined; }));
-    socket.on("purchase:pass", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => passPendingAsset(state, session.playerId!)); return undefined; }));
-    socket.on("lever:buy", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => buyPendingLever(state, session.playerId!)); return undefined; }));
-    socket.on("lever:pass", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => passPendingLever(state, session.playerId!)); return undefined; }));
-    socket.on("payment:pay", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => payPendingPayment(state, session.playerId!)); return undefined; }));
-    socket.on("finance:bankruptcy", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => declareBankruptcy(state, session.playerId!)); return undefined; }));
-    socket.on("lever:use", (payload: { leverId?: string }, ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => useLever(state, session.playerId!, payload.leverId ?? "")); return undefined; }));
-    socket.on("auction:bid", (payload: { amount?: number }, ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => placeBid(state, session.playerId!, Number(payload.amount))); return undefined; }));
-    socket.on("auction:pass", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => passAuction(state, session.playerId!)); return undefined; }));
-    socket.on("auction:select", (payload: { assetIds?: string[] }, ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => selectAuctionAssets(state, session.playerId!, payload.assetIds ?? [])); return undefined; }));
-    socket.on("trade:propose", (payload: TradeProposalPayload, ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => proposeTrade(state, session.playerId!, payload)); return undefined; }));
-    socket.on("trade:accept", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => respondToTrade(state, session.playerId!, true)); return undefined; }));
-    socket.on("trade:reject", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => respondToTrade(state, session.playerId!, false)); return undefined; }));
-    socket.on("turn:end", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => endTurn(state, session.playerId!)); return undefined; }));
-    socket.on("admin:pause", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, pauseGame); return undefined; }));
-    socket.on("admin:resume", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); resumeRoom(room); return undefined; }));
-    socket.on("admin:end", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, finishGame); return undefined; }));
-    socket.on("admin:restart", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, restartGame); return undefined; }));
-
-    socket.on("disconnect", () => {
-      try { detachSession(socket); }
-      catch { /* La salle peut avoir été fermée. */ }
+    const playerMutation = (event: string, mutation: (state: GameState, playerId: string) => GameState) => socket.on(event, (payloadOrAck: unknown, maybeAck?: Ack) => {
+      const ack = typeof payloadOrAck === "function" ? payloadOrAck as Ack : maybeAck!;
+      void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => mutation(state, session.playerId!)); return undefined; });
     });
+
+    socket.on("lobby:set-ready", (payload: { ready?: boolean }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => setPlayerReady(state, session.playerId!, Boolean(payload.ready))); return undefined; }));
+    socket.on("game:start", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, startGame); return undefined; }));
+    playerMutation("turn:roll", (state, playerId) => rollDice(state, playerId));
+    socket.on("purchase:buy", (payload: { assetIds?: string[] }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => buyPendingAsset(state, session.playerId!, payload.assetIds)); return undefined; }));
+    playerMutation("purchase:pass", (state, playerId) => passPendingAsset(state, playerId));
+    playerMutation("lever:buy", (state, playerId) => buyPendingLever(state, playerId));
+    playerMutation("lever:pass", (state, playerId) => passPendingLever(state, playerId));
+    playerMutation("payment:pay", (state, playerId) => payPendingPayment(state, playerId));
+    playerMutation("finance:bankruptcy", (state, playerId) => declareBankruptcy(state, playerId));
+    socket.on("lever:use", (payload: { leverId?: string }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => useLever(state, session.playerId!, payload.leverId ?? "")); return undefined; }));
+    socket.on("auction:bid", (payload: { amount?: number }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => placeBid(state, session.playerId!, Number(payload.amount))); return undefined; }));
+    playerMutation("auction:pass", (state, playerId) => passAuction(state, playerId));
+    socket.on("auction:select", (payload: { assetIds?: string[] }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => selectAuctionAssets(state, session.playerId!, payload.assetIds ?? [])); return undefined; }));
+    socket.on("trade:propose", (payload: TradeProposalPayload, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => proposeTrade(state, session.playerId!, payload)); return undefined; }));
+    playerMutation("trade:accept", (state, playerId) => respondToTrade(state, playerId, true));
+    playerMutation("trade:reject", (state, playerId) => respondToTrade(state, playerId, false));
+    playerMutation("turn:end", (state, playerId) => endTurn(state, playerId));
+    socket.on("admin:pause", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, pauseGame); return undefined; }));
+    socket.on("admin:resume", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await resumeRoom(room); return undefined; }));
+    socket.on("admin:end", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, finishGame); return undefined; }));
+    socket.on("admin:restart", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, restartGame); return undefined; }));
+    socket.on("disconnect", () => { void detachSession(socket).catch((error) => console.error("Déconnexion incomplète", error)); });
   });
 }

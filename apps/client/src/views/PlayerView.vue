@@ -13,15 +13,11 @@ import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
 import WorldBoard from "../components/WorldBoard.vue";
-import { activeDemoGame, activeDemoPlayer, pausedDemoGame, pausedDemoPlayer } from "../demo/paused-game";
 import { ArrowLeftRight, Dices, HandCoins, Map as MapIcon, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
 
 const route = useRoute();
 const store = useGameStore();
 const code = String(route.params.code ?? "").toUpperCase();
-const isPausedDemo = route.query.demo === "pause";
-const isActiveDemo = route.query.demo === "active";
-const demoPlayerId = route.query.player === "lyra" ? "lyra" : "orion";
 const name = ref("");
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
@@ -43,13 +39,6 @@ const mobileMapScale = ref(1);
 const mobileMapViewport = ref<HTMLElement | null>(null);
 
 onMounted(() => {
-  if (isPausedDemo || isActiveDemo) {
-    store.game = isActiveDemo ? activeDemoGame() : pausedDemoGame();
-    store.player = isActiveDemo ? activeDemoPlayer(demoPlayerId) : pausedDemoPlayer(demoPlayerId);
-    store.role = "player";
-    store.connected = true;
-    return;
-  }
   void store.resumePlayer(code);
 });
 const me = computed(() => store.me);
@@ -157,7 +146,9 @@ watch(() => store.game?.activePlayerId, () => {
   if (mobileOnly.value && mobilePanel.value === "map") void nextTick(() => centerMobileMap(store.game?.activePlayerId ?? undefined));
 });
 
-async function run(action: () => Promise<unknown>) { try { await action(); } catch { /* affiché */ } }
+async function run(action: () => Promise<unknown>) {
+  try { await action(); } catch { /* affiché */ }
+}
 async function join() {
   joining.value = true;
   try { await store.join(code, name.value, color.value, symbol.value); } catch { /* affiché */ }

@@ -14,7 +14,10 @@ export function getLanAddresses(): string[] {
 
 export function getJoinUrls(code: string, port: number, publicOrigin?: string): string[] {
   const urls = new Set<string>();
-  if (publicOrigin) urls.add(`${publicOrigin.replace(/\/$/, "")}/play/${code}`);
+  if (publicOrigin) {
+    urls.add(`${publicOrigin.replace(/\/$/, "")}/play/${code}`);
+    return [...urls];
+  }
   for (const address of getLanAddresses()) urls.add(`http://${address}:${port}/play/${code}`);
   return [...urls];
 }
