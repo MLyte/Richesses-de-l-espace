@@ -357,6 +357,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 }
 .portfolio-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .76); backdrop-filter: blur(8px); }
 .portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: .8rem; width: min(100%, 520px); height: min(88dvh, 760px); margin: 0 auto; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom)); color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow: hidden; }
+.portfolio-drawer.portfolio-drawer--with-navigation { padding-bottom: calc(5.4rem + env(safe-area-inset-bottom)); }
 .portfolio-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
 .portfolio-close { display: inline-flex; align-items: center; justify-content: center; justify-self: end; gap: .35rem; min-width: 112px; min-height: 46px; padding: 0 .8rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #102a43; font-weight: 800; }
 .portfolio-drawer .section-title--portfolio { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: .2rem .55rem; }

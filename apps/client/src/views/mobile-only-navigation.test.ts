@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const playerView = readFileSync(fileURLToPath(new URL("./PlayerView.vue", import.meta.url)), "utf8");
 const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.meta.url)), "utf8");
 const mobileRoute = readFileSync(fileURLToPath(new URL("../components/MobileRouteMap.vue", import.meta.url)), "utf8");
+const mobileNavigation = readFileSync(fileURLToPath(new URL("../components/MobileGameNavigation.vue", import.meta.url)), "utf8");
 
 describe("mobile-only game navigation", () => {
   it("separates the phone-only map from the TV controller experience", () => {
@@ -20,11 +21,24 @@ describe("mobile-only game navigation", () => {
   });
 
   it("offers play, map and resources without covering mandatory actions", () => {
-    expect(playerView).toContain('class="mobile-only-navigation"');
-    expect(playerView).toContain("<span>Jouer</span>");
-    expect(playerView).toContain("<span>Carte</span>");
-    expect(playerView).toContain("<span>Ressources</span>");
+    expect(playerView).toContain("<MobileGameNavigation");
+    expect(mobileNavigation).toContain('class="mobile-only-navigation"');
+    expect(mobileNavigation).toContain("<span>Jouer</span>");
+    expect(mobileNavigation).toContain("<span>Carte</span>");
+    expect(mobileNavigation).toContain("<span>Ressources</span>");
     expect(theme).toMatch(/\.controller-screen--mobile-only \.dice-button[\s\S]*bottom:\s*calc\(5\.4rem/);
+  });
+
+  it("does not reserve an empty fixed-action row when end turn is inline", () => {
+    expect(playerView).toContain('const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")))');
+    expect(playerView).toContain("'title-actions--with-primary': hasFixedPrimaryTurnAction");
+  });
+
+  it("keeps the bottom navigation visible on the resources page", () => {
+    expect(playerView).toContain('v-if="mobileOnly" active="resources"');
+    expect(playerView).toContain('@play="showMobilePlay" @map="showMobileMap"');
+    expect(mobileNavigation).toContain("active === 'resources'");
+    expect(theme).toMatch(/\.portfolio-drawer\.portfolio-drawer--with-navigation\s*\{[^}]*padding-bottom:\s*calc\(5\.4rem/s);
   });
 
   it("lists the whole route around the player and recenters at turn start", () => {

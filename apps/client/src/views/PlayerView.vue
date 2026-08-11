@@ -13,6 +13,7 @@ import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
 import MobileRouteMap from "../components/MobileRouteMap.vue";
+import MobileGameNavigation from "../components/MobileGameNavigation.vue";
 import { ArrowLeftRight, Dices, HandCoins, Map as MapIcon, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
 
 const route = useRoute();
@@ -80,7 +81,12 @@ const portfolioPageCount = computed(() => Math.max(1, resourcePortfolioPages.val
 const activePortfolioPage = computed(() => resourcePortfolioPages.value[portfolioPage.value] ?? null);
 const visibleResources = computed(() => activePortfolioPage.value?.resources ?? []);
 function openPortfolio() { portfolioPage.value = 0; portfolioOpen.value = true; }
+function showMobilePlay() {
+  portfolioOpen.value = false;
+  mobilePanel.value = "play";
+}
 function showMobileMap() {
+  portfolioOpen.value = false;
   mobilePanel.value = "map";
 }
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
@@ -98,6 +104,7 @@ const isPhoneHost = computed(() => Boolean(store.player?.isHost));
 const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY");
 const canHostStart = computed(() => Boolean(isPhoneHost.value && store.game && store.game.players.length >= 2 && store.game.players.every((player) => player.connected && player.ready)));
 const hasPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || allowed("END_TURN"));
+const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")));
 const immediateActions = new Set(["ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "REJECT_TRADE", "END_TURN"]);
 const hasImmediateAction = computed(() => store.player?.allowedActions.some((action) => immediateActions.has(action)) ?? false);
 const currentTrade = computed(() => store.game?.tradeOffer ?? null);
@@ -269,7 +276,7 @@ async function finishAsHost() {
         </div>
         <div v-else-if="allowed('END_TURN')" class="end-turn-action"><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /><div><p class="eyebrow">Case résolue</p><h2>Vous avez pris connaissance de son effet.</h2><button class="primary-button" :disabled="store.pending" @click="run(store.endTurn)">Terminer le tour</button></div></div>
 
-        <aside v-if="allowed('PROPOSE_TRADE') && tradeTargets.length" class="title-actions" :class="{ 'title-actions--with-primary': hasPrimaryTurnAction }" aria-label="Transferts de concessions">
+        <aside v-if="allowed('PROPOSE_TRADE') && tradeTargets.length" class="title-actions" :class="{ 'title-actions--with-primary': hasFixedPrimaryTurnAction }" aria-label="Transferts de concessions">
           <p v-if="isMyTurn && me.capital === 0">Plus de liquidités : vous pouvez vendre un groupe complet avant de lancer les dés ou de terminer votre tour.</p>
           <div class="title-actions__grid-four">
             <button v-if="isMyTurn" type="button" :disabled="!anyTargetHasResources || me.capital <= 0" @click="openTrade('purchase')"><ShoppingCart :size="20" aria-hidden="true" /><span>Acheter</span></button>
@@ -284,20 +291,18 @@ async function finishAsHost() {
         <button v-if="!mobileOnly" class="portfolio-fab" :class="{ 'portfolio-fab--with-trades': allowed('PROPOSE_TRADE') && tradeTargets.length, 'portfolio-fab--with-primary': hasPrimaryTurnAction }" type="button" @click="openPortfolio"><PackageOpen :size="20" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <Teleport to="body">
           <div v-if="portfolioOpen" class="portfolio-backdrop" @click.self="portfolioOpen = false">
-            <section class="portfolio-drawer" aria-label="Vos ressources">
+            <section class="portfolio-drawer" :class="{ 'portfolio-drawer--with-navigation': mobileOnly }" aria-label="Vos ressources">
               <header><div class="section-title section-title--portfolio"><span>Type de ressources</span><b :style="{ color: activePortfolioPage?.sector.color }">{{ activePortfolioPage?.sector.name ?? 'Vos ressources' }}</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }}</small></div></header>
               <div v-if="!myAssets.length" class="empty-portfolio">Vos futures parts apparaîtront ici.</div>
               <div v-else class="resource-score-list resource-score-list--drawer"><ResourceInfluenceScore v-for="resource in visibleResources" :key="resource.id" :resource-id="resource.id" :asset-ids="me.assetIds" /></div>
-              <footer v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></footer>              <button class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
+              <footer v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></footer>
+              <MobileGameNavigation v-if="mobileOnly" active="resources" :has-immediate-action="hasImmediateAction" :active-player-name="store.activePlayer?.name" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" />
+              <button v-else class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
             </section>
           </div>
         </Teleport>
 
-        <nav v-if="mobileOnly" class="mobile-only-navigation" aria-label="Navigation de la partie">
-          <button type="button" :class="{ active: mobilePanel === 'play' }" :aria-current="mobilePanel === 'play' ? 'page' : undefined" @click="mobilePanel = 'play'"><Dices :size="21" aria-hidden="true" /><span>Jouer</span><b v-if="hasImmediateAction">Action</b></button>
-          <button type="button" :class="{ active: mobilePanel === 'map' }" :aria-current="mobilePanel === 'map' ? 'page' : undefined" @click="showMobileMap()"><MapIcon :size="21" aria-hidden="true" /><span>Carte</span><b v-if="store.game.activePlayerId">{{ store.activePlayer?.name }}</b></button>
-          <button type="button" :aria-expanded="portfolioOpen" @click="openPortfolio"><PackageOpen :size="21" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
-        </nav>
+        <MobileGameNavigation v-if="mobileOnly && !portfolioOpen" :active="mobilePanel" :has-immediate-action="hasImmediateAction" :active-player-name="store.activePlayer?.name" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" @resources="openPortfolio" />
 
         <div v-if="tradeOpen" class="trade-backdrop" @click.self="tradeOpen = false">
           <form class="trade-form" @submit.prevent="submitTrade">

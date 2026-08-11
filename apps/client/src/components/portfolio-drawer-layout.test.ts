@@ -6,8 +6,9 @@ const playerView = readFileSync(fileURLToPath(new URL("../views/PlayerView.vue",
 const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.meta.url)), "utf8");
 
 describe("mobile portfolio drawer layout", () => {
-  it("keeps close after pagination in the document flow", () => {
-    expect(playerView.indexOf('class="portfolio-close"')).toBeGreaterThan(playerView.indexOf('class="portfolio-pager"'));
+  it("replaces close with the game navigation in mobile-only mode", () => {
+    expect(playerView.indexOf('active="resources"')).toBeGreaterThan(playerView.indexOf('class="portfolio-pager"'));
+    expect(playerView).toContain('<button v-else class="portfolio-close"');
     expect(theme).not.toMatch(/\.portfolio-close\s*\{[^}]*position:\s*absolute/s);
   });
 
