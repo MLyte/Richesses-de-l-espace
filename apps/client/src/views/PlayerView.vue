@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS } from "@richesses-espace/game";
-import { PLAYER_COLORS, PLAYER_SYMBOLS, type PublicPlayerView } from "@richesses-espace/protocol";
+import { PLAYER_COLORS, PLAYER_SYMBOLS } from "@richesses-espace/protocol";
 import { useGameStore } from "../stores/game";
 import AssetCard from "../components/AssetCard.vue";
 import LandingNotice from "../components/LandingNotice.vue";
@@ -12,7 +12,7 @@ import DiceAnimation from "../components/DiceAnimation.vue";
 import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
-import WorldBoard from "../components/WorldBoard.vue";
+import MobileRouteMap from "../components/MobileRouteMap.vue";
 import { ArrowLeftRight, Dices, HandCoins, Map as MapIcon, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
 
 const route = useRoute();
@@ -38,8 +38,6 @@ const purchaseSelection = ref<string[]>([]);
 const portfolioOpen = ref(false);
 const portfolioPage = ref(0);
 const mobilePanel = ref<"play" | "map">("play");
-const mobileMapScale = ref(1);
-const mobileMapViewport = ref<HTMLElement | null>(null);
 
 onMounted(async () => {
   if (mobilePreview) {
@@ -82,28 +80,8 @@ const portfolioPageCount = computed(() => Math.max(1, resourcePortfolioPages.val
 const activePortfolioPage = computed(() => resourcePortfolioPages.value[portfolioPage.value] ?? null);
 const visibleResources = computed(() => activePortfolioPage.value?.resources ?? []);
 function openPortfolio() { portfolioPage.value = 0; portfolioOpen.value = true; }
-function centerMobileMap(playerId?: string, behavior: ScrollBehavior = "smooth") {
-  const viewport = mobileMapViewport.value;
-  if (!viewport || !playerId) return;
-  const marker = viewport.querySelector<SVGGElement>(`[data-player-id="${CSS.escape(playerId)}"]`);
-  if (!marker) return;
-  const viewportRect = viewport.getBoundingClientRect();
-  const markerRect = marker.getBoundingClientRect();
-  viewport.scrollBy({
-    left: markerRect.left - viewportRect.left - viewport.clientWidth / 2 + markerRect.width / 2,
-    top: markerRect.top - viewportRect.top - viewport.clientHeight / 2 + markerRect.height / 2,
-    behavior
-  });
-}
-async function showMobileMap(playerId = store.game?.activePlayerId ?? undefined) {
+function showMobileMap() {
   mobilePanel.value = "map";
-  await nextTick();
-  centerMobileMap(playerId, "auto");
-}
-async function changeMobileMapScale(delta: number) {
-  mobileMapScale.value = Math.min(1.6, Math.max(.75, Math.round((mobileMapScale.value + delta) * 100) / 100));
-  await nextTick();
-  centerMobileMap(store.game?.activePlayerId ?? undefined, "auto");
 }
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
@@ -147,19 +125,10 @@ const personalMoneyNotice = computed(() => {
   if (!event || !me.value || !["payment_due", "payment_completed"].includes(event.type)) return null;
   return event.data?.payerId === me.value.id || event.data?.recipientId === me.value.id ? event.message : null;
 });
-const mobileMapContext = computed(() => {
-  const active = store.activePlayer;
-  const space = active && store.game ? store.game.board[store.visualPlayerPositions[active.id] ?? active.position] : null;
-  return { active, space };
-});
-const playerSpaceLabel = (player: PublicPlayerView) => store.game?.board[store.visualPlayerPositions[player.id] ?? player.position]?.name ?? `Case ${player.position + 1}`;
 watch(() => store.game?.auction?.mode === "selection" ? `${store.game.turnNumber}:${store.game.auction.sellerId}:${store.game.landedSpaceId}` : null, () => { auctionSelection.value = []; });
 watch(() => store.game?.pendingPurchase ? `${store.game.turnNumber}:${store.game.landedSpaceId}` : null, () => { purchaseSelection.value = []; });
 watch(() => store.player?.allowedActions.join("|") ?? "", () => {
   if (mobileOnly.value && hasImmediateAction.value) mobilePanel.value = "play";
-});
-watch(() => store.game?.activePlayerId, () => {
-  if (mobileOnly.value && mobilePanel.value === "map") void nextTick(() => centerMobileMap(store.game?.activePlayerId ?? undefined));
 });
 
 async function run(action: () => Promise<unknown>) {
@@ -253,19 +222,8 @@ async function finishAsHost() {
         <DiceAnimation v-if="store.diceAnimation && store.diceAnimation.playerId === me.id" class="dice-animation-phone" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" compact />
         <Transition name="event"><div v-if="personalMoneyNotice" class="personal-money-notice">{{ personalMoneyNotice }}</div></Transition>
         <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b></div></div>
-        <section v-if="mobileOnly && mobilePanel === 'map'" class="mobile-map-panel" aria-label="Carte de la partie">
-          <header class="mobile-map-context">
-            <div><span>Tour en cours</span><strong>{{ mobileMapContext.active?.name ?? 'Expédition' }}</strong><small>{{ mobileMapContext.space?.name ?? 'Position en cours de calcul' }}</small></div>
-            <div class="mobile-map-zoom" aria-label="Zoom de la carte"><button type="button" aria-label="Réduire la carte" :disabled="mobileMapScale <= .75" @click="changeMobileMapScale(-.2)">−</button><b>{{ Math.round(mobileMapScale * 100) }} %</b><button type="button" aria-label="Agrandir la carte" :disabled="mobileMapScale >= 1.6" @click="changeMobileMapScale(.2)">+</button></div>
-          </header>
-          <div ref="mobileMapViewport" class="mobile-map-viewport">
-            <div class="mobile-map-board" :style="{ width: `${Math.round(780 * mobileMapScale)}px`, height: `${Math.round(345 * mobileMapScale)}px` }">
-              <WorldBoard :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :visual-positions="store.visualPlayerPositions" />
-            </div>
-          </div>
-          <div class="mobile-map-roster" aria-label="Position des joueurs">
-            <button v-for="player in store.game.players" :key="player.id" type="button" :class="{ active: player.id === store.game.activePlayerId, mine: player.id === me.id }" @click="centerMobileMap(player.id)"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i><span><b>{{ player.name }}<em v-if="player.id === me.id">Vous</em></b><small>{{ playerSpaceLabel(player) }}</small></span></button>
-          </div>
+        <section v-if="mobileOnly && mobilePanel === 'map'" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">
+          <MobileRouteMap :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :current-player-id="me.id" :turn-number="store.game.turnNumber" :ownership="store.game.ownership" :visual-positions="store.visualPlayerPositions" />
         </section>
         <div v-if="store.game.phase === 'PAUSED'" class="state-message pause-phone"><span class="pause-phone__icon" aria-label="Partie en pause"><Pause :size="25" aria-hidden="true" /></span><h2>{{ store.game.pauseReason === 'PLAYER_DISCONNECTED' ? (pausedPlayer?.connected ? 'Connexion rétablie' : 'Connexion interrompue') : 'Pause de l’hôte' }}</h2><p v-if="pausedPlayer && !pausedPlayer.connected"><strong>{{ pausedPlayer.name }}</strong> a perdu la connexion. La partie est gelée jusqu’à son retour, sans modifier les soldes ni le tour.</p><p v-else-if="pausedPlayer"><strong>{{ pausedPlayer.name }}</strong> est revenu·e. L’hôte peut maintenant reprendre la partie depuis son téléphone.</p><p v-else>L’hôte a suspendu la partie. Gardez cette page ouverte : la reprise apparaîtra automatiquement.</p></div>
         <div v-else-if="store.game.phase === 'FINISHED'" class="state-message final-phone"><p class="eyebrow">Partie terminée</p><h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2><p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p></div>

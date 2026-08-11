@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const playerView = readFileSync(fileURLToPath(new URL("./PlayerView.vue", import.meta.url)), "utf8");
 const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.meta.url)), "utf8");
-const board = readFileSync(fileURLToPath(new URL("../components/WorldBoard.vue", import.meta.url)), "utf8");
+const mobileRoute = readFileSync(fileURLToPath(new URL("../components/MobileRouteMap.vue", import.meta.url)), "utf8");
 
 describe("mobile-only game navigation", () => {
   it("separates the phone-only map from the TV controller experience", () => {
@@ -14,7 +14,8 @@ describe("mobile-only game navigation", () => {
     expect(playerView).toContain('searchParams.get("preview") === "mobile"');
     expect(playerView).toContain('await import("../demo/mobile-preview")');
     expect(playerView).toContain('v-if="mobileOnly && mobilePanel === \'map\'"');
-    expect(playerView).toContain('<WorldBoard :board="store.game.board"');
+    expect(playerView).toContain('<MobileRouteMap :board="store.game.board"');
+    expect(playerView).not.toContain('<WorldBoard :board="store.game.board"');
     expect(playerView).toContain("mobileOnly ? 'La carte suit les mouvements de toute la flotte.' : 'Suivez les mouvements sur l’écran commun.'");
   });
 
@@ -26,8 +27,14 @@ describe("mobile-only game navigation", () => {
     expect(theme).toMatch(/\.controller-screen--mobile-only \.dice-button[\s\S]*bottom:\s*calc\(5\.4rem/);
   });
 
-  it("exposes player markers so the mobile viewport can recenter them", () => {
-    expect(board).toContain(':data-player-id="player.id"');
-    expect(playerView).toContain("centerMobileMap(player.id)");
+  it("lists the whole route around the player and recenters at turn start", () => {
+    expect(mobileRoute).toContain("Route orbitale");
+    expect(mobileRoute).toContain("Array.from({ length: props.board.length }");
+    expect(mobileRoute).toContain("routeOrigin.value - beforeCount + offset");
+    expect(mobileRoute).toContain("Case {{ focusedIndex + 1 }}");
+    expect(mobileRoute).toContain('scrollIntoView({ block: "center", behavior })');
+    expect(mobileRoute).toContain("props.turnNumber, props.activePlayerId");
+    expect(mobileRoute).toContain('@click="focusPlayer(player)"');
+    expect(mobileRoute).not.toContain("WorldBoard");
   });
 });
