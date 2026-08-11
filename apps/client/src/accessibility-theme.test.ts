@@ -31,6 +31,10 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
     ["disabled action label", "#b9d8e5", "#132b3d", 4.5],
     ["menu label", "#f3f8fc", "#102a43", 4.5],
     ["portfolio shortcut", "#f3f8fc", "#124a68", 4.5],
+    ["payment summary primary text", "#f3f8fc", "#0b243a", 4.5],
+    ["payment summary secondary text", "#c9e8f4", "#0b243a", 4.5],
+    ["trade summary debit", "#f2674a", "#0b243a", 4.5],
+    ["auction selection label", "#f3f8fc", "#0b243a", 4.5],
     ["error message", "#ffffff", "#a83d3d", 4.5],
     ["light die number and pips", "#06111f", "#f3f8fc", 4.5],
     ["coral die number and pips", "#06111f", "#f2674a", 4.5],
@@ -50,5 +54,27 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
     expect(theme).toMatch(/\.dice-result \.red-die\s*\{[^}]*color:\s*#06111f[^}]*background:\s*#f2674a/s);
     expect(theme).toMatch(/\.die-face\s*\{[^}]*color:\s*#06111f[^}]*background:\s*#f3f8fc/s);
     expect(theme).toMatch(/\.die-face--coral\s*\{[^}]*color:\s*#06111f[^}]*background:\s*#f2674a/s);
+  });
+
+  it("keeps payment and trade summaries on opaque dark surfaces", () => {
+    expect(theme).toMatch(/\.payment-summary\s*\{[^}]*background:\s*#0b243a/s);
+    expect(theme).toMatch(/\.trade-common-grid > div,\s*\.trade-summary > div,\s*\.auction-selection label\s*\{[^}]*background:\s*#0b243a/s);
+    expect(theme).toMatch(/\.auction-selection label\.selected\s*\{[^}]*background:\s*#15344d/s);
+  });
+
+  it("keeps secondary action controls in the dark spatial palette", () => {
+    expect(theme).toMatch(/\.title-actions\s*\{[^}]*background:\s*linear-gradient\(145deg, #153f5d, #0b243a\)/s);
+    expect(theme).toMatch(/\.title-actions button\s*\{[^}]*color:\s*#f3f8fc[^}]*background:\s*#0b243a/s);
+    expect(theme).not.toContain(".title-actions button, .symbol-picker button");
+  });
+
+  it("uses large, keyboard-visible checkbox controls in selection lists", () => {
+    expect(theme).toMatch(/\.auction-selection input\s*\{[^}]*appearance:\s*none[^}]*width:\s*24px[^}]*height:\s*24px/s);
+    expect(theme).toMatch(/\.auction-selection input:checked\s*\{[^}]*background:\s*#35d0e2/s);
+    expect(theme).toMatch(/\.auction-selection input:focus-visible\s*\{[^}]*outline:\s*3px solid #f6c64d/s);
+  });
+
+  it("keeps the mobile action dock in the dark spatial palette", () => {
+    expect(theme).toMatch(/\.controller-screen \.action-row\s*\{[^}]*background:\s*rgba\(5, 22, 38, \.98\)/s);
   });
 });

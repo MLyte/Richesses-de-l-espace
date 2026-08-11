@@ -296,13 +296,13 @@ async function finishAsHost() {
               <div v-if="!myAssets.length" class="empty-portfolio">Vos futures parts apparaîtront ici.</div>
               <div v-else class="resource-score-list resource-score-list--drawer"><ResourceInfluenceScore v-for="resource in visibleResources" :key="resource.id" :resource-id="resource.id" :asset-ids="me.assetIds" /></div>
               <footer v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></footer>
-              <MobileGameNavigation v-if="mobileOnly" active="resources" :has-immediate-action="hasImmediateAction" :active-player-name="store.activePlayer?.name" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" />
+              <MobileGameNavigation v-if="mobileOnly" active="resources" :has-immediate-action="hasImmediateAction" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" />
               <button v-else class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
             </section>
           </div>
         </Teleport>
 
-        <MobileGameNavigation v-if="mobileOnly && !portfolioOpen" :active="mobilePanel" :has-immediate-action="hasImmediateAction" :active-player-name="store.activePlayer?.name" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" @resources="openPortfolio" />
+        <MobileGameNavigation v-if="mobileOnly && !portfolioOpen" :active="mobilePanel" :has-immediate-action="hasImmediateAction" :resource-count="myAssets.length" @play="showMobilePlay" @map="showMobileMap" @resources="openPortfolio" />
 
         <div v-if="tradeOpen" class="trade-backdrop" @click.self="tradeOpen = false">
           <form class="trade-form" @submit.prevent="submitTrade">

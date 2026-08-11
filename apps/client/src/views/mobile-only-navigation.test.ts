@@ -26,12 +26,19 @@ describe("mobile-only game navigation", () => {
     expect(mobileNavigation).toContain("<span>Jouer</span>");
     expect(mobileNavigation).toContain("<span>Carte</span>");
     expect(mobileNavigation).toContain("<span>Ressources</span>");
+    expect(mobileNavigation).toContain('class="mobile-only-navigation__notification"');
+    expect(mobileNavigation).not.toContain(">Action<");
+    expect(mobileNavigation).not.toContain("activePlayerName");
+    expect(theme).toMatch(/\.mobile-only-navigation\s*\{[^}]*gap:\s*\.5rem/s);
+    expect(theme).toMatch(/\.mobile-only-navigation button\s*\{[^}]*border:\s*1px solid rgba\(105, 181, 214, \.3\)[^}]*background:\s*#0b243a/s);
+    expect(theme).toMatch(/\.mobile-only-navigation__notification\s*\{[^}]*background:\s*#ff4d5e/s);
     expect(theme).toMatch(/\.controller-screen--mobile-only \.dice-button[\s\S]*bottom:\s*calc\(5\.4rem/);
   });
 
   it("does not reserve an empty fixed-action row when end turn is inline", () => {
     expect(playerView).toContain('const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")))');
     expect(playerView).toContain("'title-actions--with-primary': hasFixedPrimaryTurnAction");
+    expect(theme).toMatch(/\.controller-screen--mobile-only:has\(\.end-turn-action\)\s*\{[^}]*padding-bottom:\s*calc\(5\.4rem/s);
   });
 
   it("keeps error toasts visible above the bottom navigation", () => {

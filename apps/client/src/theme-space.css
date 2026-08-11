@@ -52,6 +52,70 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   box-shadow: var(--piece-shadow);
 }
 .panel-heading, .phone-header, .controller-meta, .portfolio-section { border-color: var(--line); }
+.payment-summary {
+  border-color: #f6c64d;
+  background: #0b243a;
+}
+.title-actions {
+  border-color: #559db8;
+  background: linear-gradient(145deg, #153f5d, #0b243a);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .32);
+}
+.title-actions > p { color: #c9e8f4; }
+.title-actions button {
+  color: #f3f8fc;
+  border-color: #72a9c2;
+  background: #0b243a;
+  box-shadow: none;
+}
+.title-actions__sale {
+  border-color: #f2674a !important;
+  background: #15344d !important;
+}
+.trade-common-grid > div,
+.trade-summary > div,
+.auction-selection label {
+  border-color: #72a9c2;
+  background: #0b243a;
+}
+.auction-selection label.selected {
+  border-color: #f2674a;
+  background: #15344d;
+}
+.auction-selection { gap: .65rem; }
+.auction-selection label {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: .75rem;
+  min-height: 64px;
+  padding: .85rem .9rem;
+}
+.auction-selection input {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border: 2px solid #72a9c2;
+  border-radius: 7px;
+  background: #071827;
+  cursor: pointer;
+}
+.auction-selection input::after {
+  width: 7px;
+  height: 13px;
+  content: "";
+  border: solid #06111f;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform .14s ease;
+}
+.auction-selection input:checked { border-color: #35d0e2; background: #35d0e2; }
+.auction-selection input:checked::after { transform: rotate(45deg) scale(1); }
+.auction-selection input:focus-visible { outline: 3px solid #f6c64d; outline-offset: 3px; }
+.auction-selection input:disabled { opacity: .55; cursor: not-allowed; }
+.auction-selection span { font-size: .9rem; font-weight: 700; line-height: 1.35; }
+.auction-selection b { font: 600 .82rem "IBM Plex Mono", monospace; }
 .primary-button, .dice-button { color: #06111f; border: 1px solid #ff8c74; background: #f2674a; }
 .primary-button:not(:disabled):hover { color: #06111f; background: #ff8064; }
 .secondary-button { color: var(--ink); border-color: #6fafe7; background: #15344d; }
@@ -242,9 +306,11 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   display: grid; flex: 0 0 40px; place-items: center; width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; aspect-ratio: 1; border-radius: 50%;
 }
 .phone-tools .help-trigger > span { display: none; }
-.title-actions button, .symbol-picker button { opacity: 1; color: #18324a; border-color: #9cb5c7; background: #fffdf4; }
-.title-actions button:disabled { color: #496275; border-color: #b8c8d3; background: #edf2f5; }
-.title-actions button.selected, .symbol-picker button.selected { color: #fff; border-color: #f2674a; background: #f2674a; }
+.title-actions button { opacity: 1; color: #f3f8fc; border-color: #72a9c2; background: #0b243a; }
+.symbol-picker button { opacity: 1; color: #18324a; border-color: #9cb5c7; background: #fffdf4; }
+.title-actions button:disabled { color: #b9d8e5; border-color: #6b899c; background: #132b3d; }
+.title-actions button.selected { color: #06111f; border-color: #f2674a; background: #f2674a; }
+.symbol-picker button.selected { color: #fff; border-color: #f2674a; background: #f2674a; }
 .pause-phone { margin-top: 1.6rem; padding-top: .5rem; }
 
 .portfolio-fab { position: fixed; z-index: 71; left: max(1rem, env(safe-area-inset-left)); bottom: calc(6.15rem + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: .45rem; min-height: 50px; padding: 0 .85rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #124a68; box-shadow: 0 10px 26px rgba(0, 0, 0, .36); font-weight: 800; }
@@ -260,6 +326,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   left: 50%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .5rem;
   width: min(100%, 520px);
   min-height: calc(68px + env(safe-area-inset-bottom));
   padding: .42rem .55rem calc(.42rem + env(safe-area-inset-bottom));
@@ -279,14 +346,29 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   min-height: 58px;
   padding: .35rem .25rem;
   color: #a9c8d8;
-  border: 0;
+  border: 1px solid rgba(105, 181, 214, .3);
   border-radius: 12px;
-  background: transparent;
+  background: #0b243a;
   font: inherit;
   font-size: .69rem;
   font-weight: 800;
 }
-.mobile-only-navigation button.active { color: #06111f; background: #35d0e2; }
+.mobile-only-navigation button.active { color: #06111f; border-color: #35d0e2; background: #35d0e2; }
+.mobile-only-navigation__notification {
+  position: absolute;
+  top: .42rem;
+  right: .48rem;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #06111f;
+  border-radius: 50%;
+  background: #ff4d5e;
+  box-shadow: 0 0 0 2px rgba(255, 77, 94, .25), 0 0 12px rgba(255, 77, 94, .9);
+  animation: navigation-notification-pulse 1.35s ease-in-out infinite;
+}
+@keyframes navigation-notification-pulse {
+  50% { box-shadow: 0 0 0 5px rgba(255, 77, 94, 0), 0 0 16px rgba(255, 77, 94, 1); }
+}
 .mobile-only-navigation button > b {
   position: absolute;
   top: .18rem;
@@ -301,6 +383,9 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-only-navigation__notification { animation: none; }
+}
 .phone-shell:has(.controller-screen--mobile-only) > .error-toast {
   z-index: 90;
   right: auto;
@@ -314,6 +399,9 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   box-shadow: 0 12px 30px rgba(0, 0, 0, .38);
 }
 .controller-screen--mobile-only { padding-bottom: calc(17rem + env(safe-area-inset-bottom)); }
+.controller-screen--mobile-only:has(.end-turn-action) {
+  padding-bottom: calc(5.4rem + env(safe-area-inset-bottom));
+}
 .controller-screen--mobile-only .spectator-map-button { display: inline-flex; align-items: center; gap: .45rem; min-height: 48px; margin-top: 1.2rem; padding: 0 1rem; }
 .controller-screen--mobile-only .dice-button,
 .controller-screen--mobile-only .payment-button,
@@ -325,6 +413,14 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .controller-screen--mobile-only .liquidation-list { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
 .controller-screen--mobile-only .title-actions { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
 .controller-screen--mobile-only .title-actions--with-primary { bottom: calc(10.65rem + env(safe-area-inset-bottom)); }
+
+@media (max-width: 600px) {
+  .controller-screen .action-row {
+    border-top-color: #72a9c2;
+    background: rgba(5, 22, 38, .98);
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, .36);
+  }
+}
 
 .mobile-map-panel {
   position: fixed;

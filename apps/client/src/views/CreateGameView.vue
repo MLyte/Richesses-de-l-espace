@@ -34,7 +34,8 @@ async function createMobileGame(): Promise<void> {
         <span class="mode-card__tag">{{ staticDemo ? 'Aperçu grand écran' : mobileDevice ? 'Avec un autre écran' : 'Recommandé sur cet appareil' }}</span>
         <strong>{{ staticDemo ? 'Interface TV simulée' : 'Pont de commandement' }}</strong>
         <span>{{ staticDemo ? 'Observez la carte, les portefeuilles et les événements comme ils apparaîtront sur l’écran commun.' : 'La carte stellaire, les trajectoires et les événements sont projetés sur une TV ou un grand écran.' }}</span>
-        <b>{{ staticDemo ? 'Explorer l’écran commun' : 'Activer le pont de commandement' }}</b>
+        <small class="mode-card__mobile-note">Optionnel · recommandé sur grand écran.</small>
+        <b>{{ staticDemo ? 'Voir l’aperçu TV' : 'Activer le pont de commandement' }}</b>
       </button>
 
       <button type="button" class="mode-card mode-card--mobile" :disabled="store.pending" @click="createMobileGame">
@@ -68,7 +69,32 @@ async function createMobileGame(): Promise<void> {
 .mode-card > span:nth-of-type(3) { grid-column: 1 / -1; grid-row: 3; font-size: clamp(1rem, 1.25vw, 1.2rem); line-height: 1.5; }
 .mode-card b { grid-column: 1 / -1; grid-row: 4; align-self: end; padding: 1rem 1.25rem; text-align: center; color: #06111f; background: #35d0e2; border-radius: 12px; }
 .mode-card--mobile b { background: #f2674a; }
+.mode-card__mobile-note { display: none; }
 .create-game__note { display: flex; align-items: center; gap: .65rem; margin: 0; font-size: 1rem; }
 @media (max-width: 1100px) and (min-width: 761px) { .create-game { place-content: start center; padding: clamp(2rem, 5vw, 4rem); } .create-game__choices { grid-template-columns: minmax(0, 560px); } }
-@media (max-width: 760px) { .create-game { width: 100%; max-width: 100vw; place-content: start stretch; gap: 1.7rem; padding: 1.2rem; } .create-game__intro, .create-game__choices, .create-game__note { width: 100%; max-width: calc(100vw - 2.4rem); min-width: 0; } .create-game__intro h1 { max-width: 100%; overflow-wrap: anywhere; font-size: clamp(2.1rem, 10.5vw, 3rem); } .create-game__choices { grid-template-columns: minmax(0, 1fr); } .mode-card { width: 100%; max-width: calc(100vw - 2.4rem); grid-template-columns: 58px minmax(0, calc(100% - 78px)); min-height: 245px; padding: 1.25rem; } .mode-card > * { min-width: 0; max-width: 100%; } .mode-card > span:nth-of-type(3) { overflow-wrap: anywhere; } .mode-card__icon { width: 58px; height: 58px; } }
+@media (max-width: 760px) {
+  .create-game { width: 100%; max-width: 100vw; place-content: start stretch; gap: 1.7rem; padding: 1.2rem; }
+  .create-game__intro, .create-game__choices, .create-game__note { width: 100%; max-width: calc(100vw - 2.4rem); min-width: 0; }
+  .create-game__intro h1 { max-width: 100%; overflow-wrap: anywhere; font-size: clamp(2.1rem, 10.5vw, 3rem); }
+  .create-game__choices { grid-template-columns: minmax(0, 1fr); gap: .8rem; }
+  .mode-card { width: 100%; max-width: calc(100vw - 2.4rem); grid-template-columns: 58px minmax(0, calc(100% - 78px)); min-height: 245px; padding: 1.25rem; }
+  .mode-card > * { min-width: 0; max-width: 100%; }
+  .mode-card > span:nth-of-type(3) { overflow-wrap: anywhere; }
+  .mode-card__icon { width: 58px; height: 58px; }
+  .mode-card--mobile { order: -1; }
+  .mode-card--tv {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    min-height: 0;
+    padding: .85rem .95rem;
+    gap: .15rem .7rem;
+  }
+  .mode-card--tv .mode-card__icon { grid-column: 1; grid-row: 1 / span 2; width: 42px; height: 42px; border-radius: 12px; }
+  .mode-card--tv .mode-card__tag { grid-column: 2; grid-row: 1; align-self: end; font-size: .62rem; }
+  .mode-card--tv strong { grid-column: 2; grid-row: 2; align-self: start; font-size: 1rem; }
+  .mode-card--tv > span:nth-of-type(3) { display: none; }
+  .mode-card--tv .mode-card__mobile-note { display: block; grid-column: 2; grid-row: 3; color: #9ec2d8; font-size: .68rem; line-height: 1.35; }
+  .mode-card--tv b { grid-column: 3; grid-row: 1 / span 3; align-self: center; padding: .58rem .65rem; color: #c9e8f4; border: 1px solid #72a9c2; border-radius: 10px; background: #0b243a; font-size: .65rem; }
+}
 </style>
