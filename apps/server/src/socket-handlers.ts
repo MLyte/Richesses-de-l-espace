@@ -5,8 +5,8 @@ import {
   pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, setPlayerConnected,
   selectAuctionAssets, setPlayerReady, startGame, useLever,
   type GameState
-} from "@orbisium/game";
-import type { CommandResult, DisplayMode, PlayerAction, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@orbisium/protocol";
+} from "@richesses-espace/game";
+import type { CommandResult, DisplayMode, PlayerAction, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
 import { getJoinUrls } from "./network-addresses";
 import { RoomStore, type Room } from "./room-store";
 
@@ -39,13 +39,13 @@ function publicView(room: Room, publicPort: number, publicOrigin?: string): Publ
   const state = room.state;
   return {
     code: state.code, displayMode: room.displayMode, revision: state.revision, status: state.status, phase: state.phase,
-    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt }) => ({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, netWorth: getNetWorth(state, id), sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(state, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number> })),
+    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: getNetWorth(state, id), sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(state, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number> })),
     activePlayerId: state.activePlayerId, turnNumber: state.turnNumber, roundNumber: state.roundNumber,
     ownership: state.ownership, lastRoll: state.lastRoll,
     pendingAssetId: state.pendingAction?.availableAssetIds[0] ?? null,
     pendingPrice: null,
     pendingPurchase: state.pendingAction ? { source: state.pendingAction.source, countryId: state.pendingAction.countryId, resourceId: state.pendingAction.resourceId, label: state.pendingAction.label, availableAssetIds: state.pendingAction.availableAssetIds, maxAssets: state.pendingAction.maxAssets } : null,
-    pendingLever: state.pendingLever ? { leverId: state.pendingLever.leverId, price: state.pendingLever.price } : null,
+    pendingLever: state.pendingLever ? { price: state.pendingLever.price } : null,
     pendingPayment: state.pendingPayment ? { ...state.pendingPayment, payableAmount: Math.min(state.players.find((player) => player.id === state.pendingPayment!.payerId)?.capital ?? 0, state.pendingPayment.amount) } : null,
     auction: state.auction, tradeOffer: state.tradeOffer, lastCard: state.lastCard,
     landedSpaceId: state.landedSpaceId, landedAssetId: state.landedAssetId, pauseReason: state.pauseReason, pausePlayerId: state.pausePlayerId,
@@ -67,7 +67,9 @@ function actionsFor(state: GameState, playerId: string): PlayerAction[] {
   if (state.phase === "WAITING_FOR_TRADE" && state.tradeOffer?.proposerId === playerId) return ["REJECT_TRADE"];
   const actions: PlayerAction[] = [];
   const player = state.players.find((item) => item.id === playerId);
-  if (!player?.bankrupt && (state.phase === "WAITING_FOR_ROLL" || state.phase === "WAITING_FOR_END_TURN")) actions.push("PROPOSE_TRADE");
+  if (player?.mergedIntoId) return [];
+  const canLiquidateDebt = state.phase === "WAITING_FOR_PAYMENT" && state.activePlayerId === playerId && state.pendingPayment?.payerId === playerId && (player?.capital ?? 0) < state.pendingPayment.amount && Boolean(player?.assetIds.length);
+  if (!player?.bankrupt && (state.phase === "WAITING_FOR_ROLL" || state.phase === "WAITING_FOR_END_TURN" || canLiquidateDebt)) actions.push("PROPOSE_TRADE");
   if (state.activePlayerId !== playerId) return actions;
   if (state.phase === "WAITING_FOR_ROLL") actions.push("ROLL_DICE");
   if (state.phase === "WAITING_FOR_PURCHASE") actions.push("BUY_ASSET", "PASS_ASSET");
@@ -82,11 +84,13 @@ function actionsFor(state: GameState, playerId: string): PlayerAction[] {
 }
 
 function playerView(room: Room, playerId: string, sessionToken: string): PlayerGameView {
-  return { playerId, token: sessionToken, isHost: room.hostPlayerId === playerId, allowedActions: actionsFor(room.state, playerId), leverIds: room.state.players.find((player) => player.id === playerId)?.leverIds ?? [] };
+  const pendingLever = room.state.pendingLever?.playerId === playerId ? { leverId: room.state.pendingLever.leverId, price: room.state.pendingLever.price } : null;
+  return { playerId, token: sessionToken, isHost: room.hostPlayerId === playerId, allowedActions: actionsFor(room.state, playerId), leverIds: room.state.players.find((player) => player.id === playerId)?.leverIds ?? [], pendingLever };
 }
 
 export function registerSocketHandlers(io: Server, store: RoomStore, publicPort: number, publicOrigin?: string): void {
   const auctionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const auctionPausedAt = new Map<string, number>();
   function broadcast(room: Room): void {
     io.to(room.state.code).emit("state:public", publicView(room, publicPort, publicOrigin));
     for (const client of io.sockets.sockets.values()) {
@@ -107,7 +111,11 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     const existing = auctionTimers.get(room.state.code); if (existing) clearTimeout(existing);
     auctionTimers.delete(room.state.code);
     const deadline = room.state.auction?.mode === "bidding" ? room.state.auction.deadline : null;
-    if (!deadline) return;
+    if (room.state.phase === "PAUSED" && room.state.previousPhase === "AUCTION" && deadline) {
+      if (!auctionPausedAt.has(room.state.code)) auctionPausedAt.set(room.state.code, Date.now());
+      return;
+    }
+    if (room.state.phase !== "AUCTION" || !deadline) return;
     const timer = setTimeout(() => {
       const before = room.state.revision;
       room.state = closeExpiredAuction(room.state, Date.now());
@@ -115,6 +123,18 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       scheduleAuction(room);
     }, Math.max(0, deadline - Date.now()) + 5);
     auctionTimers.set(room.state.code, timer);
+  }
+
+  function resumeRoom(room: Room): void {
+    const pausedAt = auctionPausedAt.get(room.state.code);
+    let next = resumeGame(room.state);
+    if (pausedAt && next.auction?.mode === "bidding" && next.auction.deadline) {
+      next = { ...next, auction: { ...next.auction, deadline: next.auction.deadline + Date.now() - pausedAt } };
+    }
+    auctionPausedAt.delete(room.state.code);
+    room.state = next;
+    publish(room);
+    scheduleAuction(room);
   }
 
   function mutate(room: Room, mutation: (state: GameState) => GameState): void {
@@ -133,10 +153,29 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
 
   function requireAdmin(socket: Socket): { room: Room; session: SessionData } {
     const result = requireRoom(socket);
-    if (result.session.role !== "admin" && !(result.session.role === "player" && result.session.isHost)) {
+    if (result.session.role !== "player" || !result.session.isHost) {
       throw new RuleError("UNAUTHORIZED", "Seul l’hôte peut administrer la partie.");
     }
     return result;
+  }
+
+  function detachSession(socket: Socket): void {
+    const previous = sessionOf(socket);
+    if (!previous.code) return;
+    socket.leave(previous.code);
+    if (previous.role === "player" && previous.playerId && previous.token) {
+      const room = store.get(previous.code);
+      const replacementExists = [...io.sockets.sockets.values()].some((client) => client.id !== socket.id && sessionOf(client).token === previous.token);
+      if (room && !replacementExists) {
+        room.state = setPlayerConnected(room.state, previous.playerId, false);
+        const disconnectedPlayer = room.state.players.find((player) => player.id === previous.playerId);
+        const mustPause = Boolean(disconnectedPlayer && !disconnectedPlayer.bankrupt && !disconnectedPlayer.mergedIntoId);
+        if (mustPause && room.state.status === "PLAYING" && room.state.phase !== "PAUSED" && room.state.phase !== "FINISHED") room.state = pauseGame(room.state, "PLAYER_DISCONNECTED", previous.playerId);
+        broadcast(room);
+        scheduleAuction(room);
+      }
+    }
+    for (const key of ["code", "role", "token", "playerId", "isHost"] as const) delete previous[key];
   }
 
   io.on("connection", (socket) => {
@@ -145,6 +184,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       const ack = typeof payloadOrAck === "function" ? payloadOrAck : maybeAck!;
       safe(ack, () => {
       const displayMode: DisplayMode = payload?.displayMode === "MOBILE_ONLY" ? "MOBILE_ONLY" : "TV";
+      detachSession(socket);
       const room = store.create(displayMode);
       const session = sessionOf(socket);
       Object.assign(session, { code: room.state.code, role: "admin", token: room.adminToken });
@@ -158,6 +198,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       const name = payload.name?.trim() ?? "";
       if (name.length < 1 || name.length > 20) throw new Error("INVALID_NAME");
       const { room, playerId, playerToken, isHost } = store.join(payload.code?.trim().toUpperCase() ?? "", name, payload.color ?? "", payload.symbol ?? "", payload.hostToken);
+      detachSession(socket);
       Object.assign(sessionOf(socket), { code: room.state.code, role: "player", token: playerToken, playerId, isHost });
       socket.join(room.state.code);
       broadcast(room);
@@ -168,6 +209,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       const found = payload.token ? store.findByToken(payload.token) : undefined;
       if (!found || !payload.token) throw new Error("SESSION_NOT_FOUND");
       const session = sessionOf(socket);
+      if (session.code && (session.code !== found.room.state.code || session.token !== payload.token)) detachSession(socket);
       Object.assign(session, { code: found.room.state.code, role: found.role, token: payload.token, playerId: found.playerId, isHost: found.isHost });
       socket.join(found.room.state.code);
       if (found.role === "player" && found.playerId) found.room.state = setPlayerConnected(found.room.state, found.playerId, true);
@@ -198,25 +240,13 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     socket.on("trade:reject", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => respondToTrade(state, session.playerId!, false)); return undefined; }));
     socket.on("turn:end", (ack: Ack) => safe(ack, () => { const { room, session } = requireRoom(socket, "player"); mutate(room, (state) => endTurn(state, session.playerId!)); return undefined; }));
     socket.on("admin:pause", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, pauseGame); return undefined; }));
-    socket.on("admin:resume", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, resumeGame); return undefined; }));
+    socket.on("admin:resume", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); resumeRoom(room); return undefined; }));
     socket.on("admin:end", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, finishGame); return undefined; }));
     socket.on("admin:restart", (ack: Ack) => safe(ack, () => { const { room } = requireAdmin(socket); mutate(room, restartGame); return undefined; }));
 
     socket.on("disconnect", () => {
-      const session = sessionOf(socket);
-      if (session.role !== "player" || !session.code || !session.playerId || !session.token) return;
-      const replacementExists = [...io.sockets.sockets.values()].some((client) => client.id !== socket.id && sessionOf(client).token === session.token);
-      if (replacementExists) return;
-      const room = store.get(session.code);
-      if (!room) return;
-      try {
-        room.state = setPlayerConnected(room.state, session.playerId, false);
-        const auctionNeedsPlayer = room.state.phase === "AUCTION" && room.state.auction?.eligiblePlayerIds.includes(session.playerId) && !room.state.auction.passedPlayerIds.includes(session.playerId) && room.state.auction.leaderId !== session.playerId;
-        const tradeNeedsPlayer = room.state.phase === "WAITING_FOR_TRADE" && (room.state.tradeOffer?.proposerId === session.playerId || room.state.tradeOffer?.targetId === session.playerId);
-        const mustPause = room.state.activePlayerId === session.playerId || auctionNeedsPlayer || tradeNeedsPlayer;
-        if (mustPause && room.state.status === "PLAYING" && room.state.phase !== "PAUSED" && room.state.phase !== "FINISHED") room.state = pauseGame(room.state, "PLAYER_DISCONNECTED", session.playerId);
-        broadcast(room);
-      } catch { /* La salle peut avoir été fermée. */ }
+      try { detachSession(socket); }
+      catch { /* La salle peut avoir été fermée. */ }
     });
   });
 }

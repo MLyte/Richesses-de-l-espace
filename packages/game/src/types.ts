@@ -1,17 +1,26 @@
-export type SectorId = "energy" | "metals" | "agriculture" | "biomaterials";
+export type ResourceFamilyId = "minerals" | "biospheres" | "energies" | "volatiles" | "networks";
+/** @deprecated Use ResourceFamilyId. Kept for wire compatibility. */
+export type SectorId = ResourceFamilyId;
 export type AssetId = string;
 export type PlayerId = string;
 
-export interface Sector { id: SectorId; name: string; shortName: string; color: string; icon: string }
-export interface Asset { id: AssetId; name: string; countryId: string; hub: string; resourceId: string; sectorId: SectorId; share: number; basePrice: number; imageId: string }
+export interface ResourceFamily { id: ResourceFamilyId; name: string; shortName: string; color: string; icon: string }
+export type Sector = ResourceFamily;
+export interface SpaceConcession {
+  id: AssetId; name: string; worldId: string; systemId: string; stellarSectorId: string;
+  resourceId: string; familyId: ResourceFamilyId; sharePercent: number; purchasePrice: number; imageId: string;
+  /** @deprecated Compatibility aliases removed from all presentation copy. */
+  countryId: string; hub: string; sectorId: ResourceFamilyId; share: number; basePrice: number;
+}
+export type Asset = SpaceConcession;
 
 export type SpecialSpaceKind = "trend" | "joker" | "auction" | "dividend" | "regional_choice" | "global_choice" | "customs";
 type BoardCoordinates = { id: string; name: string; x: number; y: number };
 export type BoardSpace =
   | (BoardCoordinates & { type: "hub" })
-  | (BoardCoordinates & { type: "asset"; assetId: AssetId })
+  | (BoardCoordinates & { type: "asset"; assetId: AssetId; worldId: string; resourceId: string })
   | (BoardCoordinates & { type: "special"; kind: "dividend"; resourceId: string })
-  | (BoardCoordinates & { type: "special"; kind: "regional_choice"; regionName: string; continents: string[] })
+  | (BoardCoordinates & { type: "special"; kind: "regional_choice"; regionName: string; sectorIds: string[]; continents: string[] })
   | (BoardCoordinates & { type: "special"; kind: Exclude<SpecialSpaceKind, "dividend" | "regional_choice"> });
 
 export type GamePhase = "LOBBY" | "WAITING_FOR_ROLL" | "WAITING_FOR_PURCHASE" | "WAITING_FOR_LEVER_PURCHASE" | "WAITING_FOR_PAYMENT" | "AUCTION" | "WAITING_FOR_TRADE" | "WAITING_FOR_END_TURN" | "PAUSED" | "FINISHED";
@@ -19,6 +28,7 @@ export type GamePhase = "LOBBY" | "WAITING_FOR_ROLL" | "WAITING_FOR_PURCHASE" | 
 export interface PlayerState {
   id: PlayerId; name: string; color: string; symbol: string; connected: boolean; ready: boolean;
   position: number; lapsCompleted: number; turnsToSkip: number; capital: number; assetIds: AssetId[]; leverIds: string[]; bankrupt: boolean;
+  allianceId: string | null; mergedIntoId: PlayerId | null;
 }
 
 export interface PurchaseDecision {
@@ -40,9 +50,10 @@ export interface AuctionState {
 
 export interface TradeOffer {
   id: string; proposerId: PlayerId; targetId: PlayerId;
+  kind?: "trade" | "alliance"; allianceTax?: number;
   offeredResourceId: string | null; requestedResourceId: string | null;
   offeredCredits: number; requestedCredits: number;
-  returnPhase: "WAITING_FOR_ROLL" | "WAITING_FOR_END_TURN";
+  returnPhase: "WAITING_FOR_ROLL" | "WAITING_FOR_PAYMENT" | "WAITING_FOR_END_TURN";
 }
 
 export type FinishReason = "ADMIN" | "LAST_SOLVENT";

@@ -4,10 +4,10 @@ import { describe, expect, it } from "vitest";
 import { licensedImages } from "./assets-manifest";
 
 describe("licensed card assets", () => {
-  it("documents 20 distinct photographs", () => {
+  it("documents 20 vues d’artiste distinctes avec leur provenance", () => {
     expect(licensedImages).toHaveLength(20);
-    expect(new Set(licensedImages.map((image) => image.sourceUrl)).size).toBe(20);
-    expect(licensedImages.every((image) => image.author && image.licenseUrl)).toBe(true);
+    expect(new Set(licensedImages.map((image) => image.id)).size).toBe(20);
+    expect(licensedImages.every((image) => image.author && image.licenseUrl && image.classification === "artist_impression" && image.promptReference)).toBe(true);
   });
 
   it("ships every responsive format within the size budget", () => {

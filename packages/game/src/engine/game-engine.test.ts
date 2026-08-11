@@ -5,7 +5,7 @@ import { COUNTRIES } from "../data/countries";
 import { LEVER_CARDS } from "../data/levers";
 import { TREND_CARDS } from "../data/trends";
 import type { GameState } from "../types";
-import { addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, getCurrentPrice, getPaymentAmount, passAuction, passPendingAsset, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, rollDice, selectAuctionAssets, setPlayerReady, startGame, useLever } from "./game-engine";
+import { addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, getCurrentPrice, getPaymentAmount, getRoyaltyAmount, passAuction, passPendingAsset, passPendingLever, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, selectAuctionAssets, setPlayerReady, startGame, useLever } from "./game-engine";
 
 function startedGame() {
   let game = createGame("game", "TEST", 1);
@@ -38,7 +38,7 @@ function landOnSpace(game: GameState, spaceId: string) {
   return rollDice({ ...game, players: game.players.map((player) => player.id === "p1" ? { ...player, position: (index - total + BOARD.length) % BOARD.length } : player) }, "p1");
 }
 
-describe("Orbisium game engine", () => {
+describe("Richesses de l’espace game engine", () => {
   it("starts with two ready players", () => {
     const game = startedGame();
     expect(game.phase).toBe("WAITING_FOR_ROLL");
@@ -68,8 +68,8 @@ describe("Orbisium game engine", () => {
   it("purchases several available titles from the country catalogue", () => {
     let game = startedGame();
     const initialCapital = game.players[0]!.capital;
-    const titles = ASSETS.filter((asset) => asset.countryId === "solara").slice(0, 3);
-    game = { ...game, phase: "WAITING_FOR_PURCHASE", pendingAction: { type: "purchase", source: "classic", playerId: "p1", countryId: "solara", resourceId: "solar-flux", label: "Solara", availableAssetIds: titles.map((title) => title.id), maxAssets: 6 } };
+    const titles = ASSETS.filter((asset) => asset.worldId === "mercure").slice(0, 3);
+    game = { ...game, phase: "WAITING_FOR_PURCHASE", pendingAction: { type: "purchase", source: "classic", playerId: "p1", countryId: "mercure", resourceId: "aluminous-regolith", label: "Mercure", availableAssetIds: titles.map((title) => title.id), maxAssets: 6 } };
     game = buyPendingAsset(game, "p1", titles.map((title) => title.id));
     expect(game.players[0]?.capital).toBe(initialCapital - titles.reduce((total, title) => total + title.basePrice, 0));
     expect(titles.every((title) => game.ownership[title.id] === "p1")).toBe(true);
@@ -91,7 +91,7 @@ describe("Orbisium game engine", () => {
   });
 
   it("declares bankruptcy when an Actualité payment to the bank is unaffordable", () => {
-    const card = TREND_CARDS.find((candidate) => candidate.id === "industrial-pause")!;
+    const card = TREND_CARDS.find((candidate) => candidate.id === "orbital-maintenance")!;
     let initial = startedGameWithThree();
     initial = {
       ...initial,
@@ -107,12 +107,12 @@ describe("Orbisium game engine", () => {
   });
 
   it("buys from the country then pays every qualified holder of the case resource", () => {
-    const featured = ASSETS.find((asset) => asset.resourceId === "solar-flux" && asset.share === 30)!;
+    const featured = ASSETS.find((asset) => asset.resourceId === "aluminous-regolith" && asset.share === 30)!;
     const space = BOARD.find((item) => item.type === "asset" && ASSETS.find((asset) => asset.id === item.assetId)?.resourceId === featured.resourceId)!;
     let initial = startedGame();
     initial = { ...initial, players: initial.players.map((player) => player.id === "p2" ? { ...player, assetIds: [featured.id] } : player), ownership: { [featured.id]: "p2" } };
     let game = landOnSpace(initial, space.id);
-    expect(game.pendingAction?.countryId).toBe("solara");
+    expect(game.pendingAction?.countryId).toBe("mercure");
     expect(game.pendingAction?.availableAssetIds).not.toContain(featured.id);
     game = passPendingAsset(game, "p1");
     expect(game.phase).toBe("WAITING_FOR_PAYMENT");
@@ -120,14 +120,14 @@ describe("Orbisium game engine", () => {
   });
 
   it("queues royalties for every other player holding at least 30 percent", () => {
-    const titles = ASSETS.filter((asset) => asset.resourceId === "solar-flux");
+    const titles = ASSETS.filter((asset) => asset.resourceId === "aluminous-regolith");
     let game = startedGameWithThree();
     game = {
       ...game,
       players: game.players.map((player) => player.id === "p2" ? { ...player, assetIds: [titles[0]!.id] } : player.id === "p3" ? { ...player, assetIds: [titles[1]!.id, titles[2]!.id] } : player),
       ownership: { [titles[0]!.id]: "p2", [titles[1]!.id]: "p3", [titles[2]!.id]: "p3" }
     };
-    const space = BOARD.find((item) => item.type === "asset" && ASSETS.find((asset) => asset.id === item.assetId)?.resourceId === "solar-flux")!;
+    const space = BOARD.find((item) => item.type === "asset" && item.resourceId === "aluminous-regolith")!;
     game = landOnSpace(game, space.id);
     game = passPendingAsset(game, "p1");
     expect(game.pendingPayment?.recipientId).toBe("p2");
@@ -139,9 +139,23 @@ describe("Orbisium game engine", () => {
   });
 
   it("pays nothing below 30 percent of the resource", () => {
-    const title = ASSETS.find((asset) => asset.resourceId === "solar-flux" && asset.share === 25)!;
+    const title = ASSETS.find((asset) => asset.resourceId === "aluminous-regolith" && asset.share === 25)!;
     const game = { ...startedGame(), players: startedGame().players.map((player) => player.id === "p2" ? { ...player, assetIds: [title.id] } : player) };
     expect(getPaymentAmount(game, title, "p2")).toBe(0);
+  });
+
+  it("applies the exact 29/30/49/50/69/70/89/90 percent thresholds", () => {
+    const resource = ASSETS[0]!.resourceId;
+    expect([29, 49, 69, 89].map((share) => getRoyaltyAmount(resource, share))).toEqual([
+      0,
+      getRoyaltyAmount(resource, 30),
+      getRoyaltyAmount(resource, 50),
+      getRoyaltyAmount(resource, 70)
+    ]);
+    expect(getRoyaltyAmount(resource, 30)).toBeGreaterThan(0);
+    expect(getRoyaltyAmount(resource, 50)).toBeGreaterThan(getRoyaltyAmount(resource, 49));
+    expect(getRoyaltyAmount(resource, 70)).toBeGreaterThan(getRoyaltyAmount(resource, 69));
+    expect(getRoyaltyAmount(resource, 90)).toBeGreaterThan(getRoyaltyAmount(resource, 89));
   });
 
   it("charges the bank tax on a double without granting another turn", () => {
@@ -149,9 +163,13 @@ describe("Orbisium game engine", () => {
     game = addPlayer(game, { id: "p1", name: "Aline", color: "#e05f42", symbol: "star" });
     game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "diamond" });
     game = setPlayerReady(setPlayerReady(game, "p1", true), "p2", true);
-    game = rollDice(startGame(game), "p1");
+    game = startGame(game);
+    const destinationIndex = BOARD.findIndex((space, index) => index > 4 && space.type === "asset");
+    game = { ...game, players: game.players.map((player) => player.id === "p1" ? { ...player, position: destinationIndex - 4 } : player) };
+    const capitalBefore = game.players[0]!.capital;
+    game = rollDice(game, "p1");
     expect(game.lastRoll?.dice).toEqual([2, 2]);
-    expect(game.players[0]?.capital).toBe(98);
+    expect(game.players[0]?.capital).toBe(capitalBefore - 2);
     expect(game.recentEvents.find((event) => event.type === "double_tax_paid")?.data).toMatchObject({ bankDirection: "player_to_bank", amount: 2, appliedAmount: 2, shortfall: 0 });
   });
 
@@ -312,7 +330,7 @@ describe("Orbisium game engine", () => {
     expect(game.phase).toBe("AUCTION");
     expect(game.auction?.mode).toBe("selection");
     expect(game.auction?.sellerId).toBe("p1");
-    const selected = owned.slice(0, game.auction!.targetCount);
+    const selected = owned;
     game = selectAuctionAssets(game, "p1", selected);
     expect(game.auction?.mode).toBe("bidding");
     expect(game.auction?.lots).toHaveLength(1);
@@ -369,6 +387,26 @@ describe("Orbisium game engine", () => {
     expect(group.every((asset) => game.ownership[asset.id] === "p2")).toBe(true);
   });
 
+  it("lets a threatened player liquidate a portfolio before declaring bankruptcy", () => {
+    const concession = ASSETS[0]!;
+    let game = startedGame();
+    game = {
+      ...game,
+      phase: "WAITING_FOR_PAYMENT",
+      ownership: { [concession.id]: "p1" },
+      players: game.players.map((player) => player.id === "p1" ? { ...player, capital: 1, assetIds: [concession.id] } : player),
+      pendingPayment: { type: "payment", payerId: "p1", recipientId: "p2", assetId: concession.id, resourceId: concession.resourceId, amount: 3 }
+    };
+    game = proposeTrade(game, "p1", { targetId: "p2", offeredResourceId: concession.resourceId, requestedResourceId: null, offeredCredits: 0, requestedCredits: 5 });
+    expect(game.tradeOffer?.returnPhase).toBe("WAITING_FOR_PAYMENT");
+    game = respondToTrade(game, "p2", true);
+    expect(game.phase).toBe("WAITING_FOR_PAYMENT");
+    expect(game.players.find((player) => player.id === "p1")?.capital).toBe(6);
+    expect(game.ownership[concession.id]).toBe("p2");
+    game = payPendingPayment(game, "p1");
+    expect(game.phase).toBe("WAITING_FOR_END_TURN");
+  });
+
   it("allows an inactive player to exchange resource groups but not to initiate a sale", () => {
     const first = ASSETS[0]!;
     const second = ASSETS.find((asset) => asset.resourceId !== first.resourceId)!;
@@ -376,6 +414,29 @@ describe("Orbisium game engine", () => {
     const game = { ...started, ownership: { [first.id]: "p1", [second.id]: "p2" }, players: started.players.map((player) => player.id === "p1" ? { ...player, assetIds: [first.id] } : { ...player, assetIds: [second.id] }) };
     expect(proposeTrade(game, "p2", { targetId: "p1", offeredResourceId: second.resourceId, requestedResourceId: first.resourceId, offeredCredits: 0, requestedCredits: 0 }).phase).toBe("WAITING_FOR_TRADE");
     expect(() => proposeTrade(game, "p2", { targetId: "p1", offeredResourceId: second.resourceId, requestedResourceId: null, offeredCredits: 0, requestedCredits: 3 })).toThrowError(/pendant votre tour/);
+  });
+
+  it("forms a taxed joint consortium and keeps only the more valuable pawn active", () => {
+    const first = ASSETS[0]!;
+    const second = ASSETS.find((item) => item.resourceId !== first.resourceId)!;
+    let game = startedGameWithThree();
+    game = {
+      ...game,
+      ownership: { [first.id]: "p1", [second.id]: "p2" },
+      players: game.players.map((player) => player.id === "p1" ? { ...player, assetIds: [first.id] } : player.id === "p2" ? { ...player, assetIds: [second.id] } : player)
+    };
+    const tax = (first.purchasePrice + second.purchasePrice) / 2;
+    game = proposeTrade(game, "p1", { targetId: "p2", kind: "alliance", offeredResourceId: null, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0 });
+    expect(game.tradeOffer).toMatchObject({ kind: "alliance", allianceTax: tax });
+    game = respondToTrade(game, "p2", true);
+    const pilot = game.players.find((player) => !player.mergedIntoId && player.allianceId)!;
+    const associate = game.players.find((player) => player.mergedIntoId === pilot.id)!;
+    expect(pilot.assetIds).toEqual(expect.arrayContaining([first.id, second.id]));
+    expect(pilot.capital).toBe(132 - tax * 2);
+    expect(associate.assetIds).toEqual([]);
+    expect(associate.capital).toBe(0);
+    expect(game.ownership[first.id]).toBe(pilot.id);
+    expect(game.ownership[second.id]).toBe(pilot.id);
   });
 
   it("uses a purchased Joker to cancel a forced sale", () => {
@@ -407,6 +468,73 @@ describe("Orbisium game engine", () => {
     expect(game.finishReason).toBe("LAST_SOLVENT");
   });
 
+  it("does not name a winner when the host stops the game", () => {
+    let game = startedGame();
+    game = { ...game, players: game.players.map((player) => player.id === "p1" ? { ...player, capital: 200 } : player) };
+
+    game = finishGame(game);
+
+    expect(game.finishReason).toBe("ADMIN");
+    expect(game.winnerId).toBeNull();
+    expect(game.recentEvents.at(-1)).toMatchObject({ type: "game_finished" });
+    expect(game.recentEvents.at(-1)?.playerId).toBeUndefined();
+  });
+
+  it("allows a complete indivisible group even when a smaller holding is also present", () => {
+    const group = ASSETS.filter((asset) => asset.resourceId === ASSETS[0]!.resourceId).slice(0, 4);
+    const extra = ASSETS.find((asset) => asset.resourceId !== group[0]!.resourceId)!;
+    let game = startedGameWithThree();
+    game = {
+      ...game,
+      phase: "AUCTION",
+      ownership: Object.fromEntries([...group, extra].map((asset) => [asset.id, "p1"])),
+      players: game.players.map((player) => player.id === "p1" ? { ...player, assetIds: [...group, extra].map((asset) => asset.id) } : player),
+      auction: { mode: "selection", sellerId: "p1", bankSale: false, targetCount: 2, redDie: 2, assetId: group[0]!.id, selectedAssetIds: [], lots: [], currentLotIndex: 0, minimumBid: 0, currentBid: 0, leaderId: null, eligiblePlayerIds: ["p2", "p3"], passedPlayerIds: [], deadline: null }
+    };
+
+    game = selectAuctionAssets(game, "p1", group.map((asset) => asset.id));
+
+    expect(game.auction?.mode).toBe("bidding");
+    expect(game.auction?.selectedAssetIds).toEqual(group.map((asset) => asset.id));
+  });
+
+  it("refuses a trade proposal to an offline player", () => {
+    let game = startedGame();
+    game = { ...game, players: game.players.map((player) => player.id === "p2" ? { ...player, connected: false } : player) };
+
+    expect(() => proposeTrade(game, "p1", { targetId: "p2", kind: "alliance", offeredResourceId: null, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0 })).toThrowError(/reconnecter/);
+  });
+
+  it("does not require an inactive consortium associate to reconnect before resuming", () => {
+    let game = startedGame();
+    game = {
+      ...game,
+      phase: "PAUSED",
+      previousPhase: "WAITING_FOR_ROLL",
+      players: game.players.map((player) => player.id === "p2" ? { ...player, connected: false, allianceId: "consortium-p1", mergedIntoId: "p1" } : { ...player, allianceId: "consortium-p1" })
+    };
+
+    game = resumeGame(game);
+
+    expect(game.phase).toBe("WAITING_FOR_ROLL");
+  });
+
+  it("pauses when bankruptcy would pass the turn to an offline player", () => {
+    let game = startedGameWithThree();
+    game = {
+      ...game,
+      phase: "WAITING_FOR_PAYMENT",
+      players: game.players.map((player) => player.id === "p1" ? { ...player, capital: 1 } : player.id === "p2" ? { ...player, connected: false } : player),
+      pendingPayment: { type: "payment", payerId: "p1", recipientId: "p3", assetId: ASSETS[0]!.id, resourceId: ASSETS[0]!.resourceId, amount: 3 }
+    };
+
+    game = declareBankruptcy(game, "p1");
+
+    expect(game.phase).toBe("PAUSED");
+    expect(game.previousPhase).toBe("WAITING_FOR_ROLL");
+    expect(game.pauseReason).toBe("PLAYER_DISCONNECTED");
+    expect(game.pausePlayerId).toBe("p2");
+  });
   it("continues after twelve rounds without ending automatically", () => {
     let game: GameState = { ...startedGame(), roundNumber: 12, phase: "WAITING_FOR_END_TURN", players: startedGame().players.map((player) => player.id === "p1" ? { ...player, capital: 140 } : player) };
     game = endTurn(game, "p1");
@@ -456,4 +584,83 @@ describe("Orbisium game engine", () => {
     const game = startedGame();
     expect(getCurrentPrice(game, ASSETS[0]!)).toBe(ASSETS[0]!.basePrice);
   });
-});
+
+  it("ends immediately when the final two players form one consortium", () => {
+    let game = startedGame();
+    game = proposeTrade(game, "p1", { targetId: "p2", kind: "alliance", offeredResourceId: null, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0 });
+    game = respondToTrade(game, "p2", true);
+    expect(game.phase).toBe("FINISHED");
+    expect(game.finishReason).toBe("LAST_SOLVENT");
+    expect(game.winnerId).toBe("p1");
+    expect(game.recentEvents.slice(-2).map((event) => event.type)).toEqual(["trade_accepted", "game_finished"]);
+  });
+
+  it("keeps every selected resource portfolio indivisible at auction", () => {
+    const group = ASSETS.filter((asset) => asset.resourceId === ASSETS[0]!.resourceId).slice(0, 2);
+    const extra = ASSETS.find((asset) => asset.resourceId !== group[0]!.resourceId)!;
+    let game = startedGameWithThree();
+    game = { ...game, phase: "AUCTION", ownership: Object.fromEntries([...group, extra].map((asset) => [asset.id, "p1"])), players: game.players.map((player) => player.id === "p1" ? { ...player, assetIds: [...group, extra].map((asset) => asset.id) } : player), auction: { mode: "selection", sellerId: "p1", bankSale: false, targetCount: 2, redDie: 2, assetId: group[0]!.id, selectedAssetIds: [], lots: [], currentLotIndex: 0, minimumBid: 0, currentBid: 0, leaderId: null, eligiblePlayerIds: ["p2", "p3"], passedPlayerIds: [], deadline: null } };
+    expect(() => selectAuctionAssets(game, "p1", [group[0]!.id, extra.id])).toThrowError(/doivent être vendues ensemble/);
+    game = selectAuctionAssets(game, "p1", group.map((asset) => asset.id));
+    expect(game.auction?.lots).toEqual([group.map((asset) => asset.id)]);
+  });
+
+  it("rejects superfluous resource groups in an auction selection", () => {
+    const largeGroup = ASSETS.filter((asset) => asset.resourceId === ASSETS[0]!.resourceId).slice(0, 4);
+    const extra = ASSETS.find((asset) => asset.resourceId !== largeGroup[0]!.resourceId)!;
+    let game = startedGameWithThree();
+    game = { ...game, phase: "AUCTION", ownership: Object.fromEntries([...largeGroup, extra].map((asset) => [asset.id, "p1"])), players: game.players.map((player) => player.id === "p1" ? { ...player, assetIds: [...largeGroup, extra].map((asset) => asset.id) } : player), auction: { mode: "selection", sellerId: "p1", bankSale: false, targetCount: 2, redDie: 2, assetId: largeGroup[0]!.id, selectedAssetIds: [], lots: [], currentLotIndex: 0, minimumBid: 0, currentBid: 0, leaderId: null, eligiblePlayerIds: ["p2", "p3"], passedPlayerIds: [], deadline: null } };
+    expect(() => selectAuctionAssets(game, "p1", [...largeGroup, extra].map((asset) => asset.id))).toThrowError(/superflu/);
+    expect(selectAuctionAssets(game, "p1", largeGroup.map((asset) => asset.id)).auction?.selectedAssetIds).toEqual(largeGroup.map((asset) => asset.id));
+  });
+
+  it("supports passing, insufficient funds and an exhausted Technology deck", () => {
+    let offered = landOnSpace(startedGameWithThree(), "harbor-south");
+    const deckBefore = [...offered.leverDeck];
+    offered = passPendingLever(offered, "p1");
+    expect(offered.phase).toBe("WAITING_FOR_END_TURN");
+    expect(offered.leverDeck).toEqual(deckBefore);
+    const pending = { ...offered, phase: "WAITING_FOR_LEVER_PURCHASE" as const, pendingLever: { playerId: "p1", leverId: LEVER_CARDS[0]!.id, price: 3 }, players: offered.players.map((player) => player.id === "p1" ? { ...player, capital: 2 } : player) };
+    expect(() => buyPendingLever(pending, "p1")).toThrowError(/insuffisants/);
+    const emptyDeck = landOnSpace({ ...startedGameWithThree(), leverDeck: [] }, "harbor-south");
+    expect(emptyDeck.phase).toBe("WAITING_FOR_END_TURN");
+    expect(emptyDeck.pendingLever).toBeNull();
+    expect(emptyDeck.recentEvents.at(-1)?.message).toContain("aucune Technologie");
+  });
+
+  it("recycles the fourteen cosmic events only after exhausting the deck", () => {
+    const initial = startedGameWithThree();
+    let game = { ...initial, players: initial.players.map((player) => player.id === "p1" ? { ...player, capital: 1_000 } : player) };
+    const drawn: string[] = [];
+    for (let index = 0; index < TREND_CARDS.length + 1; index += 1) {
+      game = landOnSpace({ ...game, phase: "WAITING_FOR_ROLL", activePlayerId: "p1" }, "observatory-north");
+      drawn.push(game.lastCard!.id);
+    }
+    expect(new Set(drawn.slice(0, TREND_CARDS.length)).size).toBe(TREND_CARDS.length);
+    expect(game.trendDeck).toHaveLength(TREND_CARDS.length - 1);
+  });
+
+  it("lets a portal pass cleanly and enforces the six-concession cap", () => {
+    const firstResource = ASSETS[0]!.resourceId;
+    const secondResource = ASSETS.find((asset) => asset.resourceId !== firstResource)!.resourceId;
+    const owned = [ASSETS.find((asset) => asset.resourceId === firstResource)!, ASSETS.find((asset) => asset.resourceId === secondResource)!];
+    let game = startedGameWithThree();
+    game = { ...game, ownership: Object.fromEntries(owned.map((asset) => [asset.id, "p1"])), players: game.players.map((player) => player.id === "p1" ? { ...player, lapsCompleted: 1, assetIds: owned.map((asset) => asset.id) } : player) };
+    game = landOnSpace(game, "global-choice-1");
+    expect(game.pendingAction?.availableAssetIds.length).toBeGreaterThan(6);
+    expect(() => buyPendingAsset(game, "p1", game.pendingAction!.availableAssetIds.slice(0, 7))).toThrowError(/invalide/);
+    game = passPendingAsset(game, "p1");
+    expect(game.phase).toBe("WAITING_FOR_END_TURN");
+    expect(game.pendingAction).toBeNull();
+  });
+
+  it("pays every queued creditor in full when the bank assumes a bankruptcy", () => {
+    let game = startedGameWithThree();
+    game = { ...game, phase: "WAITING_FOR_PAYMENT", players: game.players.map((player) => player.id === "p1" ? { ...player, capital: 1 } : player), pendingPayment: { type: "payment", payerId: "p1", recipientId: "p2", assetId: ASSETS[0]!.id, resourceId: ASSETS[0]!.resourceId, amount: 3 }, paymentQueue: [{ type: "payment", payerId: "p1", recipientId: "p3", assetId: ASSETS[0]!.id, resourceId: ASSETS[0]!.resourceId, amount: 4 }] };
+    const p2Before = game.players.find((player) => player.id === "p2")!.capital;
+    const p3Before = game.players.find((player) => player.id === "p3")!.capital;
+    game = declareBankruptcy(game, "p1");
+    expect(game.players.find((player) => player.id === "p2")!.capital).toBe(p2Before + 3);
+    expect(game.players.find((player) => player.id === "p3")!.capital).toBe(p3Before + 4);
+    expect(game.recentEvents.find((event) => event.type === "player_bankrupt")?.data).toMatchObject({ amount: 7, creditorCompensation: 7, debtToBank: 0 });
+  });});

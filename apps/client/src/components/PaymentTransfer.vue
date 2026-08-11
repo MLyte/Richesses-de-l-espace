@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PublicPlayerView } from "@orbisium/protocol";
+import type { PublicPlayerView } from "@richesses-espace/protocol";
 import GameIcon from "./GameIcon.vue";
 import PlayerTokenIcon from "./PlayerTokenIcon.vue";
 

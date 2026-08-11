@@ -1,10 +1,10 @@
 {
-  "name": "@orbisium/protocol",
+  "name": "@richesses-espace/protocol",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@orbisium/game": "*" },
+  "dependencies": { "@richesses-espace/game": "*" },
   "devDependencies": { "typescript": "^5.9.2" }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@orbisium/client",
+  "name": "@richesses-espace/client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
     "@fontsource/ibm-plex-mono": "^5.2.6",
     "@fontsource/manrope": "^5.2.6",
     "@lucide/vue": "^1.31.0",
-    "@orbisium/game": "*",
-    "@orbisium/protocol": "*",
+    "@richesses-espace/game": "*",
+    "@richesses-espace/protocol": "*",
     "pinia": "^3.0.3",
     "qrcode.vue": "^3.6.0",
     "socket.io-client": "^4.8.1",

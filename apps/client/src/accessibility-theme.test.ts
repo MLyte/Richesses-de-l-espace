@@ -1,0 +1,54 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+type Rgb = [number, number, number];
+
+function rgb(hex: string): Rgb {
+  const value = hex.replace("#", "");
+  return [0, 2, 4].map((index) => Number.parseInt(value.slice(index, index + 2), 16) / 255) as Rgb;
+}
+
+function luminance(hex: string): number {
+  const [red, green, blue] = rgb(hex).map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4) as Rgb;
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrast(foreground: string, background: string): number {
+  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (values[0]! + 0.05) / (values[1]! + 0.05);
+}
+
+const theme = readFileSync(fileURLToPath(new URL("./theme-space.css", import.meta.url)), "utf8");
+
+describe("WCAG 2.2 AA rendered theme palette", () => {
+  it.each([
+    ["page primary text", "#f3f8fc", "#06111f", 4.5],
+    ["resource primary text", "#f3f8fc", "#0b243a", 4.5],
+    ["resource secondary text", "#c9e8f4", "#0b243a", 4.5],
+    ["primary button label", "#06111f", "#f2674a", 4.5],
+    ["panel button label", "#f3f8fc", "#15344d", 4.5],
+    ["disabled action label", "#b9d8e5", "#132b3d", 4.5],
+    ["menu label", "#f3f8fc", "#102a43", 4.5],
+    ["portfolio shortcut", "#f3f8fc", "#124a68", 4.5],
+    ["error message", "#ffffff", "#a83d3d", 4.5],
+    ["light die number and pips", "#06111f", "#f3f8fc", 4.5],
+    ["coral die number and pips", "#06111f", "#f2674a", 4.5],
+    ["coral accent on resource panel", "#f2674a", "#0b243a", 4.5],
+    ["cyan accent on resource panel", "#35d0e2", "#0b243a", 4.5],
+    ["yellow accent on resource panel", "#f6c64d", "#0b243a", 4.5],
+    ["violet accent on resource panel", "#9785ed", "#0b243a", 4.5],
+    ["progress fill", "#e5f6fc", "#476579", 3],
+    ["resource outline", "#72a9c2", "#0b243a", 3],
+    ["disabled control outline", "#6b899c", "#132b3d", 3]
+  ])("keeps %s above its required contrast", (_label, foreground, background, minimum) => {
+    expect(contrast(foreground, background)).toBeGreaterThanOrEqual(minimum as number);
+  });
+
+  it("binds the compliant die colors to the selectors rendered by the game", () => {
+    expect(theme).toMatch(/\.dice-result span:not\(\.red-die\)\s*\{[^}]*color:\s*#06111f[^}]*background:\s*#f3f8fc/s);
+    expect(theme).toMatch(/\.dice-result \.red-die\s*\{[^}]*color:\s*#06111f[^}]*background:\s*#f2674a/s);
+    expect(theme).toMatch(/\.die-face\s*\{[^}]*color:\s*#06111f[^}]*background:\s*#f3f8fc/s);
+    expect(theme).toMatch(/\.die-face--coral\s*\{[^}]*color:\s*#06111f[^}]*background:\s*#f2674a/s);
+  });
+});

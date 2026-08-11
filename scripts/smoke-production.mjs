@@ -13,8 +13,8 @@ child.stderr.on("data", (chunk) => { output += String(chunk); });
 
 try {
   const deadline = Date.now() + 8_000;
-  while (!output.includes("Orbisium est prêt") && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
-  if (!output.includes("Orbisium est prêt")) throw new Error(`Le serveur n'a pas démarré.\n${output}`);
+  while (!output.includes("Richesses de l’espace est prêt") && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
+  if (!output.includes("Richesses de l’espace est prêt")) throw new Error(`Le serveur n'a pas démarré.\n${output}`);
   const health = await fetch(`http://127.0.0.1:${port}/api/health`);
   const display = await fetch(`http://127.0.0.1:${port}/display`);
   if (!health.ok || !(await health.json()).ok) throw new Error("L’endpoint de santé ne répond pas.");

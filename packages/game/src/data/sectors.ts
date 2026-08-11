@@ -1,8 +1,12 @@
-import type { Sector } from "../types";
+import type { ResourceFamily } from "../types";
 
-export const SECTORS = [
-  { id: "energy", name: "Énergie", shortName: "Énergie", color: "#b85f45", icon: "spark" },
-  { id: "metals", name: "Métaux stratégiques", shortName: "Métaux", color: "#527287", icon: "crystal" },
-  { id: "agriculture", name: "Cultures vivrières", shortName: "Cultures", color: "#73845d", icon: "leaf" },
-  { id: "biomaterials", name: "Biomatériaux", shortName: "Matières", color: "#c09248", icon: "fiber" }
-] as const satisfies readonly Sector[];
+export const RESOURCE_FAMILIES = [
+  { id: "minerals", name: "Minéraux", shortName: "Minéraux", color: "#8067E8", icon: "crystal" },
+  { id: "biospheres", name: "Biosphères", shortName: "Biosphères", color: "#35D0E2", icon: "leaf" },
+  { id: "energies", name: "Énergies", shortName: "Énergies", color: "#F6C64D", icon: "spark" },
+  { id: "volatiles", name: "Volatils", shortName: "Volatils", color: "#6FAFE7", icon: "fiber" },
+  { id: "networks", name: "Réseaux", shortName: "Réseaux", color: "#F2674A", icon: "route" }
+] as const satisfies readonly ResourceFamily[];
+
+/** @deprecated Use RESOURCE_FAMILIES. */
+export const SECTORS = RESOURCE_FAMILIES;

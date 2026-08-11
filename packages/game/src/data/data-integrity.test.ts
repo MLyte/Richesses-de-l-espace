@@ -1,78 +1,88 @@
 import { describe, expect, it } from "vitest";
-import { ASSETS } from "./assets";
+import { SPACE_CONCESSIONS } from "./assets";
 import { BOARD, BOARD_COUNTS } from "./board";
-import { CONTINENT_NAMES, COUNTRIES } from "./countries";
-import { RESOURCES } from "./resources";
-import { TREND_CARDS } from "./trends";
+import { PLANETARY_SYSTEMS, PRODUCING_WORLDS, SPACE_REGIONS } from "./countries";
+import { TECHNOLOGIES } from "./levers";
+import { COSMIC_RESOURCES } from "./resources";
+import { COSMIC_EVENTS } from "./trends";
 
-describe("extended world dataset", () => {
-  it("contains a world-scale original catalogue", () => {
-    expect(CONTINENT_NAMES).toHaveLength(7);
-    expect(COUNTRIES).toHaveLength(28);
-    expect(RESOURCES).toHaveLength(24);
-    expect(ASSETS).toHaveLength(144);
-    for (const continent of CONTINENT_NAMES) expect(COUNTRIES.filter((country) => country.continent === continent), continent).toHaveLength(4);
-    for (const sectorId of ["energy", "metals", "agriculture", "biomaterials"]) expect(RESOURCES.filter((resource) => resource.sectorId === sectorId), sectorId).toHaveLength(6);
+describe("référentiel Richesses de l’espace", () => {
+  it("respecte toutes les cardinalités obligatoires", () => {
+    expect(SPACE_REGIONS).toHaveLength(7);
+    expect(PRODUCING_WORLDS).toHaveLength(28);
+    expect(COSMIC_RESOURCES).toHaveLength(24);
+    expect(SPACE_CONCESSIONS).toHaveLength(144);
+    expect(COSMIC_EVENTS).toHaveLength(14);
+    expect(TECHNOLOGIES).toHaveLength(13);
+    expect(BOARD_COUNTS).toEqual({ total: 78, classic: 48, special: 29, countries: 28 });
   });
 
-  it("gives every resource six titles totalling 100 percent across six countries and continents", () => {
-    for (const resource of RESOURCES) {
-      const titles = ASSETS.filter((asset) => asset.resourceId === resource.id);
-      expect(titles, resource.name).toHaveLength(6);
-      expect(titles.reduce((total, title) => total + title.share, 0), resource.name).toBe(100);
-      expect(new Set(titles.map((title) => title.countryId)).size, resource.name).toBe(6);
-      expect(new Set(titles.map((title) => COUNTRIES.find((country) => country.id === title.countryId)!.continent)).size, resource.name).toBe(6);
+  it("relie chaque système, monde et concession à des références valides", () => {
+    const regionIds = new Set(SPACE_REGIONS.map(({ id }) => id));
+    const systemIds = new Set(PLANETARY_SYSTEMS.map(({ id }) => id));
+    const worldIds = new Set(PRODUCING_WORLDS.map(({ id }) => id));
+    const resourceIds = new Set(COSMIC_RESOURCES.map(({ id }) => id));
+    for (const system of PLANETARY_SYSTEMS) expect(regionIds.has(system.regionId), system.name).toBe(true);
+    for (const world of PRODUCING_WORLDS) {
+      expect(systemIds.has(world.systemId), world.name).toBe(true);
+      expect(regionIds.has(world.sectorId), world.name).toBe(true);
+    }
+    for (const concession of SPACE_CONCESSIONS) {
+      expect(worldIds.has(concession.worldId), concession.name).toBe(true);
+      expect(systemIds.has(concession.systemId), concession.name).toBe(true);
+      expect(regionIds.has(concession.stellarSectorId), concession.name).toBe(true);
+      expect(resourceIds.has(concession.resourceId), concession.name).toBe(true);
+    }
+  });
+
+  it("conserve six concessions et cent pour cent par ressource", () => {
+    for (const resource of COSMIC_RESOURCES) {
+      const concessions = SPACE_CONCESSIONS.filter((item) => item.resourceId === resource.id);
+      expect(concessions, resource.name).toHaveLength(6);
+      expect(concessions.reduce((total, item) => total + item.sharePercent, 0), resource.name).toBe(100);
+      expect(new Set(concessions.map(({ worldId }) => worldId)).size, resource.name).toBe(6);
+      expect(Object.keys(resource.royalties).map(Number)).toEqual([30, 50, 70, 90]);
       expect(resource.royalties[30]).toBeLessThan(resource.royalties[50]);
       expect(resource.royalties[50]).toBeLessThan(resource.royalties[70]);
       expect(resource.royalties[70]).toBeLessThan(resource.royalties[90]);
     }
   });
 
-  it("places all countries and every resource on the shared route", () => {
-    const classicSpaces = BOARD.filter((space) => space.type === "asset");
-    expect(BOARD_COUNTS).toEqual({ total: 78, classic: 48, special: 29, countries: 28 });
-    expect(classicSpaces).toHaveLength(48);
-    expect(new Set(classicSpaces.map((space) => ASSETS.find((asset) => asset.id === space.assetId)!.countryId)).size).toBe(COUNTRIES.length);
-    expect(new Set(classicSpaces.map((space) => ASSETS.find((asset) => asset.id === space.assetId)!.resourceId)).size).toBe(RESOURCES.length);
-    for (const resource of RESOURCES) expect(classicSpaces.filter((space) => ASSETS.find((asset) => asset.id === space.assetId)!.resourceId === resource.id)).toHaveLength(2);
-    expect(BOARD.filter((space) => space.type === "special" && space.kind === "auction")).toHaveLength(4);
-    expect(BOARD.filter((space) => space.type === "special" && space.kind === "trend")).toHaveLength(6);
-    expect(BOARD.filter((space) => space.type === "special" && space.kind === "dividend")).toHaveLength(8);
-    expect(BOARD.filter((space) => space.type === "special" && space.kind === "regional_choice")).toHaveLength(4);
-    expect(BOARD.filter((space) => space.type === "special" && space.kind === "global_choice")).toHaveLength(2);
-    expect(BOARD.filter((space) => space.type === "special" && space.kind === "customs")).toHaveLength(2);
-    expect(BOARD.filter((space) => space.type === "special" && space.kind === "joker")).toHaveLength(3);
+  it("rend chaque catalogue de monde accessible depuis une case classique", () => {
+    const classic = BOARD.filter((space) => space.type === "asset");
+    expect(classic).toHaveLength(48);
+    expect(new Set(classic.map(({ worldId }) => worldId))).toEqual(new Set(PRODUCING_WORLDS.map(({ id }) => id)));
+    expect(new Set(classic.map(({ resourceId }) => resourceId))).toEqual(new Set(COSMIC_RESOURCES.map(({ id }) => id)));
+    for (const resource of COSMIC_RESOURCES) expect(classic.filter(({ resourceId }) => resourceId === resource.id), resource.name).toHaveLength(2);
+    for (const world of PRODUCING_WORLDS) expect(SPACE_CONCESSIONS.some(({ worldId }) => worldId === world.id), world.name).toBe(true);
   });
 
-  it("gives every special space the data required by its rule", () => {
-    const dividends = BOARD.filter((space) => space.type === "special" && space.kind === "dividend");
-    expect(new Set(dividends.map((space) => space.resourceId)).size).toBe(8);
-    for (const sectorId of ["energy", "metals", "agriculture", "biomaterials"]) {
-      expect(dividends.filter((space) => RESOURCES.find((resource) => resource.id === space.resourceId)?.sectorId === sectorId)).toHaveLength(2);
-    }
-    const regionalContinents = BOARD.filter((space) => space.type === "special" && space.kind === "regional_choice").flatMap((space) => space.continents);
-    expect(new Set(regionalContinents)).toEqual(new Set(CONTINENT_NAMES));
+  it("respecte la composition exacte des cases spéciales", () => {
+    const count = (kind: string) => BOARD.filter((space) => space.type === "special" && space.kind === kind).length;
+    expect(count("regional_choice")).toBe(4);
+    expect(count("global_choice")).toBe(2);
+    expect(count("auction")).toBe(4);
+    expect(count("trend")).toBe(6);
+    expect(count("dividend")).toBe(8);
+    expect(count("customs")).toBe(2);
+    expect(count("joker")).toBe(3);
+    expect(BOARD.filter(({ type }) => type === "hub")).toHaveLength(1);
   });
 
-  it("separates the two royalty exposures of every resource", () => {
-    for (const resource of RESOURCES) {
-      const indices = BOARD.map((space, index) => space.type === "asset" && ASSETS.find((asset) => asset.id === space.assetId)?.resourceId === resource.id ? index : -1).filter((index) => index >= 0);
-      const direct = Math.abs(indices[0]! - indices[1]!);
-      const circularDistance = Math.min(direct, BOARD.length - direct);
-      expect(circularDistance, resource.name).toBeGreaterThanOrEqual(5);
-    }
-  });
+  it("répartit chaque famille spéciale sur l’ensemble du circuit", () => {
+    const maximumCircularGap = (kind: string) => {
+      const positions = BOARD.flatMap((space, index) => space.type === "special" && space.kind === kind ? [index] : []);
+      return Math.max(...positions.map((position, index) => (positions[(index + 1) % positions.length]! - position + BOARD.length) % BOARD.length));
+    };
 
-  it("keeps every country catalogue populated", () => {
-    const counts = COUNTRIES.map((country) => ASSETS.filter((asset) => asset.countryId === country.id).length);
-    expect(counts.filter((count) => count === 6)).toHaveLength(4);
-    expect(counts.filter((count) => count === 5)).toHaveLength(24);
+    expect(maximumCircularGap("auction")).toBeLessThanOrEqual(21);
+    expect(maximumCircularGap("regional_choice")).toBeLessThanOrEqual(22);
+    expect(maximumCircularGap("customs")).toBeLessThanOrEqual(41);
+    expect(maximumCircularGap("global_choice")).toBeLessThanOrEqual(40);
   });
-
-  it("gives all fourteen Tendance cards an immediate economic effect", () => {
-    expect(TREND_CARDS).toHaveLength(14);
-    expect(TREND_CARDS.every((card) => card.amount > 0)).toBe(true);
-    for (const card of TREND_CARDS) {
+  it("donne aux événements une direction bancaire impossible à inverser", () => {
+    for (const card of COSMIC_EVENTS) {
+      expect(card.amount, card.title).toBeGreaterThan(0);
       expect(card.description.startsWith(card.bankDirection === "bank_to_player" ? "Recevez" : "Versez"), card.title).toBe(true);
     }
   });

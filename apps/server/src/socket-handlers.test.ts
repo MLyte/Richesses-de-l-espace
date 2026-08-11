@@ -2,12 +2,13 @@ import http from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
-import type { CommandResult, PublicGameView, SessionResult } from "@orbisium/protocol";
+import type { CommandResult, PlayerGameView, PublicGameView, SessionResult } from "@richesses-espace/protocol";
 import { RoomStore } from "./room-store";
 import { registerSocketHandlers } from "./socket-handlers";
 
 let httpServer: http.Server;
 let ioServer: Server;
+let roomStore: RoomStore;
 let url: string;
 const clients: Socket[] = [];
 
@@ -24,11 +25,13 @@ function command<T>(socket: Socket, event: string, payload?: unknown): Promise<C
 }
 
 const nextState = (socket: Socket) => new Promise<PublicGameView>((resolve) => socket.once("state:public", resolve));
+const nextPlayerState = (socket: Socket) => new Promise<PlayerGameView>((resolve) => socket.once("state:player", resolve));
 
 beforeEach(async () => {
   httpServer = http.createServer();
   ioServer = new Server(httpServer);
-  registerSocketHandlers(ioServer, new RoomStore(), 5173);
+  roomStore = new RoomStore();
+  registerSocketHandlers(ioServer, roomStore, 5173);
   await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
   const address = httpServer.address();
   if (!address || typeof address === "string") throw new Error("Port de test indisponible");
@@ -77,12 +80,14 @@ describe("Socket.IO game flow", () => {
     const firstJoinState = nextState(admin);
     const joinedFirst = await command<SessionResult>(first, "room:join", { code, name: "Aline", color: "#e05f42", symbol: "cat" });
     expect(joinedFirst.ok).toBe(true);
+    expect(joinedFirst.data?.isHost).toBe(true);
     await firstJoinState;
 
     const second = await openClient();
     const secondJoinState = nextState(admin);
     const joinedSecond = await command<SessionResult>(second, "room:join", { code, name: "Basile", color: "#3784a6", symbol: "dog" });
     expect(joinedSecond.ok).toBe(true);
+    expect(joinedSecond.data?.isHost).toBe(false);
     await secondJoinState;
 
     let statePromise = nextState(admin);
@@ -91,8 +96,9 @@ describe("Socket.IO game flow", () => {
     statePromise = nextState(admin);
     await command(second, "lobby:set-ready", { ready: true });
     await statePromise;
+    expect((await command(admin, "game:start")).error?.code).toBe("UNAUTHORIZED");
     statePromise = nextState(admin);
-    const started = await command(admin, "game:start");
+    const started = await command(first, "game:start");
     expect(started.ok).toBe(true);
     let state = await statePromise;
     expect(state.activePlayerId).toBe(joinedFirst.data!.playerId);
@@ -136,17 +142,151 @@ describe("Socket.IO game flow", () => {
     expect(state.players.find((player) => player.id === joinedSecond.data!.playerId)?.connected).toBe(true);
 
     statePromise = nextState(admin);
-    const finished = await command(admin, "admin:end");
+    const finished = await command(first, "admin:end");
     expect(finished.ok).toBe(true);
     state = await statePromise;
     expect(state.phase).toBe("FINISHED");
+    expect(state.finishReason).toBe("ADMIN");
+    expect(state.winnerId).toBeNull();
 
     statePromise = nextState(admin);
-    const restarted = await command(admin, "admin:restart");
+    const restarted = await command(first, "admin:restart");
     expect(restarted.ok).toBe(true);
     state = await statePromise;
     expect(state.phase).toBe("LOBBY");
     expect(state.players.map((player) => player.id)).toEqual([joinedFirst.data!.playerId, joinedSecond.data!.playerId]);
     expect(state.players.every((player) => !player.ready && player.position === 0 && !player.assetIds.length)).toBe(true);
   });
-});
+
+  it("pauses before an offline player can be targeted by a trade", async () => {
+    const admin = await openClient();
+    const created = await command<SessionResult>(admin, "room:create");
+    const first = await openClient();
+    const joinedFirst = await command<SessionResult>(first, "room:join", { code: created.data!.code, name: "Aline", color: "#e05f42", symbol: "cat" });
+    const second = await openClient();
+    const joinedSecond = await command<SessionResult>(second, "room:join", { code: created.data!.code, name: "Basile", color: "#3784a6", symbol: "dog" });
+    await command(first, "lobby:set-ready", { ready: true });
+    await command(second, "lobby:set-ready", { ready: true });
+    await command(first, "game:start");
+
+    const offlineState = nextState(admin);
+    second.disconnect();
+    await offlineState;
+
+    const proposed = await command(first, "trade:propose", { targetId: joinedSecond.data!.playerId, kind: "alliance", offeredResourceId: null, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0 });
+    expect(proposed.error?.code).toBe("INVALID_PHASE");
+    expect(roomStore.get(created.data!.code)?.state.phase).toBe("PAUSED");
+    expect(joinedFirst.data?.isHost).toBe(true);
+  });
+  it("detaches a socket from its previous room before it joins another", async () => {
+    const firstAdmin = await openClient();
+    const firstRoom = await command<SessionResult>(firstAdmin, "room:create");
+    const player = await openClient();
+    const firstJoin = await command<SessionResult>(player, "room:join", { code: firstRoom.data!.code, name: "Aline", color: "#e05f42", symbol: "cat" });
+
+    const secondAdmin = await openClient();
+    const secondRoom = await command<SessionResult>(secondAdmin, "room:create");
+    const secondJoin = await command<SessionResult>(player, "room:join", { code: secondRoom.data!.code, name: "Aline", color: "#e05f42", symbol: "cat" });
+
+    expect(secondJoin.ok).toBe(true);
+    expect(roomStore.get(firstRoom.data!.code)?.state.players.find((playerState) => playerState.id === firstJoin.data!.playerId)?.connected).toBe(false);
+  });
+  it("freezes an auction deadline while the host pauses the game", async () => {
+    const admin = await openClient();
+    const created = await command<SessionResult>(admin, "room:create");
+    const first = await openClient();
+    const joinedFirst = await command<SessionResult>(first, "room:join", { code: created.data!.code, name: "Aline", color: "#e05f42", symbol: "cat" });
+    const second = await openClient();
+    const joinedSecond = await command<SessionResult>(second, "room:join", { code: created.data!.code, name: "Basile", color: "#3784a6", symbol: "dog" });
+    const third = await openClient();
+    const joinedThird = await command<SessionResult>(third, "room:join", { code: created.data!.code, name: "Chloé", color: "#75a341", symbol: "bird" });
+    await command(first, "lobby:set-ready", { ready: true });
+    await command(second, "lobby:set-ready", { ready: true });
+    await command(third, "lobby:set-ready", { ready: true });
+    await command(first, "game:start");
+
+    const room = roomStore.get(created.data!.code)!;
+    room.state = {
+      ...room.state,
+      phase: "AUCTION",
+      auction: { mode: "bidding", sellerId: joinedFirst.data!.playerId!, bankSale: false, targetCount: 1, redDie: 1, assetId: "aluminous-regolith-mercure", selectedAssetIds: ["aluminous-regolith-mercure"], lots: [["aluminous-regolith-mercure"]], currentLotIndex: 0, minimumBid: .5, currentBid: 0, leaderId: null, eligiblePlayerIds: [joinedSecond.data!.playerId!, joinedThird.data!.playerId!], passedPlayerIds: [], deadline: Date.now() + 40 }
+    };
+
+    let statePromise = nextState(admin);
+    await command(first, "admin:pause");
+    await statePromise;
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    expect(room.state.phase).toBe("PAUSED");
+
+    statePromise = nextState(admin);
+    await command(first, "admin:resume");
+    const resumed = await statePromise;
+    expect(resumed.phase).toBe("AUCTION");
+    expect(resumed.auction?.deadline).toBeGreaterThan(Date.now());
+  });
+
+  it("detaches the previous player session when a socket resumes into another room", async () => {
+    const firstAdmin = await openClient();
+    const firstRoom = await command<SessionResult>(firstAdmin, "room:create");
+    const player = await openClient();
+    const firstJoin = await command<SessionResult>(player, "room:join", { code: firstRoom.data!.code, name: "Aline", color: "#e05f42", symbol: "cat" });
+    const secondAdmin = await openClient();
+    const secondRoom = await command<SessionResult>(secondAdmin, "room:create");
+
+    const resumed = await command<SessionResult>(player, "session:resume", { token: secondRoom.data!.token });
+
+    expect(resumed.ok).toBe(true);
+    expect(resumed.data?.code).toBe(secondRoom.data!.code);
+    expect(resumed.data?.role).toBe("admin");
+    expect(roomStore.get(firstRoom.data!.code)?.state.players.find((state) => state.id === firstJoin.data!.playerId)?.connected).toBe(false);
+  });
+
+  it("keeps a player online while another socket still owns the same session", async () => {
+    const admin = await openClient();
+    const created = await command<SessionResult>(admin, "room:create");
+    const first = await openClient();
+    const joinedFirst = await command<SessionResult>(first, "room:join", { code: created.data!.code, name: "Aline", color: "#e05f42", symbol: "cat" });
+    const second = await openClient();
+    await command<SessionResult>(second, "room:join", { code: created.data!.code, name: "Basile", color: "#3784a6", symbol: "dog" });
+    await command(first, "lobby:set-ready", { ready: true });
+    await command(second, "lobby:set-ready", { ready: true });
+    await command(first, "game:start");
+    const replacement = await openClient();
+    const resumed = await command<SessionResult>(replacement, "session:resume", { token: joinedFirst.data!.token });
+    expect(resumed.ok).toBe(true);
+
+    first.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const state = roomStore.get(created.data!.code)!.state;
+    expect(state.players.find((player) => player.id === joinedFirst.data!.playerId)?.connected).toBe(true);
+    expect(state.phase).toBe("WAITING_FOR_ROLL");
+    expect(state.pauseReason).toBeNull();
+  });
+  it("keeps a pending Technology and every session token out of public state", async () => {
+    const admin = await openClient();
+    const created = await command<SessionResult>(admin, "room:create");
+    const first = await openClient();
+    const joinedFirst = await command<SessionResult>(first, "room:join", { code: created.data!.code, name: "Aline", color: "#e05f42", symbol: "cat" });
+    const second = await openClient();
+    await command<SessionResult>(second, "room:join", { code: created.data!.code, name: "Basile", color: "#3784a6", symbol: "dog" });
+    const third = await openClient();
+    await command<SessionResult>(third, "room:join", { code: created.data!.code, name: "Chloé", color: "#75a341", symbol: "bird" });
+    await command(first, "lobby:set-ready", { ready: true });
+    await command(second, "lobby:set-ready", { ready: true });
+    await command(third, "lobby:set-ready", { ready: true });
+    await command(first, "game:start");
+    const room = roomStore.get(created.data!.code)!;
+    room.state = { ...room.state, phase: "WAITING_FOR_LEVER_PURCHASE", pendingLever: { playerId: joinedFirst.data!.playerId!, leverId: "emergency-propulsor", price: 3 } };
+    const publicPromise = nextState(admin);
+    const privatePromise = nextPlayerState(first);
+
+    await command(first, "admin:pause");
+    const [publicState, privateState] = await Promise.all([publicPromise, privatePromise]);
+
+    expect(publicState.pendingLever).toEqual({ price: 3 });
+    expect(publicState.pendingLever).not.toHaveProperty("leverId");
+    expect(JSON.stringify(publicState)).not.toContain(joinedFirst.data!.token);
+    expect(privateState.pendingLever).toEqual({ leverId: "emergency-propulsor", price: 3 });
+    expect(privateState.token).toBe(joinedFirst.data!.token);
+  });});

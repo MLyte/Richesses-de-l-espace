@@ -4,6 +4,7 @@ import {
   Circle,
   CircleCheck,
   Coins,
+  Cpu,
   Gift,
   Globe2,
   Gavel,
@@ -13,7 +14,6 @@ import {
   Plus,
   ShieldAlert,
   Sparkles,
-  Ticket,
   Waypoints
 } from "@lucide/vue";
 
@@ -25,7 +25,7 @@ const icons = {
   payment: Coins,
   resolved: CircleCheck,
   trend: Newspaper,
-  joker: Ticket,
+  joker: Cpu,
   auction: Gavel,
   dividend: Gift,
   customs: ShieldAlert,

@@ -1,4 +1,4 @@
-import type { GameEvent } from "@orbisium/game";
+import type { GameEvent } from "@richesses-espace/game";
 
 function vibrate(pattern: number | number[]) {
   if (typeof navigator === "undefined" || !("vibrate" in navigator)) return;

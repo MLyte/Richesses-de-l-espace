@@ -16,19 +16,22 @@ if (production) app.set("trust proxy", 1);
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: false });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, name: "Orbisium" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, name: "Richesses de l’espace" }));
 
 if (production) {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const clientDir = path.resolve(currentDir, "../../client/dist");
-  app.use(express.static(clientDir));
-  app.get("/{*path}", (_request, response) => response.sendFile(path.join(clientDir, "index.html")));
+  app.use(express.static(clientDir, { index: false }));
+  app.get("/{*path}", (_request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+    response.sendFile(path.join(clientDir, "index.html"));
+  });
 }
 
 registerSocketHandlers(io, new RoomStore(), publicPort, publicOrigin);
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(`\nOrbisium est prêt`);
+  console.log(`\nRichesses de l’espace est prêt`);
   console.log(`Local   http://localhost:${publicPort}/display`);
   for (const address of getLanAddresses()) console.log(`Réseau  http://${address}:${publicPort}/display`);
   if (publicOrigin) console.log(`Internet ${publicOrigin}`);

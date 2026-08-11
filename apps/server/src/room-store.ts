@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import { addPlayer, createGame, type GameState } from "@orbisium/game";
-import { PLAYER_COLORS, PLAYER_SYMBOLS, type DisplayMode } from "@orbisium/protocol";
+import { addPlayer, createGame, type GameState } from "@richesses-espace/game";
+import { PLAYER_COLORS, PLAYER_SYMBOLS, type DisplayMode } from "@richesses-espace/protocol";
 
 export interface Room {
   state: GameState;
@@ -43,7 +43,7 @@ export class RoomStore {
     const playerToken = token();
     room.state = addPlayer(room.state, { id: playerId, name, color, symbol });
     room.playerTokens.set(playerToken, playerId);
-    const isHost = room.displayMode === "MOBILE_ONLY" && !room.hostPlayerId && hostToken === room.adminToken;
+    const isHost = !room.hostPlayerId && (room.displayMode === "TV" || hostToken === room.adminToken);
     if (isHost) room.hostPlayerId = playerId;
     return { room, playerId, playerToken, isHost };
   }

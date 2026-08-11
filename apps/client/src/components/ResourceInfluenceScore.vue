@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ASSETS, RESOURCES, SECTORS } from "@orbisium/game";
+import { ASSETS, RESOURCES, SECTORS } from "@richesses-espace/game";
 
 const props = withDefaults(defineProps<{ resourceId: string; assetIds: readonly string[]; compact?: boolean; showRoyaltiesDetails?: boolean }>(), {
   showRoyaltiesDetails: true
@@ -26,11 +26,11 @@ const activeThreshold = computed(() => [...thresholds].reverse().find((threshold
     <footer>
       <span v-if="nextThreshold">Prochain palier <b>{{ nextThreshold }} %</b> · encore {{ nextThreshold - influence }} %</span>
       <span v-else>Palier maximal <b>90 %</b> atteint</span>
-      <em v-if="reachedThreshold">Royalties niveau {{ reachedThreshold }} %</em>
+      <em v-if="reachedThreshold">Droits niveau {{ reachedThreshold }} %</em>
       <ul class="resource-score__titles" aria-label="Cartes composant ce pourcentage">
         <li v-for="title in titles" :key="title.id"><span>{{ title.hub }}</span><b>+{{ title.share }} %</b></li>
       </ul>
-      <button v-if="showRoyaltiesDetails" class="resource-score__rent-button" type="button" @click="royaltiesOpen = true">Voir les loyers</button>
+      <button v-if="showRoyaltiesDetails" class="resource-score__rent-button" type="button" @click="royaltiesOpen = true">Voir les droits</button>
     </footer>
   </article>
 
@@ -41,7 +41,7 @@ const activeThreshold = computed(() => [...thresholds].reverse().find((threshold
         <p class="eyebrow">Barème de la ressource</p>
         <h2>{{ resource.name }}</h2>
         <div class="resource-rent-dialog__current" :style="{ '--resource-color': sector.color }"><span>Votre cumul actuel</span><strong>{{ influence }} %</strong></div>
-        <p>Lorsqu’un adversaire tombe sur une case <strong>{{ resource.name }}</strong>, le loyer dépend du plus haut seuil que vous avez atteint, tous pays producteurs confondus.</p>
+        <p>Lorsqu’un autre équipage visite une case <strong>{{ resource.name }}</strong>, vos droits d’extraction dépendent du plus haut seuil atteint, tous mondes producteurs confondus.</p>
         <ol class="resource-rent-table">
           <li v-for="threshold in thresholds" :key="threshold" :class="{ reached: influence >= threshold, active: activeThreshold === threshold }">
             <span><b>{{ threshold }} %</b><small>{{ influence >= threshold ? 'Seuil atteint' : `Encore ${threshold - influence} %` }}</small></span>
@@ -49,7 +49,7 @@ const activeThreshold = computed(() => [...thresholds].reverse().find((threshold
           </li>
         </ol>
         <p v-if="!activeThreshold" class="resource-rent-dialog__notice">Aucun loyer n’est encore dû : il faut atteindre au moins 30 %.</p>
-        <p v-else class="resource-rent-dialog__notice active">Loyer actuel : <strong>{{ resource.royalties[activeThreshold] }} crédit{{ resource.royalties[activeThreshold] > 1 ? 's' : '' }}</strong>.</p>
+        <p v-else class="resource-rent-dialog__notice active">Droit actuel : <strong>{{ resource.royalties[activeThreshold] }} crédit{{ resource.royalties[activeThreshold] > 1 ? 's' : '' }}</strong>.</p>
       </section>
     </div>
   </Teleport>

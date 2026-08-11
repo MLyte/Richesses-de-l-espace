@@ -8,5 +8,5 @@ export default defineConfig({
   outDir: "dist",
   clean: true,
   bundle: true,
-  noExternal: ["@orbisium/game", "@orbisium/protocol"]
+  noExternal: ["@richesses-espace/game", "@richesses-espace/protocol"]
 });

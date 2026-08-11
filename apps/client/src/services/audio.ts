@@ -1,8 +1,8 @@
 import { ref } from "vue";
-import type { GameEventType } from "@orbisium/game";
+import type { GameEventType } from "@richesses-espace/game";
 
 export type SoundName = "dice" | "move" | "reveal" | "visit" | "purchase" | "payment" | "pass" | "market" | "turn" | "pause" | "resume" | "start" | "enable";
-export const soundEnabled = ref(localStorage.getItem("orbisium:sound") !== "off");
+export const soundEnabled = ref(localStorage.getItem("richesses-espace:sound") !== "off");
 let context: AudioContext | null = null;
 let reminderNodes: { sources: AudioScheduledSourceNode[]; gains: GainNode[] } | null = null;
 
@@ -60,7 +60,12 @@ export function playSound(name: SoundName): void {
     if (name === "payment") { softTap(0, 780, .03); tone(466, .03, .28, .035); tone(587, .12, .4, .03); }
     if (name === "pass") tone(330, 0, .24, .02, "triangle");
     if (name === "market") { tone(440, 0, .42, .025); tone(554, .12, .5, .025); tone(415, .22, .56, .02); }
-    if (name === "turn") { tone(523, 0, .3, .026); tone(659, .11, .42, .022); }
+    if (name === "turn") {
+      tone(196, 0, .42, .026, "triangle");
+      tone(293.66, .08, .46, .023, "sine");
+      tone(587.33, .18, .3, .014, "sine");
+      softTap(.04, 780, .012);
+    }
     if (name === "pause") { tone(392, 0, .35, .025); tone(294, .13, .45, .022); }
     if (name === "resume") { tone(330, 0, .28, .026); tone(440, .11, .42, .028); }
     if (name === "start") { tone(330, 0, .5, .03); tone(440, .12, .58, .032); tone(554, .25, .72, .03); }
@@ -69,18 +74,22 @@ export function playSound(name: SoundName): void {
 }
 
 /**
- * Souffle très léger tant qu'une décision obligatoire attend le joueur.
- * Le niveau reste volontairement sous celui des sons événementiels et la
- * boucle s'arrête immédiatement dès que l'action est résolue.
+ * Léger ronronnement de propulsion pendant les décisions du tour actif.
+ * Il démarre avec le tour du joueur, puis s'éteint dès que celui-ci est
+ * entièrement résolu (ou lorsque le son est coupé).
  */
 export function setActionReminder(active: boolean): void {
   if (!active || !soundEnabled.value) {
     if (!reminderNodes) return;
     const ctx = context;
     if (ctx) {
-      const stopAt = ctx.currentTime + .16;
-      reminderNodes.gains.forEach((gain) => gain.gain.exponentialRampToValueAtTime(.0001, stopAt));
-      reminderNodes.sources.forEach((source) => { try { source.stop(stopAt + .03); } catch { /* déjà arrêté */ } });
+      const stopAt = ctx.currentTime + .22;
+      reminderNodes.gains.forEach((gain) => {
+        gain.gain.cancelScheduledValues(ctx.currentTime);
+        gain.gain.setValueAtTime(Math.max(gain.gain.value, .0001), ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.0001, stopAt);
+      });
+      reminderNodes.sources.forEach((source) => { try { source.stop(stopAt + .04); } catch { /* déjà arrêté */ } });
     }
     reminderNodes = null;
     return;
@@ -89,25 +98,44 @@ export function setActionReminder(active: boolean): void {
   try {
     const ctx = audioContext();
     const master = ctx.createGain();
-    const toneGain = ctx.createGain();
-    const shimmerGain = ctx.createGain();
+    const engineGain = ctx.createGain();
+    const horizonGain = ctx.createGain();
+    const noiseGain = ctx.createGain();
     const pulseDepth = ctx.createGain();
+    const engineFilter = ctx.createBiquadFilter();
+    const noiseFilter = ctx.createBiquadFilter();
     const pulse = ctx.createOscillator();
-    const base = ctx.createOscillator();
-    const shimmer = ctx.createOscillator();
-    master.gain.value = .42;
-    toneGain.gain.value = .006;
-    shimmerGain.gain.value = .0022;
-    pulseDepth.gain.value = .0018;
-    pulse.type = "sine"; pulse.frequency.value = .22;
-    base.type = "sine"; base.frequency.value = 196;
-    shimmer.type = "sine"; shimmer.frequency.value = 293.66;
-    pulse.connect(pulseDepth).connect(toneGain.gain);
-    base.connect(toneGain).connect(master);
-    shimmer.connect(shimmerGain).connect(master);
+    const engine = ctx.createOscillator();
+    const horizon = ctx.createOscillator();
+    const noise = ctx.createBufferSource();
+
+    master.gain.value = .34;
+    engineGain.gain.value = .008;
+    horizonGain.gain.value = .0018;
+    noiseGain.gain.value = .0011;
+    pulseDepth.gain.value = .0022;
+    engineFilter.type = "lowpass"; engineFilter.frequency.value = 280; engineFilter.Q.value = .55;
+    noiseFilter.type = "bandpass"; noiseFilter.frequency.value = 360; noiseFilter.Q.value = .45;
+    pulse.type = "sine"; pulse.frequency.value = .16;
+    engine.type = "triangle"; engine.frequency.value = 84;
+    horizon.type = "sine"; horizon.frequency.value = 168;
+
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let index = 0; index < noiseData.length; index += 1) noiseData[index] = (Math.random() * 2 - 1) * .18;
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+
+    pulse.connect(pulseDepth).connect(engineGain.gain);
+    engine.connect(engineFilter).connect(engineGain).connect(master);
+    horizon.connect(horizonGain).connect(master);
+    noise.connect(noiseFilter).connect(noiseGain).connect(master);
     master.connect(ctx.destination);
-    pulse.start(); base.start(); shimmer.start();
-    reminderNodes = { sources: [pulse, base, shimmer], gains: [master, toneGain, shimmerGain, pulseDepth] };
+    pulse.start(); engine.start(); horizon.start(); noise.start();
+    reminderNodes = {
+      sources: [pulse, engine, horizon, noise],
+      gains: [master, engineGain, horizonGain, noiseGain, pulseDepth]
+    };
   } catch { /* Un premier geste utilisateur peut être requis par le navigateur. */ }
 }
 
@@ -141,7 +169,7 @@ export function playEventSound(type: GameEventType): void {
 
 export function toggleSound(): void {
   soundEnabled.value = !soundEnabled.value;
-  localStorage.setItem("orbisium:sound", soundEnabled.value ? "on" : "off");
+  localStorage.setItem("richesses-espace:sound", soundEnabled.value ? "on" : "off");
   if (soundEnabled.value) playSound("enable");
   else setActionReminder(false);
 }

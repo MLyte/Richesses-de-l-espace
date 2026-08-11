@@ -1,10 +1,11 @@
-import type { AssetId, AuctionState, BoardSpace, FinishReason, GameEvent, GamePhase, SectorId, TradeOffer } from "@orbisium/game";
+import type { AssetId, AuctionState, BoardSpace, FinishReason, GameEvent, GamePhase, SectorId, TradeOffer } from "@richesses-espace/game";
 
 export type DisplayMode = "TV" | "MOBILE_ONLY";
 
 export interface PublicPlayerView {
   id: string; name: string; color: string; symbol: string; connected: boolean; ready: boolean;
   position: number; lapsCompleted: number; turnsToSkip: number; capital: number; assetIds: AssetId[]; leverCount: number; bankrupt: boolean; netWorth: number;
+  allianceId: string | null; mergedIntoId: string | null;
   sectorInfluence: Record<SectorId, number>;
 }
 
@@ -15,7 +16,7 @@ export interface PublicGameView {
   lastRoll: { dice: [number, number]; total: number } | null;
   pendingAssetId: AssetId | null; pendingPrice: number | null;
   pendingPurchase: { source: "classic" | "regional" | "global"; countryId: string | null; resourceId: string | null; label: string; availableAssetIds: AssetId[]; maxAssets: number } | null;
-  pendingLever: { leverId: string; price: number } | null;
+  pendingLever: { price: number } | null;
   pendingPayment: { payerId: string; recipientId: string; assetId: AssetId; resourceId: string; amount: number; payableAmount: number } | null;
   auction: AuctionState | null;
   tradeOffer: TradeOffer | null;
@@ -26,8 +27,8 @@ export interface PublicGameView {
 }
 
 export type PlayerAction = "SET_READY" | "ROLL_DICE" | "BUY_ASSET" | "PASS_ASSET" | "BUY_LEVER" | "PASS_LEVER" | "PAY_RETURNS" | "USE_LEVER" | "DECLARE_BANKRUPTCY" | "SELECT_AUCTION_ASSETS" | "BID" | "PASS_BID" | "PROPOSE_TRADE" | "ACCEPT_TRADE" | "REJECT_TRADE" | "END_TURN";
-export interface PlayerGameView { playerId: string; token: string; isHost: boolean; allowedActions: PlayerAction[]; leverIds: string[] }
-export interface TradeProposalPayload { targetId: string; offeredResourceId: string | null; requestedResourceId: string | null; offeredCredits: number; requestedCredits: number }
+export interface PlayerGameView { playerId: string; token: string; isHost: boolean; allowedActions: PlayerAction[]; leverIds: string[]; pendingLever: { leverId: string; price: number } | null }
+export interface TradeProposalPayload { targetId: string; kind?: "trade" | "alliance"; offeredResourceId: string | null; requestedResourceId: string | null; offeredCredits: number; requestedCredits: number }
 export interface CommandResult<T = undefined> { ok: boolean; data?: T; error?: { code: string; message: string } }
 export interface SessionResult { code: string; token: string; role: "admin" | "player"; playerId?: string; isHost?: boolean; displayMode?: DisplayMode; joinUrls?: string[] }
 

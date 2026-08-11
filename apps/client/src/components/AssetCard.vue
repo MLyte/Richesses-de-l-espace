@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { ASSETS, RESOURCES, SECTORS } from "@orbisium/game";
+import { ASSETS, RESOURCES, SECTORS } from "@richesses-espace/game";
 import { imageById } from "../assets/assets-manifest";
 import SectorIcon from "./SectorIcon.vue";
 
@@ -27,9 +27,9 @@ const image = computed(() => asset.value ? imageById.get(asset.value.imageId) : 
       </div>
       <footer>
         <span v-if="price != null"><b>{{ price }}</b> crédits</span>
-        <span v-else>Base <b>{{ asset.basePrice }}</b></span>
-        <span class="asset-card__share"><b>{{ asset.share }} %</b> mondial</span>
-        <span v-if="owner" class="asset-card__owner">Collection de {{ owner }}</span>
+        <span v-else>Licence <b>{{ asset.purchasePrice }}</b></span>
+        <span class="asset-card__share"><b>{{ asset.sharePercent }} %</b> galactique</span>
+        <span v-if="owner" class="asset-card__owner">Consortium {{ owner }}</span>
       </footer>
     </div>
   </article>

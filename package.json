@@ -1,5 +1,5 @@
 {
-  "name": "orbisium",
+  "name": "richesses-espace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,13 +8,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -n SERVER,CLIENT -c yellow,cyan \"npm run dev -w @orbisium/server\" \"npm run dev -w @orbisium/client\"",
-    "build": "npm run build -w @orbisium/client && npm run build -w @orbisium/server",
+    "dev": "concurrently -k -n SERVER,CLIENT -c yellow,cyan \"npm run dev -w @richesses-espace/server\" \"npm run dev -w @richesses-espace/client\"",
+    "build": "npm run build -w @richesses-espace/client && npm run build -w @richesses-espace/server",
     "start": "cross-env NODE_ENV=production node apps/server/dist/index.js",
     "smoke": "node scripts/smoke-production.mjs",
     "test": "vitest run",
     "assets:optimize": "node scripts/optimize-images.mjs",
-    "typecheck": "npm run typecheck -w @orbisium/game && npm run typecheck -w @orbisium/protocol && npm run typecheck -w @orbisium/server && npm run typecheck -w @orbisium/client"
+    "typecheck": "npm run typecheck -w @richesses-espace/game && npm run typecheck -w @richesses-espace/protocol && npm run typecheck -w @richesses-espace/server && npm run typecheck -w @richesses-espace/client"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

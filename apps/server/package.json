@@ -1,5 +1,5 @@
 {
-  "name": "@orbisium/server",
+  "name": "@richesses-espace/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@orbisium/game": "*",
-    "@orbisium/protocol": "*",
+    "@richesses-espace/game": "*",
+    "@richesses-espace/protocol": "*",
     "express": "^5.1.0",
     "socket.io": "^4.8.1"
   },

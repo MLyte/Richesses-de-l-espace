@@ -1,0 +1,11 @@
+{
+  "collection": "Richesses de l’espace — atlas de cartes v1",
+  "createdAt": "2026-08-10",
+  "classification": "artist_impression",
+  "scientificPhotograph": false,
+  "generator": "OpenAI ImageGen intégré à Codex",
+  "promptReference": "space-atlas-v1",
+  "source": "assets/source/cards-space/space-atlas.png",
+  "notes": "Visuels originaux générés pour le projet. Ils représentent des scènes de science-fiction plausibles et ne constituent pas des observations astronomiques.",
+  "constraints": ["aucun texte", "aucun logo", "aucun vaisseau tiers reconnaissable", "vingt scènes distinctes"]
+}

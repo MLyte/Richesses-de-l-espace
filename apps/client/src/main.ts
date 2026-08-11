@@ -7,6 +7,7 @@ import PlayerView from "./views/PlayerView.vue";
 import CreditsView from "./views/CreditsView.vue";
 import CreateGameView from "./views/CreateGameView.vue";
 import "./styles.css";
+import "./theme-space.css";
 
 const router = createRouter({
   history: createWebHistory(),

@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { io, type Socket } from "socket.io-client";
-import type { CommandResult, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@orbisium/protocol";
-import type { GameEvent } from "@orbisium/game";
+import type { CommandResult, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
+import type { GameEvent } from "@richesses-espace/game";
 import { playEventSound, playMoveStep, setActionReminder } from "../services/audio";
 import { playErrorHaptic, playEventHaptic } from "../services/haptics";
 
@@ -38,8 +38,21 @@ export const useGameStore = defineStore("game", {
     connect() {
       if (this.socket) return;
       this.socket = io({ autoConnect: true });
-      this.socket.on("connect", () => { this.connected = true; });
-      this.socket.on("disconnect", () => { this.connected = false; setActionReminder(false); });
+      this.socket.on("connect", () => {
+        this.connected = true;
+        if (this.sessionToken) {
+          void this.resume(this.sessionToken).catch(() => {
+            this.role = null;
+            this.sessionToken = null;
+            this.player = null;
+          });
+        }
+      });
+      this.socket.on("disconnect", () => {
+        this.connected = false;
+        this.player = null;
+        setActionReminder(false);
+      });
       this.socket.on("state:public", (state: PublicGameView) => {
         const previous = this.game;
         const restarted = previous?.phase === "FINISHED" && state.phase === "LOBBY";
@@ -159,14 +172,14 @@ export const useGameStore = defineStore("game", {
     },
     async createDisplaySession() {
       this.connect();
-      const existing = sessionStorage.getItem("orbisium:admin");
+      const existing = sessionStorage.getItem("richesses-espace:admin");
       if (existing) {
-        try { await this.resume(existing); return; } catch { sessionStorage.removeItem("orbisium:admin"); }
+        try { await this.resume(existing); return; } catch { sessionStorage.removeItem("richesses-espace:admin"); }
       }
       const session = await this.command<SessionResult>("room:create", { displayMode: "TV" });
       if (session) {
         this.role = "admin"; this.sessionToken = session.token;
-        sessionStorage.setItem("orbisium:admin", session.token);
+        sessionStorage.setItem("richesses-espace:admin", session.token);
       }
     },
     async createMobileSession(): Promise<string | undefined> {
@@ -175,28 +188,28 @@ export const useGameStore = defineStore("game", {
       if (!session) return undefined;
       this.role = "admin";
       this.sessionToken = session.token;
-      sessionStorage.setItem(`orbisium:mobile-host:${session.code}`, session.token);
+      sessionStorage.setItem(`richesses-espace:mobile-host:${session.code}`, session.token);
       return session.code;
     },
     async resume(token: string) {
       const session = await this.command<SessionResult>("session:resume", { token });
       if (!session) return;
       this.role = session.role; this.sessionToken = token;
-      if (session.role === "player") localStorage.setItem(`orbisium:player:${session.code}`, token);
+      if (session.role === "player") localStorage.setItem(`richesses-espace:player:${session.code}`, token);
     },
     async resumePlayer(code: string) {
       this.connect();
-      const token = localStorage.getItem(`orbisium:player:${code.toUpperCase()}`);
+      const token = localStorage.getItem(`richesses-espace:player:${code.toUpperCase()}`);
       if (!token) return;
-      try { await this.resume(token); } catch { localStorage.removeItem(`orbisium:player:${code.toUpperCase()}`); }
+      try { await this.resume(token); } catch { localStorage.removeItem(`richesses-espace:player:${code.toUpperCase()}`); }
     },
     async join(code: string, name: string, color: string, symbol: string) {
       const normalizedCode = code.toUpperCase();
-      const hostToken = sessionStorage.getItem(`orbisium:mobile-host:${normalizedCode}`) ?? undefined;
+      const hostToken = sessionStorage.getItem(`richesses-espace:mobile-host:${normalizedCode}`) ?? undefined;
       const session = await this.command<SessionResult>("room:join", { code: normalizedCode, name, color, symbol, hostToken });
       if (!session) return;
       this.role = "player"; this.sessionToken = session.token;
-      localStorage.setItem(`orbisium:player:${session.code}`, session.token);
+      localStorage.setItem(`richesses-espace:player:${session.code}`, session.token);
     },
     syncActionReminder() {
       setActionReminder(Boolean(this.player?.allowedActions.some((action) => mandatoryActionNames.has(action))));

@@ -35,6 +35,7 @@ function requireActive(state: GameState, playerId: string): PlayerState {
   if (state.activePlayerId !== playerId) throw new RuleError("NOT_ACTIVE_PLAYER", "Ce n’est pas votre tour.");
   const player = requirePlayer(state, playerId);
   if (player.bankrupt) throw new RuleError("PLAYER_BANKRUPT", "Ce joueur est en faillite.");
+  if (player.mergedIntoId) throw new RuleError("ALLIANCE_ASSOCIATE", "Les décisions du consortium sont prises depuis le téléphone pilote.");
   return player;
 }
 
@@ -69,7 +70,7 @@ export function addPlayer(state: GameState, player: Pick<PlayerState, "id" | "na
   if (state.players.some((item) => item.name.localeCompare(player.name, "fr", { sensitivity: "base" }) === 0)) throw new RuleError("NAME_TAKEN", "Ce prénom est déjà utilisé.");
   if (state.players.some((item) => item.color === player.color)) throw new RuleError("COLOR_TAKEN", "Cette couleur est déjà utilisée.");
   if (state.players.some((item) => item.symbol === player.symbol)) throw new RuleError("SYMBOL_TAKEN", "Ce symbole est déjà utilisé.");
-  const nextPlayer: PlayerState = { ...player, connected: true, ready: false, position: 0, lapsCompleted: 0, turnsToSkip: 0, capital: 30, assetIds: [], leverIds: [], bankrupt: false };
+  const nextPlayer: PlayerState = { ...player, connected: true, ready: false, position: 0, lapsCompleted: 0, turnsToSkip: 0, capital: 30, assetIds: [], leverIds: [], bankrupt: false, allianceId: null, mergedIntoId: null };
   return commit({ ...state, players: [...state.players, nextPlayer] }, [makeEvent(state, { type: "player_joined", playerId: player.id, message: `${player.name} rejoint la table.` })]);
 }
 
@@ -130,11 +131,16 @@ export function getSectorLeaderId(state: GameState, sectorId: SectorId): string 
 
 export function getPaymentAmount(state: GameState, asset: Asset, ownerId: string): number {
   const influence = getResourceInfluence(state, ownerId, asset.resourceId);
-  const royalties = resourceById.get(asset.resourceId)!.royalties;
-  if (influence >= 90) return royalties[90];
-  if (influence >= 70) return royalties[70];
-  if (influence >= 50) return royalties[50];
-  if (influence >= 30) return royalties[30];
+  return getRoyaltyAmount(asset.resourceId, influence);
+}
+
+export function getRoyaltyAmount(resourceId: string, sharePercent: number): number {
+  const royalties = resourceById.get(resourceId)?.royalties;
+  if (!royalties) throw new RuleError("RESOURCE_NOT_FOUND", "Ressource cosmique introuvable.");
+  if (sharePercent >= 90) return royalties[90];
+  if (sharePercent >= 70) return royalties[70];
+  if (sharePercent >= 50) return royalties[50];
+  if (sharePercent >= 30) return royalties[30];
   return 0;
 }
 
@@ -157,7 +163,7 @@ function applyTrend(state: GameState, playerId: string): { state: GameState; eve
     event: makeEvent(state, {
       type: "trend_drawn",
       playerId,
-      message: `Tendance — ${card.title} : ${card.description}`,
+      message: `Événement cosmique — ${card.title} : ${card.description}`,
       data: { cardId: card.id, ...bankEventData(card.bankDirection, card.amount), appliedAmount: cannotPay ? 0 : card.amount, shortfall: cannotPay ? card.amount - player.capital : 0 }
     }),
     bankDebt: cannotPay ? card.amount : 0
@@ -166,42 +172,44 @@ function applyTrend(state: GameState, playerId: string): { state: GameState; eve
 
 function offerLever(state: GameState, playerId: string): { state: GameState; event: GameEvent } {
   const player = requirePlayer(state, playerId);
-  if (state.players.filter((candidate) => !candidate.bankrupt).length <= 2) {
+  if (state.players.filter((candidate) => !candidate.bankrupt && !candidate.mergedIntoId).length <= 2) {
     return {
       state,
       event: makeEvent(state, {
         type: "lever_passed",
         playerId,
-        message: `${player.name} arrive sur une case Joker, mais elle devient une case de repos lorsqu’il ne reste que deux joueurs.`
+        message: `${player.name} arrive sur une Station technologique, devenue case de repos puisqu’il ne reste que deux joueurs.`
       })
     };
   }
-  const available = state.leverDeck.length ? state.leverDeck : LEVER_CARDS.map((card) => card.id);
-  const leverId = available[0]!;
+  if (!state.leverDeck.length) {
+    return { state, event: makeEvent(state, { type: "lever_passed", playerId, message: `${player.name} ne trouve plus aucune Technologie disponible sur cette Station.` }) };
+  }
+  const leverId = state.leverDeck[0]!;
   const price = 3;
-  return { state: { ...state, phase: "WAITING_FOR_LEVER_PURCHASE", pendingLever: { playerId, leverId, price } }, event: makeEvent(state, { type: "lever_offered", playerId, message: `${player.name} peut acheter un Joker d’exemption pour ${price} crédits.`, data: { leverId, price } }) };
+  return { state: { ...state, phase: "WAITING_FOR_LEVER_PURCHASE", pendingLever: { playerId, leverId, price } }, event: makeEvent(state, { type: "lever_offered", playerId, message: `${player.name} peut acheter une Technologie d’évasion pour ${price} crédits.`, data: { leverId, price } }) };
 }
 
 function startAuction(state: GameState, playerId: string, redDie: number): { state: GameState; event: GameEvent } {
   const seller = requirePlayer(state, playerId);
-  const solventPlayers = state.players.filter((player) => !player.bankrupt);
-  if (solventPlayers.length <= 2) return { state, event: makeEvent(state, { type: "auction_passed", playerId, message: `${seller.name} arrive sur une Bourse, mais les appels d’offres sont désactivés lorsqu’il ne reste que deux joueurs.` }) };
-  if (seller.lapsCompleted < 1) return { state, event: makeEvent(state, { type: "auction_passed", playerId, message: `${seller.name} n’a pas encore accompli un tour complet : la Bourse est une case de repos.` }) };
-  if (!seller.assetIds.length) return { state, event: makeEvent(state, { type: "auction_passed", playerId, message: `${seller.name} ne possède aucune implantation à mettre en vente.` }) };
+  const availablePlayers = state.players.filter((player) => !player.bankrupt && !player.mergedIntoId && player.connected);
+  if (availablePlayers.length <= 2) return { state, event: makeEvent(state, { type: "auction_passed", playerId, message: `${seller.name} arrive sur un Marché orbital, devenu case de repos puisqu’il ne reste que deux joueurs disponibles.` }) };
+  if (seller.lapsCompleted < 1) return { state, event: makeEvent(state, { type: "auction_passed", playerId, message: `${seller.name} n’a pas encore accompli un tour complet : le Marché orbital est une case de repos.` }) };
+  if (!seller.assetIds.length) return { state, event: makeEvent(state, { type: "auction_passed", playerId, message: `${seller.name} ne possède aucune concession à mettre en vente.` }) };
   const targetCount = Math.min(redDie, seller.assetIds.length);
   const auction: AuctionState = {
     mode: "selection", sellerId: playerId, bankSale: false, targetCount, redDie, assetId: seller.assetIds[0]!, selectedAssetIds: [], lots: [], currentLotIndex: 0,
     minimumBid: 0, currentBid: 0, leaderId: null,
-    eligiblePlayerIds: solventPlayers.filter((player) => player.id !== playerId && player.capital > 0).map((player) => player.id), passedPlayerIds: [], deadline: null
+    eligiblePlayerIds: availablePlayers.filter((player) => player.id !== playerId && player.capital > 0).map((player) => player.id), passedPlayerIds: [], deadline: null
   };
-  return { state: { ...state, phase: "AUCTION", auction }, event: makeEvent(state, { type: "auction_started", playerId, message: `${seller.name} doit mettre ${targetCount} implantation${targetCount > 1 ? "s" : ""} en vente, selon le dé rouge (${redDie}).`, data: { redDie, targetCount } }) };
+  return { state: { ...state, phase: "AUCTION", auction }, event: makeEvent(state, { type: "auction_started", playerId, message: `${seller.name} doit proposer ${targetCount} concession${targetCount > 1 ? "s" : ""} au Marché orbital, selon le dé rouge (${redDie}).`, data: { redDie, targetCount } }) };
 }
 
 function beginRoyalties(state: GameState, payerId: string, resourceId: string, events: GameEvent[]): GameState {
   const payer = requirePlayer(state, payerId);
   const resource = resourceById.get(resourceId)!;
   const payments = state.players
-    .filter((player) => player.id !== payerId && !player.bankrupt)
+    .filter((player) => player.id !== payerId && !player.bankrupt && !player.mergedIntoId)
     .map((player) => {
       const assetId = player.assetIds.find((id) => assetById.get(id)?.resourceId === resourceId);
       if (!assetId) return null;
@@ -211,7 +219,7 @@ function beginRoyalties(state: GameState, payerId: string, resourceId: string, e
     .filter((payment): payment is NonNullable<typeof payment> => payment !== null);
   const [pendingPayment, ...paymentQueue] = payments;
   if (!pendingPayment) {
-    events.push(makeEvent(state, { type: "asset_visited", playerId: payerId, message: `${resource.name} : aucun autre joueur ne détient les 30 % requis pour recevoir des retombées.`, data: { resourceId } }));
+    events.push(makeEvent(state, { type: "asset_visited", playerId: payerId, message: `${resource.name} : aucun autre joueur ne détient les 30 % requis pour recevoir des droits d’extraction.`, data: { resourceId } }));
     return { ...state, pendingPayment: null, paymentQueue: [], phase: "WAITING_FOR_END_TURN" };
   }
   const recipient = requirePlayer(state, pendingPayment.recipientId);
@@ -235,10 +243,10 @@ function offerSpecialPurchase(state: GameState, playerId: string, source: "regio
     return { ...state, phase: "WAITING_FOR_END_TURN" };
   }
   if (!availableAssetIds.length) {
-    events.push(makeEvent(state, { type: "purchase_passed", playerId, message: `Aucun titre admissible n’est encore disponible sur ${label}.` }));
+    events.push(makeEvent(state, { type: "purchase_passed", playerId, message: `Aucune concession admissible n’est encore disponible sur ${label}.` }));
     return { ...state, phase: "WAITING_FOR_END_TURN" };
   }
-  events.push(makeEvent(state, { type: "purchase_offered", playerId, message: `${player.name} peut acheter jusqu’à 6 titres de ressources déjà présentes dans sa collection sur ${label}.`, data: { source, availableCount: availableAssetIds.length } }));
+  events.push(makeEvent(state, { type: "purchase_offered", playerId, message: `${player.name} peut acheter jusqu’à 6 concessions de ressources déjà présentes dans son portefeuille sur ${label}.`, data: { source, availableCount: availableAssetIds.length } }));
   return {
     ...state,
     phase: "WAITING_FOR_PURCHASE",
@@ -281,10 +289,10 @@ export function rollDice(state: GameState, playerId: string): GameState {
     const featured = assetById.get(space.assetId)!;
     const resource = resourceById.get(featured.resourceId)!;
     const availableAssetIds = ASSETS.filter((asset) => asset.countryId === featured.countryId && !state.ownership[asset.id]).map((asset) => asset.id);
-    events.push(makeEvent(state, { type: "asset_visited", playerId, message: `Case ${featured.hub} · ${resource.name} : achats du pays, puis retombées de la ressource.`, data: { countryId: featured.countryId, resourceId: featured.resourceId } }));
+    events.push(makeEvent(state, { type: "asset_visited", playerId, message: `Case ${featured.hub} · ${resource.name} : achats dans le registre du monde, puis droits d’extraction de la ressource.`, data: { countryId: featured.countryId, worldId: featured.worldId, resourceId: featured.resourceId } }));
     if (availableAssetIds.length) {
       next = { ...next, pendingAction: { type: "purchase", source: "classic", playerId, countryId: featured.countryId, resourceId: featured.resourceId, label: featured.hub, availableAssetIds, maxAssets: 6 }, phase: "WAITING_FOR_PURCHASE" };
-      events.push(makeEvent(state, { type: "purchase_offered", playerId, message: `${player.name} peut acheter jusqu’à 6 titres encore disponibles de ${featured.hub}.`, data: { countryId: featured.countryId, resourceId: featured.resourceId, availableCount: availableAssetIds.length } }));
+      events.push(makeEvent(state, { type: "purchase_offered", playerId, message: `${player.name} peut acheter jusqu’à 6 concessions encore disponibles dans le registre de ${featured.hub}.`, data: { countryId: featured.countryId, worldId: featured.worldId, resourceId: featured.resourceId, availableCount: availableAssetIds.length } }));
     } else {
       next = beginRoyalties(next, playerId, featured.resourceId, events);
     }
@@ -298,7 +306,7 @@ export function rollDice(state: GameState, playerId: string): GameState {
   } else if (space.type === "special" && space.kind === "dividend") {
     const amount = total * 0.5;
     next = { ...next, players: applyBankTransfer(next.players, playerId, "bank_to_player", amount) };
-    events.push(makeEvent(state, { type: "dividend_received", playerId, message: `${player.name} reçoit ${amount} crédits de la banque (${total} × 0,5), puis règle les retombées de ${resourceById.get(space.resourceId)!.name}.`, data: { ...bankEventData("bank_to_player", amount), total, resourceId: space.resourceId } }));
+    events.push(makeEvent(state, { type: "dividend_received", playerId, message: `${player.name} reçoit une prime d’expédition de ${amount} crédits de la Banque interstellaire (${total} × 0,5), puis règle les droits d’extraction de ${resourceById.get(space.resourceId)!.name}.`, data: { ...bankEventData("bank_to_player", amount), total, resourceId: space.resourceId } }));
     next = beginRoyalties(next, playerId, space.resourceId, events);
   } else if (space.type === "special" && space.kind === "regional_choice") {
     next = offerSpecialPurchase(next, playerId, "regional", space.regionName, space.continents, events);
@@ -306,7 +314,7 @@ export function rollDice(state: GameState, playerId: string): GameState {
     next = offerSpecialPurchase(next, playerId, "global", space.name, null, events);
   } else if (space.type === "special" && space.kind === "customs") {
     next = { ...next, players: next.players.map((candidate) => candidate.id === playerId ? { ...candidate, turnsToSkip: candidate.turnsToSkip + 1 } : candidate) };
-    events.push(makeEvent(state, { type: "customs_applied", playerId, message: `${player.name} est retenu au contrôle et passera son prochain tour.`, data: { turnsToSkip: 1 } }));
+    events.push(makeEvent(state, { type: "customs_applied", playerId, message: `${player.name} est placé en quarantaine orbitale et passera son prochain tour.`, data: { turnsToSkip: 1 } }));
   }
   return commit(next, events);
 }
@@ -316,13 +324,13 @@ export function buyPendingAsset(state: GameState, playerId: string, assetIds?: s
   const pending = state.pendingAction;
   if (state.phase !== "WAITING_FOR_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucun achat n’est proposé.");
   const selected = [...new Set(assetIds?.length ? assetIds : [pending.availableAssetIds[0]!])];
-  if (!selected.length || selected.length > pending.maxAssets || !selected.every((id) => pending.availableAssetIds.includes(id) && !state.ownership[id])) throw new RuleError("INVALID_PURCHASE", "Sélection de titres invalide.");
+  if (!selected.length || selected.length > pending.maxAssets || !selected.every((id) => pending.availableAssetIds.includes(id) && !state.ownership[id])) throw new RuleError("INVALID_PURCHASE", "Sélection de concessions invalide.");
   const price = selected.reduce((total, id) => total + assetById.get(id)!.basePrice, 0);
   if (player.capital < price) throw new RuleError("INSUFFICIENT_FUNDS", "Capital insuffisant pour cette sélection.");
   const debitedPlayers = applyBankTransfer(state.players, playerId, "player_to_bank", price);
   const players = debitedPlayers.map((item) => item.id === playerId ? { ...item, assetIds: [...item.assetIds, ...selected] } : item);
   const ownership = { ...state.ownership }; selected.forEach((id) => { ownership[id] = playerId; });
-  const events = [makeEvent(state, { type: "asset_purchased", playerId, message: `${player.name} achète ${selected.length} titre${selected.length > 1 ? "s" : ""} pour ${price} crédits.`, data: { source: pending.source, assetCount: selected.length, price, ...bankEventData("player_to_bank", price), ...(pending.countryId ? { countryId: pending.countryId } : {}), ...(pending.resourceId ? { resourceId: pending.resourceId } : {}) } })];
+  const events = [makeEvent(state, { type: "asset_purchased", playerId, message: `${player.name} achète ${selected.length} concession${selected.length > 1 ? "s" : ""} pour ${price} crédits stellaires.`, data: { source: pending.source, assetCount: selected.length, price, ...bankEventData("player_to_bank", price), ...(pending.countryId ? { worldId: pending.countryId } : {}), ...(pending.resourceId ? { resourceId: pending.resourceId } : {}) } })];
   const purchasedState = { ...state, players, ownership, pendingAction: null };
   const next = pending.source === "classic" && pending.resourceId ? beginRoyalties(purchasedState, playerId, pending.resourceId, events) : { ...purchasedState, phase: "WAITING_FOR_END_TURN" as const };
   return commit(next, events);
@@ -332,7 +340,7 @@ export function passPendingAsset(state: GameState, playerId: string): GameState 
   const player = requireActive(state, playerId);
   const pending = state.pendingAction;
   if (state.phase !== "WAITING_FOR_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucun achat n’est proposé.");
-  const events = [makeEvent(state, { type: "purchase_passed", playerId, message: `${player.name} n’achète aucun titre sur ${pending.label}.`, data: { source: pending.source, ...(pending.countryId ? { countryId: pending.countryId } : {}), ...(pending.resourceId ? { resourceId: pending.resourceId } : {}) } })];
+  const events = [makeEvent(state, { type: "purchase_passed", playerId, message: `${player.name} n’achète aucune concession sur ${pending.label}.`, data: { source: pending.source, ...(pending.countryId ? { worldId: pending.countryId } : {}), ...(pending.resourceId ? { resourceId: pending.resourceId } : {}) } })];
   const passedState = { ...state, pendingAction: null };
   const next = pending.source === "classic" && pending.resourceId ? beginRoyalties(passedState, playerId, pending.resourceId, events) : { ...passedState, phase: "WAITING_FOR_END_TURN" as const };
   return commit(next, events);
@@ -340,8 +348,8 @@ export function passPendingAsset(state: GameState, playerId: string): GameState 
 
 export function buyPendingLever(state: GameState, playerId: string): GameState {
   const player = requireActive(state, playerId); const pending = state.pendingLever;
-  if (state.phase !== "WAITING_FOR_LEVER_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucun Joker n’est proposé.");
-  if (player.capital < pending.price) throw new RuleError("INSUFFICIENT_FUNDS", "Capital insuffisant pour acheter ce Joker.");
+  if (state.phase !== "WAITING_FOR_LEVER_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucune Technologie n’est proposée.");
+  if (player.capital < pending.price) throw new RuleError("INSUFFICIENT_FUNDS", "Crédits insuffisants pour acheter cette Technologie.");
   const card = leverById.get(pending.leverId)!;
   const debitedPlayers = applyBankTransfer(state.players, playerId, "player_to_bank", pending.price);
   const players = debitedPlayers.map((item) => item.id === playerId ? { ...item, leverIds: [...item.leverIds, pending.leverId] } : item);
@@ -350,14 +358,14 @@ export function buyPendingLever(state: GameState, playerId: string): GameState {
 
 export function passPendingLever(state: GameState, playerId: string): GameState {
   const player = requireActive(state, playerId); const pending = state.pendingLever;
-  if (state.phase !== "WAITING_FOR_LEVER_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucun Joker n’est proposé.");
-  return commit({ ...state, pendingLever: null, phase: "WAITING_FOR_END_TURN" }, [makeEvent(state, { type: "lever_passed", playerId, message: `${player.name} renonce au Joker d’exemption.` })]);
+  if (state.phase !== "WAITING_FOR_LEVER_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucune Technologie n’est proposée.");
+  return commit({ ...state, pendingLever: null, phase: "WAITING_FOR_END_TURN" }, [makeEvent(state, { type: "lever_passed", playerId, message: `${player.name} renonce à la Technologie proposée.` })]);
 }
 
 export function payPendingPayment(state: GameState, playerId: string): GameState {
   const payer = requireActive(state, playerId);
   const pending = state.pendingPayment;
-  if (state.phase !== "WAITING_FOR_PAYMENT" || !pending || pending.payerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucune retombée n’est à régler.");
+  if (state.phase !== "WAITING_FOR_PAYMENT" || !pending || pending.payerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucun droit d’extraction n’est à régler.");
   if (payer.capital < pending.amount) throw new RuleError("INSUFFICIENT_FUNDS", "Vos liquidités sont insuffisantes : la faillite doit être déclarée.");
   const recipient = requirePlayer(state, pending.recipientId);
   const resource = resourceById.get(pending.resourceId)!;
@@ -375,7 +383,7 @@ export function useLever(state: GameState, playerId: string, leverId: string): G
   if (!player.leverIds.includes(leverId)) throw new RuleError("LEVER_NOT_OWNED", "Ce levier n’est pas dans votre main.");
   const lever = leverById.get(leverId);
   if (!lever) throw new RuleError("LEVER_NOT_FOUND", "Levier introuvable.");
-  if (state.phase !== "AUCTION" || state.auction?.mode !== "selection" || state.auction.sellerId !== playerId) throw new RuleError("INVALID_PHASE", "Ce Joker s’utilise uniquement avant de sélectionner les lots à vendre.");
+  if (state.phase !== "AUCTION" || state.auction?.mode !== "selection" || state.auction.sellerId !== playerId) throw new RuleError("INVALID_PHASE", "Cette Technologie s’utilise uniquement avant de sélectionner les lots à vendre.");
   const next: GameState = {
     ...state,
     players: state.players.map((item) => item.id === playerId ? { ...item, leverIds: item.leverIds.filter((id) => id !== leverId) } : item),
@@ -387,14 +395,17 @@ export function useLever(state: GameState, playerId: string, leverId: string): G
 }
 
 function winner(state: GameState): PlayerState | null {
-  return [...state.players].filter((player) => !player.bankrupt).sort((a, b) => getNetWorth(state, b.id) - getNetWorth(state, a.id) || b.capital - a.capital)[0] ?? null;
+  return [...state.players].filter((player) => !player.bankrupt && !player.mergedIntoId).sort((a, b) => getNetWorth(state, b.id) - getNetWorth(state, a.id) || b.capital - a.capital)[0] ?? null;
 }
 
 function finishWithReason(state: GameState, reason: GameState["finishReason"], events: GameEvent[]): GameState {
-  const winningPlayer = winner(state);
+  // A manually stopped game is not a victory condition. Only the final
+  // solvent consortium wins; an administrative stop must not turn the
+  // current wealth ranking into a winner.
+  const winningPlayer = reason === "LAST_SOLVENT" ? winner(state) : null;
   return commit({ ...state, status: "FINISHED", phase: "FINISHED", previousPhase: null, pauseReason: null, pausePlayerId: null, pendingAction: null, pendingLever: null, pendingPayment: null, paymentQueue: [], auction: null, tradeOffer: null, winnerId: winningPlayer?.id ?? null, finishReason: reason }, [
     ...events,
-    makeEvent(state, { type: "game_finished", ...(winningPlayer ? { playerId: winningPlayer.id } : {}), message: winningPlayer ? `${winningPlayer.name} remporte la partie avec un patrimoine de ${getNetWorth(state, winningPlayer.id)} crédits.` : "La partie est terminée." })
+    makeEvent(state, { type: "game_finished", ...(winningPlayer ? { playerId: winningPlayer.id } : {}), message: reason === "LAST_SOLVENT" && winningPlayer ? `${winningPlayer.name} est le dernier consortium opérationnel et remporte la partie.` : "La partie a été arrêtée par l’hôte." })
   ]);
 }
 
@@ -408,7 +419,7 @@ function nextPlayable(state: GameState, playerId: string): { player: PlayerState
     if (index === 0) wrapped = true;
     const candidate = players[index]!;
     cursor = index;
-    if (candidate.bankrupt) continue;
+    if (candidate.bankrupt || candidate.mergedIntoId) continue;
     if (candidate.turnsToSkip > 0) {
       skipped.push(candidate);
       players = players.map((item) => item.id === candidate.id ? { ...item, turnsToSkip: item.turnsToSkip - 1 } : item);
@@ -428,7 +439,8 @@ function settleBankruptcy(state: GameState, playerId: string, debts: BankruptcyD
     if (!Number.isFinite(debt.amount) || debt.amount <= 0) throw new RuleError("INVALID_BANKRUPTCY_DEBT", "Une dette de faillite doit être positive.");
     if (debt.recipientId) debtByRecipient.set(debt.recipientId, (debtByRecipient.get(debt.recipientId) ?? 0) + debt.amount);
   }
-  let players = state.players.map((item) => item.id === playerId ? { ...item, capital: 0, assetIds: [], bankrupt: true } : item);
+  const eliminatedIds = new Set(state.players.filter((item) => item.id === playerId || (player.allianceId && item.allianceId === player.allianceId)).map(({ id }) => id));
+  let players = state.players.map((item) => eliminatedIds.has(item.id) ? { ...item, capital: 0, assetIds: [], bankrupt: true } : item);
   for (const [recipientId, amount] of debtByRecipient) players = applyBankTransfer(players, recipientId, "bank_to_player", amount);
   const ownership = { ...state.ownership };
   player.assetIds.forEach((assetId) => { delete ownership[assetId]; });
@@ -439,25 +451,27 @@ function settleBankruptcy(state: GameState, playerId: string, debts: BankruptcyD
   const bankruptcyEvent = makeEvent(state, {
     type: "player_bankrupt",
     playerId,
-    message: `${player.name} est en faillite avec ${totalDebt} crédit${totalDebt > 1 ? "s" : ""} de dettes. La banque reprend ses titres${creditorCompensation ? ` et verse ${creditorCompensation} crédits aux créanciers` : ""}.`,
+    message: `${player.name} perd sa licence galactique avec ${totalDebt} crédit${totalDebt > 1 ? "s" : ""} de dettes. La Banque interstellaire reprend ses concessions${creditorCompensation ? ` et verse ${creditorCompensation} crédits aux créanciers` : ""}.`,
     data: { amount: totalDebt, creditorCompensation, debtToBank, assetCount: player.assetIds.length }
   });
   const events = [...precedingEvents, bankruptcyEvent];
-  if (players.filter((item) => !item.bankrupt).length === 1) return finishWithReason(base, "LAST_SOLVENT", events);
+  if (players.filter((item) => !item.bankrupt && !item.mergedIntoId).length === 1) return finishWithReason(base, "LAST_SOLVENT", events);
   if (player.assetIds.length) {
     const lots = RESOURCES.map((resource) => player.assetIds.filter((assetId) => assetById.get(assetId)?.resourceId === resource.id)).filter((lot) => lot.length);
     const auction = prepareAuctionLot({
       mode: "bidding", sellerId: playerId, bankSale: true, targetCount: player.assetIds.length, redDie: 0,
       assetId: lots[0]![0]!, selectedAssetIds: [...player.assetIds], lots, currentLotIndex: 0,
       minimumBid: 0, currentBid: 0, leaderId: null,
-      eligiblePlayerIds: players.filter((item) => !item.bankrupt).map((item) => item.id), passedPlayerIds: [], deadline: null
+      eligiblePlayerIds: players.filter((item) => !item.bankrupt && !item.mergedIntoId).map((item) => item.id), passedPlayerIds: [], deadline: null
     }, 0);
-    return commit({ ...base, phase: "AUCTION", auction }, [...events, makeEvent(state, { type: "auction_started", message: `La banque ouvre les enchères sur les titres de ${player.name}. Premier lot à ${auction.minimumBid} crédits pendant 10 secondes.`, data: { assetCount: player.assetIds.length, minimumBid: auction.minimumBid } })]);
+    return commit({ ...base, phase: "AUCTION", auction }, [...events, makeEvent(state, { type: "auction_started", message: `La Banque interstellaire ouvre le Marché orbital pour les concessions de ${player.name}. Premier lot à ${auction.minimumBid} crédits pendant 10 secondes.`, data: { assetCount: player.assetIds.length, minimumBid: auction.minimumBid } })]);
   }
   const next = nextPlayable(base, playerId);
-  events.push(...next.skipped.map((skipped) => makeEvent(state, { type: "turn_skipped" as const, playerId: skipped.id, message: `${skipped.name} passe ce tour à la suite d’un contrôle douanier.` })));
+  events.push(...next.skipped.map((skipped) => makeEvent(state, { type: "turn_skipped" as const, playerId: skipped.id, message: `${skipped.name} passe ce tour à la suite d’une quarantaine orbitale.` })));
   events.push(makeEvent(state, { type: "turn_started", playerId: next.player.id, message: `Tour de ${next.player.name}.` }));
-  return commit({ ...base, players: next.players, phase: "WAITING_FOR_ROLL", activePlayerId: next.player.id, turnNumber: state.turnNumber + 1 + next.skipped.length, roundNumber: state.roundNumber + (next.wrapped ? 1 : 0), lastRoll: null }, events);
+  const nextPhase = next.player.connected ? "WAITING_FOR_ROLL" : "PAUSED";
+  if (!next.player.connected) events.push(makeEvent(state, { type: "game_paused", playerId: next.player.id, message: `La partie est en pause : ${next.player.name} doit se reconnecter avant son tour.` }));
+  return commit({ ...base, players: next.players, phase: nextPhase, previousPhase: next.player.connected ? null : "WAITING_FOR_ROLL", pauseReason: next.player.connected ? null : "PLAYER_DISCONNECTED", pausePlayerId: next.player.connected ? null : next.player.id, activePlayerId: next.player.id, turnNumber: state.turnNumber + 1 + next.skipped.length, roundNumber: state.roundNumber + (next.wrapped ? 1 : 0), lastRoll: null }, events);
 }
 
 export function declareBankruptcy(state: GameState, playerId: string): GameState {
@@ -481,18 +495,16 @@ export function selectAuctionAssets(state: GameState, playerId: string, assetIds
   const seller = requireActive(state, playerId); const auction = state.auction;
   if (state.phase !== "AUCTION" || !auction || auction.mode !== "selection" || auction.sellerId !== playerId) throw new RuleError("AUCTION_SELECTION_NOT_ALLOWED", "Aucune sélection de vente n’est attendue.");
   const unique = [...new Set(assetIds)];
-  if (!unique.every((assetId) => seller.assetIds.includes(assetId))) throw new RuleError("ASSET_NOT_OWNED", "Une implantation sélectionnée ne vous appartient pas.");
-  const resourceCounts = new Map<string, number>();
-  for (const assetId of seller.assetIds) { const resourceId = assetById.get(assetId)!.resourceId; resourceCounts.set(resourceId, (resourceCounts.get(resourceId) ?? 0) + 1); }
-  const onlyLargeGroups = seller.assetIds.every((assetId) => (resourceCounts.get(assetById.get(assetId)!.resourceId) ?? 0) >= 4);
+  if (!unique.every((assetId) => seller.assetIds.includes(assetId))) throw new RuleError("ASSET_NOT_OWNED", "Une concession sélectionnée ne vous appartient pas.");
+  const selectedGroupSizes: number[] = [];
   for (const resource of RESOURCES) {
     const owned = seller.assetIds.filter((assetId) => assetById.get(assetId)!.resourceId === resource.id);
     const selected = unique.filter((assetId) => assetById.get(assetId)!.resourceId === resource.id);
-    if (selected.length && owned.length >= 4 && selected.length !== owned.length) throw new RuleError("MONOPOLY_MUST_STAY_TOGETHER", `Le groupe ${resource.name} doit être vendu entièrement.`);
+    if (selected.length && selected.length !== owned.length) throw new RuleError("RESOURCE_GROUP_MUST_STAY_TOGETHER", `Toutes les concessions de ${resource.name} doivent être vendues ensemble.`);
+    if (selected.length) selectedGroupSizes.push(selected.length);
   }
-  if (onlyLargeGroups) {
-    if (unique.length < auction.targetCount) throw new RuleError("INVALID_AUCTION_SELECTION", `Sélectionnez au moins ${auction.targetCount} implantations.`);
-  } else if (unique.length !== auction.targetCount) throw new RuleError("INVALID_AUCTION_SELECTION", `Sélectionnez exactement ${auction.targetCount} implantation${auction.targetCount > 1 ? "s" : ""}.`);
+  if (unique.length < auction.targetCount) throw new RuleError("INVALID_AUCTION_SELECTION", `Sélectionnez au moins ${auction.targetCount} concessions.`);
+  if (selectedGroupSizes.some((size) => unique.length - size >= auction.targetCount)) throw new RuleError("INVALID_AUCTION_SELECTION", "La sélection contient un groupe de ressource superflu.");
   const lots: string[][] = [];
   for (const resource of RESOURCES) {
     const grouped = unique.filter((assetId) => assetById.get(assetId)!.resourceId === resource.id);
@@ -534,9 +546,11 @@ function closeAuctionLot(state: GameState, events: GameEvent[] = []): GameState 
     if (auction.bankSale) {
       const settled = { ...state, players, ownership, auction: null };
       const next = nextPlayable(settled, seller.id);
-      events.push(...next.skipped.map((skipped) => makeEvent(state, { type: "turn_skipped" as const, playerId: skipped.id, message: `${skipped.name} passe ce tour à la suite d’un contrôle douanier.` })));
+      events.push(...next.skipped.map((skipped) => makeEvent(state, { type: "turn_skipped" as const, playerId: skipped.id, message: `${skipped.name} passe ce tour à la suite d’une quarantaine orbitale.` })));
       events.push(makeEvent(state, { type: "turn_started", playerId: next.player.id, message: `Tour de ${next.player.name}.` }));
-      return commit({ ...settled, players: next.players, phase: "WAITING_FOR_ROLL", activePlayerId: next.player.id, turnNumber: state.turnNumber + 1 + next.skipped.length, roundNumber: state.roundNumber + (next.wrapped ? 1 : 0), lastRoll: null }, events);
+      const nextPhase = next.player.connected ? "WAITING_FOR_ROLL" : "PAUSED";
+      if (!next.player.connected) events.push(makeEvent(state, { type: "game_paused", playerId: next.player.id, message: `La partie est en pause : ${next.player.name} doit se reconnecter avant son tour.` }));
+      return commit({ ...settled, players: next.players, phase: nextPhase, previousPhase: next.player.connected ? null : "WAITING_FOR_ROLL", pauseReason: next.player.connected ? null : "PLAYER_DISCONNECTED", pausePlayerId: next.player.connected ? null : next.player.id, activePlayerId: next.player.id, turnNumber: state.turnNumber + 1 + next.skipped.length, roundNumber: state.roundNumber + (next.wrapped ? 1 : 0), lastRoll: null }, events);
     }
     return commit({ ...state, players, ownership, auction: null, phase: "WAITING_FOR_END_TURN" }, events);
   }
@@ -580,21 +594,36 @@ export function passAuction(state: GameState, playerId: string): GameState {
 export function proposeTrade(state: GameState, playerId: string, offer: Omit<TradeOffer, "id" | "proposerId" | "returnPhase">): GameState {
   const proposer = requirePlayer(state, playerId);
   if (proposer.bankrupt) throw new RuleError("PLAYER_BANKRUPT", "Un joueur en faillite ne peut plus négocier.");
-  if (state.phase !== "WAITING_FOR_ROLL" && state.phase !== "WAITING_FOR_END_TURN") throw new RuleError("INVALID_PHASE", "Un échange ne peut être proposé maintenant.");
+  if (proposer.mergedIntoId) throw new RuleError("ALLIANCE_ASSOCIATE", "Ce joueur appartient déjà à un consortium conjoint.");
+  const liquidation = state.phase === "WAITING_FOR_PAYMENT" && state.activePlayerId === playerId && state.pendingPayment?.payerId === playerId && proposer.capital < state.pendingPayment.amount;
+  if (state.phase !== "WAITING_FOR_ROLL" && state.phase !== "WAITING_FOR_END_TURN" && !liquidation) throw new RuleError("INVALID_PHASE", "Un transfert ne peut pas être proposé maintenant.");
   const target = requirePlayer(state, offer.targetId);
   if (target.id === playerId || target.bankrupt) throw new RuleError("INVALID_TRADE", "Choisissez un autre joueur solvable.");
+  if (!target.connected) throw new RuleError("PLAYER_OFFLINE", "Ce joueur doit se reconnecter avant de recevoir une proposition.");
+  if (target.mergedIntoId) throw new RuleError("INVALID_TRADE", "Choisissez le pilote du consortium conjoint.");
+  if (offer.kind === "alliance") {
+    if (liquidation || (state.phase !== "WAITING_FOR_ROLL" && state.phase !== "WAITING_FOR_END_TURN")) throw new RuleError("INVALID_PHASE", "Une alliance se conclut entre deux décisions obligatoires.");
+    if (proposer.allianceId || target.allianceId) throw new RuleError("ALLIANCE_EXISTS", "Un des joueurs appartient déjà à un consortium conjoint.");
+    const combinedPurchasePrice = [...proposer.assetIds, ...target.assetIds].reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0);
+    const allianceTax = combinedPurchasePrice / 2;
+    if (proposer.capital < allianceTax || target.capital < allianceTax) throw new RuleError("INSUFFICIENT_FUNDS", `Chaque associé doit pouvoir verser ${allianceTax} crédits à la Banque interstellaire.`);
+    const returnPhase: TradeOffer["returnPhase"] = state.phase === "WAITING_FOR_ROLL" ? "WAITING_FOR_ROLL" : "WAITING_FOR_END_TURN";
+    const tradeOffer: TradeOffer = { ...offer, kind: "alliance", allianceTax, id: `alliance-${state.revision + 1}`, proposerId: playerId, returnPhase, offeredResourceId: null, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0 };
+    return commit({ ...state, phase: "WAITING_FOR_TRADE", tradeOffer }, [makeEvent(state, { type: "trade_proposed", playerId, message: `${proposer.name} propose à ${target.name} de former un consortium conjoint. Chacun versera ${allianceTax} crédits à la banque.`, data: { tradeId: tradeOffer.id, targetId: target.id, alliance: true, allianceTax } })]);
+  }
   const validAmount = (amount: number) => Number.isFinite(amount) && amount >= 0 && Math.abs(amount * 10 - Math.round(amount * 10)) < 1e-8;
   if (!validAmount(offer.offeredCredits) || !validAmount(offer.requestedCredits)) throw new RuleError("INVALID_TRADE", "Les montants doivent être positifs, par pas de 0,1 crédit.");
   if (offer.offeredCredits > proposer.capital || offer.requestedCredits > target.capital) throw new RuleError("INSUFFICIENT_FUNDS", "Un des montants dépasse le capital disponible.");
   const offeredAssetIds = offer.offeredResourceId ? proposer.assetIds.filter((id) => assetById.get(id)?.resourceId === offer.offeredResourceId) : [];
   const requestedAssetIds = offer.requestedResourceId ? target.assetIds.filter((id) => assetById.get(id)?.resourceId === offer.requestedResourceId) : [];
-  if (offer.offeredResourceId && !offeredAssetIds.length) throw new RuleError("ASSET_NOT_OWNED", "Vous ne détenez aucun titre de la ressource offerte.");
-  if (offer.requestedResourceId && !requestedAssetIds.length) throw new RuleError("ASSET_NOT_OWNED", "Ce joueur ne détient plus aucun titre de la ressource demandée.");
+  if (offer.offeredResourceId && !offeredAssetIds.length) throw new RuleError("ASSET_NOT_OWNED", "Vous ne détenez aucune concession de la ressource offerte.");
+  if (offer.requestedResourceId && !requestedAssetIds.length) throw new RuleError("ASSET_NOT_OWNED", "Ce joueur ne détient plus aucune concession de la ressource demandée.");
   if (!offer.offeredResourceId && !offer.requestedResourceId) throw new RuleError("INVALID_TRADE", "Une transaction doit porter sur au moins un groupe de ressource.");
   const isResourceExchange = Boolean(offer.offeredResourceId && offer.requestedResourceId);
   if (!isResourceExchange && state.activePlayerId !== playerId) throw new RuleError("NOT_ACTIVE_PLAYER", "Un achat ou une vente ne peut être proposé que pendant votre tour.");
-  const tradeOffer: TradeOffer = { ...offer, id: `trade-${state.revision + 1}`, proposerId: playerId, returnPhase: state.phase };
-  const operation = isResourceExchange ? "un échange de ressources" : offer.offeredResourceId ? "une vente de titres" : "un achat de titres";
+  const returnPhase: TradeOffer["returnPhase"] = liquidation ? "WAITING_FOR_PAYMENT" : state.phase === "WAITING_FOR_ROLL" ? "WAITING_FOR_ROLL" : "WAITING_FOR_END_TURN";
+  const tradeOffer: TradeOffer = { ...offer, id: `trade-${state.revision + 1}`, proposerId: playerId, returnPhase };
+  const operation = isResourceExchange ? "un échange de ressources" : offer.offeredResourceId ? "une vente de concessions" : "un achat de concessions";
   return commit({ ...state, phase: "WAITING_FOR_TRADE", tradeOffer }, [makeEvent(state, { type: "trade_proposed", playerId, message: `${proposer.name} propose ${operation} à ${target.name}.`, data: { tradeId: tradeOffer.id, targetId: target.id } })]);
 }
 
@@ -603,6 +632,28 @@ export function respondToTrade(state: GameState, playerId: string, accept: boole
   if (state.phase !== "WAITING_FOR_TRADE" || !offer || (playerId !== offer.targetId && (accept || playerId !== offer.proposerId))) throw new RuleError("TRADE_NOT_ALLOWED", "Vous ne pouvez pas répondre à cette offre.");
   const proposer = requirePlayer(state, offer.proposerId); const target = requirePlayer(state, offer.targetId);
   if (!accept) return commit({ ...state, phase: offer.returnPhase, tradeOffer: null }, [makeEvent(state, { type: "trade_rejected", playerId, message: `${playerId === proposer.id ? proposer.name : target.name} annule l’échange.` })]);
+  if (offer.kind === "alliance") {
+    const combinedAssets = [...proposer.assetIds, ...target.assetIds];
+    const tax = combinedAssets.reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0) / 2;
+    if (proposer.capital < tax || target.capital < tax) throw new RuleError("INSUFFICIENT_FUNDS", "Les capitaux ont changé : la taxe d’alliance ne peut plus être payée.");
+    const proposerValue = proposer.assetIds.reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0);
+    const targetValue = target.assetIds.reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0);
+    const pilot = targetValue > proposerValue ? target : proposer;
+    const associate = pilot.id === proposer.id ? target : proposer;
+    const allianceId = `consortium-${state.revision + 1}`;
+    const ownership = { ...state.ownership };
+    combinedAssets.forEach((id) => { ownership[id] = pilot.id; });
+    const players = state.players.map((player) => {
+      if (player.id === pilot.id) return { ...player, capital: proposer.capital + target.capital - tax * 2, assetIds: combinedAssets, leverIds: [...proposer.leverIds, ...target.leverIds], allianceId, mergedIntoId: null };
+      if (player.id === associate.id) return { ...player, capital: 0, assetIds: [], leverIds: [], allianceId, mergedIntoId: pilot.id, position: pilot.position, turnsToSkip: 0 };
+      return player;
+    });
+    const activePlayerId = state.activePlayerId === associate.id ? pilot.id : state.activePlayerId;
+    const events = [makeEvent(state, { type: "trade_accepted" as const, playerId, message: `${proposer.name} et ${target.name} forment désormais un consortium conjoint piloté par ${pilot.name}. Ils versent chacun ${tax} crédits à la Banque interstellaire.`, data: { tradeId: offer.id, alliance: true, allianceTax: tax, pilotId: pilot.id, associateId: associate.id, bankDirection: "player_to_bank", amount: tax * 2 } })];
+    const alliedState = { ...state, players, ownership, activePlayerId, phase: offer.returnPhase, tradeOffer: null };
+    if (players.filter((player) => !player.bankrupt && !player.mergedIntoId).length === 1) return finishWithReason(alliedState, "LAST_SOLVENT", events);
+    return commit(alliedState, events);
+  }
   if (proposer.capital < offer.offeredCredits || target.capital < offer.requestedCredits) throw new RuleError("INSUFFICIENT_FUNDS", "Les capitaux ont changé : l’offre n’est plus réalisable.");
   const offeredAssetIds = offer.offeredResourceId ? proposer.assetIds.filter((id) => assetById.get(id)?.resourceId === offer.offeredResourceId) : [];
   const requestedAssetIds = offer.requestedResourceId ? target.assetIds.filter((id) => assetById.get(id)?.resourceId === offer.requestedResourceId) : [];
@@ -617,14 +668,14 @@ export function respondToTrade(state: GameState, playerId: string, accept: boole
     return player;
   });
   const movedTitles = offeredAssetIds.length + requestedAssetIds.length;
-  return commit({ ...state, players, ownership, phase: offer.returnPhase, tradeOffer: null }, [makeEvent(state, { type: "trade_accepted", playerId, message: `${target.name} accepte l’accord proposé par ${proposer.name} : ${movedTitles} titre${movedTitles > 1 ? "s" : ""} change${movedTitles > 1 ? "nt" : ""} de main.`, data: { tradeId: offer.id, assetCount: movedTitles } })]);
+  return commit({ ...state, players, ownership, phase: offer.returnPhase, tradeOffer: null }, [makeEvent(state, { type: "trade_accepted", playerId, message: `${target.name} accepte l’accord proposé par ${proposer.name} : ${movedTitles} concession${movedTitles > 1 ? "s" : ""} change${movedTitles > 1 ? "nt" : ""} de main.`, data: { tradeId: offer.id, assetCount: movedTitles } })]);
 }
 
 export function endTurn(state: GameState, playerId: string): GameState {
   requireActive(state, playerId);
   if (state.phase !== "WAITING_FOR_END_TURN") throw new RuleError("INVALID_PHASE", "Le tour n’est pas terminé.");
   const next = nextPlayable(state, playerId);
-  const events: GameEvent[] = next.skipped.map((skipped) => makeEvent(state, { type: "turn_skipped", playerId: skipped.id, message: `${skipped.name} passe ce tour à la suite d’un contrôle douanier.` }));
+  const events: GameEvent[] = next.skipped.map((skipped) => makeEvent(state, { type: "turn_skipped", playerId: skipped.id, message: `${skipped.name} passe ce tour à la suite d’une quarantaine orbitale.` }));
   const nextRound = state.roundNumber + (next.wrapped ? 1 : 0);
   const base = { ...state, players: next.players, activePlayerId: next.player.id, turnNumber: state.turnNumber + 1 + next.skipped.length, roundNumber: nextRound, lastRoll: null, landedSpaceId: null, landedAssetId: null, lastCard: null };
   events.push(makeEvent(state, { type: "turn_started", playerId: next.player.id, message: `Tour de ${next.player.name}.` }));
@@ -642,7 +693,7 @@ export function pauseGame(state: GameState, reason: GameState["pauseReason"] = "
 
 export function resumeGame(state: GameState): GameState {
   if (state.phase !== "PAUSED" || !state.previousPhase) throw new RuleError("INVALID_PHASE", "La partie n’est pas en pause.");
-  if (state.players.some((player) => !player.bankrupt && !player.connected)) throw new RuleError("PLAYER_OFFLINE", "Tous les joueurs actifs doivent être reconnectés avant de reprendre.");
+  if (state.players.some((player) => !player.bankrupt && !player.mergedIntoId && !player.connected)) throw new RuleError("PLAYER_OFFLINE", "Tous les joueurs actifs doivent être reconnectés avant de reprendre.");
   return commit({ ...state, phase: state.previousPhase, previousPhase: null, pauseReason: null, pausePlayerId: null }, [makeEvent(state, { type: "game_resumed", message: "Tout le monde est reconnecté. La partie reprend." })]);
 }
 
@@ -657,7 +708,7 @@ export function restartGame(state: GameState): GameState {
   const fresh = createGame(state.id, state.code, nextSeed);
   const players: PlayerState[] = state.players.map(({ id, name, color, symbol, connected }) => ({
     id, name, color, symbol, connected, ready: false, position: 0, lapsCompleted: 0, turnsToSkip: 0,
-    capital: 30, assetIds: [], leverIds: [], bankrupt: false
+    capital: 30, assetIds: [], leverIds: [], bankrupt: false, allianceId: null, mergedIntoId: null
   }));
   return {
     ...fresh,

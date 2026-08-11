@@ -1,14 +1,14 @@
 export const fr = {
-  brand: "Orbisium",
-  tagline: "Les flux dessinent le monde.",
+  brand: "Richesses de l’espace",
+  tagline: "Explorez. Négociez. Dominez.",
   roll: "Lancer les dés",
-  buy: "Investir",
+  buy: "Acquérir",
   pass: "Passer",
   endTurn: "Terminer le tour",
   ready: "Je suis prêt·e",
   waiting: "En attente",
-  capital: "Capital",
-  portfolio: "Portefeuille",
+  capital: "Crédits stellaires",
+  portfolio: "Concessions",
   round: "Ronde",
-  join: "Rejoindre la table"
+  join: "Rejoindre la flotte"
 } as const;
