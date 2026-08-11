@@ -91,4 +91,15 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
     expect(theme).toMatch(/body:has\(\.phone-shell \.controller-screen\),[\s\S]*overflow-y:\s*auto !important/s);
     expect(theme).toMatch(/@media \(max-width: 760px\) and \(max-height: 500px\)[\s\S]*\.mobile-only-navigation\s*\{[^}]*position:\s*static/s);
   });
+
+  it("does not add a second viewport or legacy bottom padding below controller pages", () => {
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\)\s*\{[^}]*min-height:\s*100dvh !important[^}]*padding-bottom:\s*env\(safe-area-inset-bottom\) !important/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\) \.controller-screen\s*\{[^}]*min-height:\s*calc\(100dvh - 58px - env\(safe-area-inset-top\)\) !important/s);
+  });
+
+  it("anchors short mobile actions directly above the lower docks", () => {
+    expect(theme).toMatch(/\.controller-screen--mobile-only\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
+    expect(theme).toMatch(/\.controller-screen--mobile-only > :is\([\s\S]*\.primary-action\.action-card--roll,[\s\S]*\.end-turn-action,[\s\S]*\.spectator-state[\s\S]*\)\s*\{[^}]*margin-top:\s*auto/s);
+    expect(theme).toMatch(/\.controller-screen--mobile-only:has\(\.end-turn-action\),[\s\S]*\.controller-screen--mobile-only:has\(\.spectator-state\)\s*\{[^}]*padding-bottom:\s*calc\(10\.65rem \+ env\(safe-area-inset-bottom\)\) !important/s);
+  });
 });

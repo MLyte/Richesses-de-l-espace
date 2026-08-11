@@ -843,11 +843,34 @@ button:disabled {
     overflow-x: hidden !important;
     overflow-y: auto !important;
   }
-  .phone-shell:has(.controller-screen),
-  .phone-shell:has(.controller-screen) .controller-screen {
+  .phone-shell:has(.controller-screen) {
     height: auto !important;
     min-height: 100dvh !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
     overflow: visible !important;
+  }
+  .phone-shell:has(.controller-screen) .controller-screen {
+    height: auto !important;
+    min-height: calc(100dvh - 58px - env(safe-area-inset-top)) !important;
+    overflow: visible !important;
+  }
+  .controller-screen--mobile-only {
+    display: flex;
+    flex-direction: column;
+  }
+  .controller-screen--mobile-only > .controller-meta {
+    flex: 0 0 auto;
+  }
+  .controller-screen--mobile-only > :is(
+      .primary-action.action-card--roll,
+      .end-turn-action,
+      .spectator-state
+    ) {
+    margin-top: auto;
+  }
+  .controller-screen--mobile-only:has(.end-turn-action),
+  .controller-screen--mobile-only:has(.spectator-state) {
+    padding-bottom: calc(10.65rem + env(safe-area-inset-bottom)) !important;
   }
   .phone-shell:has(.controller-screen) { scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
   .phone-tools .help-trigger,
