@@ -19,10 +19,13 @@ describe("robot lobby and status UI", () => {
     expect(playerView).toContain(":aria-label=\"`Retirer ${player.name}`\"");
   });
 
-  it("lets a local player choose one to five robots before launch", () => {
+  it("lets a local player choose one to five robots and each robot profile before launch", () => {
     expect(playerView).toContain("Nombre de robots");
     expect(playerView).toContain('v-for="count in 5"');
-    expect(playerView).toContain("store.join(code, name.value, color.value, symbol.value, botCount.value)");
+    expect(playerView).toContain("Niveau de chaque robot");
+    expect(playerView).toContain('v-for="index in botCount"');
+    expect(playerView).toContain('v-model="botProfiles[index - 1]"');
+    expect(playerView).toContain("botProfiles.value.slice(0, botCount.value)");
     expect(playerView).toContain('route.query.new === "1"');
     expect(createGameView).toContain("Nouvelle expédition · choisir les robots");
     expect(createGameView).toContain("createMobileGame(true)");

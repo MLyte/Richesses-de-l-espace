@@ -20,6 +20,7 @@ describe("WCAG interaction semantics", () => {
   it("announces dismissible errors with a keyboard-operable control", () => {
     expect(errorToast).toContain('role="alert"');
     expect(errorToast).toContain('aria-live="assertive"');
+    expect(errorToast).toContain('class="error-toast__dismiss"');
     expect(errorToast).toContain('aria-label="Fermer le message d’erreur"');
   });
 

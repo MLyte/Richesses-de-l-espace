@@ -903,8 +903,8 @@ button:disabled {
     pointer-events: auto;
   }
   .controller-screen--map > .mobile-map-panel { order: 1; }
-  .controller-screen--map:has(> .mobile-map-overlay:not(.action-card--roll):not(.end-turn-action)) > .mobile-map-panel { display: none; }
-  .controller-screen--map > .mobile-map-overlay:not(.action-card--roll):not(.end-turn-action) {
+  .controller-screen--map:has(> .mobile-map-overlay:not(.action-card--roll):not(.landing-result-overlay)) > .mobile-map-panel { display: none; }
+  .controller-screen--map > .mobile-map-overlay:not(.action-card--roll):not(.landing-result-overlay) {
     position: relative;
     z-index: var(--layer-action);
     inset: auto;
@@ -930,8 +930,7 @@ button:disabled {
     padding-left: 1rem;
     transform: none;
   }
-  .controller-screen--map > .action-card--roll,
-  .controller-screen--map > .end-turn-action {
+  .controller-screen--map > .action-card--roll {
     position: sticky;
     z-index: var(--layer-action);
     inset: auto auto var(--safe-bottom);
@@ -945,11 +944,8 @@ button:disabled {
     background: transparent;
     box-shadow: none;
   }
-  .controller-screen--map > .action-card--roll > :not(.dice-button),
-  .controller-screen--map > .end-turn-action > :not(div),
-  .controller-screen--map > .end-turn-action > div > :not(.primary-button) { display: none; }
-  .controller-screen--map > .action-card--roll .dice-button,
-  .controller-screen--map > .end-turn-action .primary-button {
+  .controller-screen--map > .action-card--roll > :not(.dice-button) { display: none; }
+  .controller-screen--map > .action-card--roll .dice-button {
     position: static;
     inset: auto;
     width: 100%;
@@ -960,9 +956,36 @@ button:disabled {
     transform: none;
     box-shadow: 0 12px 34px rgba(0, 0, 0, .46), 0 0 0 1px rgba(255, 255, 255, .12);
   }
-  .controller-screen--map:has(> .action-card--roll, > .end-turn-action) .mobile-map-panel {
+  .controller-screen--map:has(> .action-card--roll) .mobile-map-panel {
     padding-bottom: calc(5.5rem + var(--safe-bottom));
   }
+  .controller-screen--map > .landing-result-overlay {
+    position: absolute;
+    z-index: var(--layer-action);
+    inset: 4.75rem .75rem calc(.75rem + var(--safe-bottom));
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: .65rem;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: .65rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 1px solid rgba(114, 169, 194, .58);
+    border-radius: 18px;
+    background: rgba(3, 16, 30, .88);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .52);
+    backdrop-filter: blur(5px);
+  }
+  .controller-screen--map > .landing-result-overlay > .landing-notice { align-self: start; min-height: 0; margin: 0; }
+  .controller-screen--map > .landing-result-overlay > .landing-notice > .asset-card { min-height: 185px; aspect-ratio: 16 / 9; }
+  .controller-screen--map > .landing-result-overlay > .landing-notice .landing-notice__special-card { min-height: 165px; }
+  .controller-screen--map > .landing-result-overlay.end-turn-action > div:last-child { position: sticky; bottom: 0; padding: .65rem; border: 1px solid rgba(114, 169, 194, .48); border-radius: 14px; background: rgba(7, 28, 48, .96); box-shadow: 0 -8px 22px rgba(0, 0, 0, .28); }
+  .controller-screen--map > .landing-result-overlay.end-turn-action > div:last-child :is(.eyebrow, h2) { display: none; }
+  .controller-screen--map > .landing-result-overlay.end-turn-action .primary-button { width: 100%; min-height: 58px; margin: 0; }
+  .controller-screen--map > .landing-result-overlay--spectator { grid-template-rows: minmax(0, 1fr) auto; }
+  .landing-result-overlay__waiting { margin: 0; padding: .7rem .8rem; color: #c9e8f4; border-radius: 12px; background: rgba(11, 40, 64, .94); font-size: .75rem; line-height: 1.45; text-align: center; }
   .phone-shell:has(.controller-screen) { scroll-padding-bottom: calc(6rem + var(--safe-bottom)); }
   .phone-tools .help-trigger,
   .phone-tools .sound-toggle,

@@ -385,11 +385,11 @@ export const useGameStore = defineStore("game", {
       if (!token) return;
       try { await this.resume(token); } catch { localStorage.removeItem(`richesses-espace:player:${code.toUpperCase()}`); }
     },
-    async join(code: string, name: string, color: string, symbol: string, botCount = 1) {
+    async join(code: string, name: string, color: string, symbol: string, botProfiles: readonly BotProfile[] = ["BALANCED"]) {
       if (this.localGame) {
         this.error = "";
         try {
-          this.applyLocalGameSnapshot(startLocalGame({ name, color, symbol }, "MOBILE_ONLY", true, botCount));
+          this.applyLocalGameSnapshot(startLocalGame({ name, color, symbol }, "MOBILE_ONLY", true, botProfiles));
           this.scheduleLocalBot();
         } catch (error) {
           this.error = error instanceof Error ? error.message : "Impossible de créer la partie solo.";

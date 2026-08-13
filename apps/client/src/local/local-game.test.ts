@@ -79,11 +79,28 @@ describe("local player versus computer game", () => {
     expect(bots.some((bot) => bot.name === playerSetup.name || bot.color === playerSetup.color || bot.symbol === playerSetup.symbol)).toBe(false);
   });
 
+  it("assigns, exposes and preserves an individual profile for every robot", () => {
+    const profiles = ["CAUTIOUS", "BALANCED", "AMBITIOUS"] as const;
+    const initial = startLocalGame(playerSetup, "MOBILE_ONLY", true, profiles);
+    expect(initial.game.players.filter((player) => player.isBot).map((player) => player.botProfile)).toEqual(profiles);
+
+    const stored = JSON.parse(String(vi.mocked(window.localStorage.setItem).mock.calls.at(-1)?.[1]));
+    expect(stored).toMatchObject({
+      version: 4,
+      botProfiles: { "bot-1": "CAUTIOUS", "bot-2": "BALANCED", "bot-3": "AMBITIOUS" }
+    });
+
+    runLocalGameCommand("admin:end");
+    const restarted = runLocalGameCommand("admin:restart").snapshot;
+    expect(restarted.game.players.filter((player) => player.isBot).map((player) => player.botProfile)).toEqual(profiles);
+  });
+
   it("requires a valid chosen identity", () => {
     expect(() => startLocalGame({ ...playerSetup, name: "  " })).toThrow("pseudo de 1 à 20 caractères");
     expect(() => startLocalGame(playerSetup, "MOBILE_ONLY", true, 0)).toThrow("entre 1 et 5 robots");
     expect(() => startLocalGame(playerSetup, "MOBILE_ONLY", true, 6)).toThrow("entre 1 et 5 robots");
     expect(() => startLocalGame(playerSetup, "MOBILE_ONLY", true, 1.5)).toThrow("entre 1 et 5 robots");
+    expect(() => startLocalGame(playerSetup, "MOBILE_ONLY", true, ["UNKNOWN" as never])).toThrow("niveau valide");
   });
 
   it("invalidates the previous forced-identity storage format", () => {

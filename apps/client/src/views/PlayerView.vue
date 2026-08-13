@@ -33,6 +33,7 @@ const namePlaceholder = pickSpacefarerFirstName();
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
 const botCount = ref(1);
+const botProfiles = ref<BotProfile[]>(Array.from({ length: 5 }, () => "BALANCED"));
 const newBotProfile = ref<BotProfile>("BALANCED");
 const botProfileLabels: Record<BotProfile, string> = { CAUTIOUS: "Prudent", BALANCED: "Équilibré", AMBITIOUS: "Ambitieux" };
 const colorLabels: Record<string, string> = {
@@ -183,7 +184,7 @@ function updateBot(playerId: string, event: Event) { return run(() => store.upda
 function removeBot(playerId: string) { return run(() => store.removeBot(playerId)); }
 async function join() {
   joining.value = true;
-  try { await store.join(code, name.value, color.value, symbol.value, botCount.value); } catch { /* affiché */ }
+  try { await store.join(code, name.value, color.value, symbol.value, botProfiles.value.slice(0, botCount.value)); } catch { /* affiché */ }
   finally { joining.value = false; }
 }
 function openTrade(mode: "purchase" | "sale" | "exchange" | "alliance") {
@@ -253,6 +254,15 @@ async function finishAsHost() {
             <option v-for="count in 5" :key="count" :value="count">{{ count }} robot{{ count > 1 ? 's' : '' }}</option>
           </select>
         </label>
+        <fieldset v-if="store.localGame" class="local-bot-profiles">
+          <legend>Niveau de chaque robot</legend>
+          <label v-for="index in botCount" :key="index">
+            <span>Robot {{ index }}</span>
+            <select v-model="botProfiles[index - 1]" :aria-label="`Niveau du robot ${index}`">
+              <option v-for="(label, profile) in botProfileLabels" :key="profile" :value="profile">{{ label }}</option>
+            </select>
+          </label>
+        </fieldset>
         <fieldset><legend>Votre couleur</legend><div class="color-picker"><button v-for="choice in PLAYER_COLORS" :key="choice" type="button" :aria-label="colorLabels[choice]" :aria-pressed="color === choice" :class="{ selected: color === choice }" :style="{ '--choice': choice }" @click="color = choice" /></div></fieldset>
         <fieldset><legend>Votre animal</legend><div class="symbol-picker"><button v-for="choice in PLAYER_SYMBOLS" :key="choice.id" type="button" :title="choice.label" :aria-label="choice.label" :aria-pressed="symbol === choice.id" :class="{ selected: symbol === choice.id }" @click="symbol = choice.id"><PlayerTokenIcon :symbol="choice.id" /></button></div></fieldset>
         <button class="primary-button" :disabled="joining || !name.trim()">{{ store.localGame ? 'Lancer l’expédition' : 'Rejoindre la flotte' }}</button>
@@ -357,6 +367,7 @@ async function finishAsHost() {
         <div v-else-if="!mobileOnly && !allowed('ROLL_DICE') && !allowed('BUY_ASSET') && !allowed('PASS_ASSET') && !allowed('PAY_RETURNS') && !allowed('END_TURN')" class="spectator-state"><div class="state-message"><span class="waiting-pulse" /><h2>Tour de {{ store.activePlayer?.name }}</h2><p>Suivez les mouvements sur l’écran commun.</p></div><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /></div>
         <div v-else-if="allowed('ROLL_DICE')" class="primary-action action-card action-card--roll mobile-map-overlay"><p class="eyebrow">À vous de jouer</p><h1>Faites avancer l’expédition.</h1><button class="dice-button" :disabled="store.pending" @click="run(store.roll)"><Dices :size="28" aria-hidden="true" />Lancer les dés</button></div>
         <div v-else-if="pendingAsset && allowed('BUY_ASSET')" class="purchase-action country-purchase mobile-map-overlay">
+          <AssetCard v-if="store.game.pendingPurchase?.source === 'classic'" :asset-id="pendingAsset.id" compact />
           <p class="eyebrow">{{ store.game.pendingPurchase?.source === 'classic' ? `${pendingCountry?.continent} · ${pendingCountry?.name}` : store.game.pendingPurchase?.source === 'regional' ? 'Portail sectoriel' : 'Portail galactique' }}</p>
           <h2>{{ store.game.pendingPurchase?.source === 'classic' ? `Choisissez jusqu’à ${store.game.pendingPurchase?.maxAssets} concessions du monde` : store.game.pendingPurchase?.label }}</h2>
           <p v-if="store.game.pendingPurchase?.source === 'classic'">Les droits de <strong>{{ pendingResource?.name }}</strong> ont été réglés. Vous pouvez maintenant compléter votre portefeuille avec les concessions de ce monde.</p>
@@ -369,7 +380,8 @@ async function finishAsHost() {
           <AssetCard :asset-id="payment.assetId" :owner="paymentRecipient?.name ?? null" />
           <div class="payment-summary"><p class="eyebrow">Droit d’extraction obligatoire</p><h2>{{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }} à verser</h2><p v-if="allowed('DECLARE_BANKRUPTCY')">Vos liquidités sont insuffisantes. Vous pouvez d’abord vendre un portefeuille complet via « Vendre ». Sinon, la Banque interstellaire couvrira la dette et vos concessions retourneront aux registres.</p><p v-else>Ce droit rémunère {{ paymentRecipient?.name }}. Le tour ne peut pas se terminer avant votre confirmation.</p><button v-if="allowed('PAY_RETURNS')" class="primary-button payment-button" :disabled="store.pending" @click="run(store.payReturns)">Payer {{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }}</button><button v-if="allowed('DECLARE_BANKRUPTCY')" class="bankruptcy-button" @click="run(store.declareBankruptcy)">Perdre la licence</button></div>
         </div>
-        <div v-else-if="allowed('END_TURN')" class="end-turn-action mobile-map-overlay"><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /><div><p class="eyebrow">Case résolue</p><h2>Vous avez pris connaissance de son effet.</h2><button class="primary-button" :disabled="store.pending" @click="run(store.endTurn)">Terminer le tour</button></div></div>
+        <div v-else-if="allowed('END_TURN')" class="end-turn-action landing-result-overlay mobile-map-overlay" role="status" aria-live="polite"><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /><div><p class="eyebrow">Case résolue</p><h2>Vous avez pris connaissance de son effet.</h2><button class="primary-button" :disabled="store.pending" @click="run(store.endTurn)">Terminer le tour</button></div></div>
+        <div v-else-if="mobileOnly && store.game.landedSpaceId" class="landing-result-overlay landing-result-overlay--spectator mobile-map-overlay" role="status" aria-live="polite"><LandingNotice :game="store.game" compact /><p class="landing-result-overlay__waiting">Résolution en cours sur le téléphone de <strong>{{ store.activePlayer?.name }}</strong>.</p></div>
 
         <aside v-if="!mobileOnly && allowed('PROPOSE_TRADE') && tradeTargets.length" class="title-actions" :class="{ 'title-actions--with-primary': hasFixedPrimaryTurnAction }" aria-label="Transferts de concessions">
           <p v-if="isMyTurn && me.capital === 0">Plus de liquidités : vous pouvez vendre un groupe complet avant de lancer les dés ou de terminer votre tour.</p>
@@ -435,6 +447,11 @@ async function finishAsHost() {
 .mobile-host-menu__label { grid-column: 1 / -1; color: #9ec2d8; font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .mobile-host-menu button { min-height: 44px; padding: .55rem; color: #f3f8fc; border: 1px solid rgba(169, 189, 208, .4); border-radius: 10px; background: #15344d; font: inherit; font-size: .75rem; font-weight: 800; }
 .mobile-host-menu button.danger { color: #fff; border-color: rgba(242, 103, 74, .75); background: #9d3e35; }
+.local-bot-profiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; padding: .75rem; border: 1px solid rgba(53, 208, 226, .35); border-radius: 12px; background: rgba(53, 208, 226, .07); }
+.local-bot-profiles legend { padding: 0 .35rem; color: #52687a; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.local-bot-profiles label { display: grid; gap: .25rem; }
+.local-bot-profiles label span { color: #52687a; font-size: .72rem; font-weight: 800; }
+.local-bot-profiles select { width: 100%; min-height: 44px; }
 .mobile-host-lobby { display: grid; gap: .75rem; margin: 1rem 0; }
 .mobile-host-lobby small { text-align: center; color: #52687a; }
 .bot-lobby-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem; padding: .8rem; border: 1px solid rgba(53, 208, 226, .35); border-radius: 14px; background: rgba(53, 208, 226, .08); text-align: left; }
@@ -463,5 +480,5 @@ async function finishAsHost() {
   .trade-backdrop { place-items: stretch center; padding: max(.5rem, var(--safe-top)) max(.5rem, var(--safe-right)) max(.5rem, var(--safe-bottom)) max(.5rem, var(--safe-left)); }
   .trade-form { align-self: center; max-height: calc(var(--app-viewport-height) - max(1rem, var(--safe-top)) - max(1rem, var(--safe-bottom))); padding: 1rem; scroll-padding: 1rem; }
 }
-@media (max-width: 420px) { .bot-lobby-controls { grid-template-columns: 1fr; }.bot-lobby-controls > div { grid-column: 1; }.lobby-player-list article { grid-template-columns: 28px minmax(0, 1fr); }.bot-row-actions { grid-column: 1 / -1; justify-content: flex-end; } }
+@media (max-width: 420px) { .local-bot-profiles { grid-template-columns: 1fr; }.bot-lobby-controls { grid-template-columns: 1fr; }.bot-lobby-controls > div { grid-column: 1; }.lobby-player-list article { grid-template-columns: 28px minmax(0, 1fr); }.bot-row-actions { grid-column: 1 / -1; justify-content: flex-end; } }
 </style>

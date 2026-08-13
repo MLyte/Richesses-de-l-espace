@@ -47,6 +47,15 @@ const specialLabels: Record<string, string> = {
   customs: "Quarantaine"
 };
 
+const specialDetails: Record<string, string> = {
+  auction: "Déclenche un appel d’offres après un tour complet · Case de repos à deux consortiums",
+  trend: "Révèle un Événement cosmique et applique immédiatement son effet",
+  joker: "Propose une Technologie d’évasion · Case de repos à deux consortiums",
+  regional_choice: "Permet de compléter des ressources déjà possédées dans les secteurs reliés",
+  global_choice: "Permet de compléter des ressources déjà possédées partout sur le plateau après un tour complet",
+  customs: "Place le consortium en quarantaine et lui fait perdre son prochain tour"
+};
+
 function routeEntry(index: number) {
   const normalizedIndex = wrap(index);
   const space = props.board[normalizedIndex]!;
@@ -78,7 +87,7 @@ function routeEntry(index: number) {
     index: normalizedIndex,
     title: space.name,
     label: specialLabels[space.kind] ?? "Étape spéciale",
-    detail: resource ? `Ressource concernée : ${resource.name}${rightsHolders.length ? ` · Droits : ${rightsHolders.map((holder) => `${holder.name} ${holder.share} %`).join(" · ")}` : " · Aucun droit à payer"}` : "Une règle spéciale s’applique sur cette étape",
+    detail: resource ? `Ressource concernée : ${resource.name}${rightsHolders.length ? ` · Droits : ${rightsHolders.map((holder) => `${holder.name} ${holder.share} %`).join(" · ")}` : " · Aucun droit à payer"}` : specialDetails[space.kind] ?? "Consultez la fiche de cette étape lors de l’atterrissage",
     color: "#9666b4",
     owner: null,
     rightsHolders,

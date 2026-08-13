@@ -33,7 +33,7 @@ import {
   type GameEvent,
   type GameState
 } from "@richesses-espace/game";
-import { PLAYER_COLORS, PLAYER_SYMBOLS, type DisplayMode, type PlayerAction, type PlayerGameView, type PublicGameView, type SessionResult, type TradeProposalPayload } from "@richesses-espace/protocol";
+import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile, type DisplayMode, type PlayerAction, type PlayerGameView, type PublicGameView, type SessionResult, type TradeProposalPayload } from "@richesses-espace/protocol";
 
 export const LOCAL_GAME_STORAGE_KEY = "richesses-espace:local-game:v2";
 export const LOCAL_GAME_CODE = "SOLO";
@@ -86,6 +86,8 @@ export interface LocalBotTurn {
 
 let state: GameState | null = null;
 let displayMode: DisplayMode = "MOBILE_ONLY";
+let botProfiles: Record<string, BotProfile> = {};
+const VALID_BOT_PROFILES = new Set<BotProfile>(["CAUTIOUS", "BALANCED", "AMBITIOUS"]);
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && Boolean(window.localStorage);
@@ -93,7 +95,7 @@ function canUseStorage(): boolean {
 
 function persist(): void {
   if (!state || !canUseStorage()) return;
-  window.localStorage.setItem(LOCAL_GAME_STORAGE_KEY, JSON.stringify({ version: 3, state }));
+  window.localStorage.setItem(LOCAL_GAME_STORAGE_KEY, JSON.stringify({ version: 4, state, botProfiles }));
 }
 
 function isLocalBotId(playerId: string): boolean {
@@ -102,13 +104,20 @@ function isLocalBotId(playerId: string): boolean {
 
 function restore(force = false): boolean {
   if (!canUseStorage() || (!force && state)) return Boolean(state);
-  if (force) state = null;
+  if (force) {
+    state = null;
+    botProfiles = {};
+  }
   try {
-    const stored = JSON.parse(window.localStorage.getItem(LOCAL_GAME_STORAGE_KEY) ?? "null") as { version?: number; state?: GameState } | null;
-    if (!stored || ![2, 3].includes(stored.version ?? 0) || !stored.state) return false;
+    const stored = JSON.parse(window.localStorage.getItem(LOCAL_GAME_STORAGE_KEY) ?? "null") as { version?: number; state?: GameState; botProfiles?: Record<string, BotProfile> } | null;
+    if (!stored || ![2, 3, 4].includes(stored.version ?? 0) || !stored.state) return false;
     const ids = stored.state.players.map((player) => player.id);
     if (!ids.includes(LOCAL_HUMAN_ID) || !ids.some(isLocalBotId)) return false;
     state = stored.state.startingRace ? { ...stored.state, startingRace: { ...stored.state.startingRace, pausedAt: stored.state.startingRace.pausedAt ?? null } } : { ...stored.state, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null, pausedAt: null } };
+    botProfiles = Object.fromEntries(ids.filter(isLocalBotId).map((id) => {
+      const profile = stored.botProfiles?.[id];
+      return [id, profile && VALID_BOT_PROFILES.has(profile) ? profile : "BALANCED"];
+    }));
     return true;
   } catch {
     return false;
@@ -139,6 +148,17 @@ function validateBotCount(botCount: number): number {
   return botCount;
 }
 
+function validateBotProfiles(requested: number | readonly BotProfile[]): BotProfile[] {
+  const profiles = typeof requested === "number"
+    ? Array.from({ length: validateBotCount(requested) }, () => "BALANCED" as const)
+    : [...requested];
+  validateBotCount(profiles.length);
+  if (profiles.some((profile) => !VALID_BOT_PROFILES.has(profile))) {
+    throw new RuleError("INVALID_BOT_PROFILE", "Choisissez un niveau valide pour chaque robot.");
+  }
+  return profiles;
+}
+
 function randomBotIdentities(human: LocalPlayerSetup, botCount: number, previousNames: readonly string[] = []): LocalPlayerSetup[] {
   const allowedNames = LOCAL_BOT_NAMES.filter((name) => name.localeCompare(human.name, "fr", { sensitivity: "base" }) !== 0);
   const freshNames = allowedNames.filter((name) => !previousNames.some((previous) => previous.localeCompare(name, "fr", { sensitivity: "base" }) === 0));
@@ -152,15 +172,16 @@ function randomBotIdentities(human: LocalPlayerSetup, botCount: number, previous
   }));
 }
 
-function createLocalGame(setup: LocalPlayerSetup, requestedBotCount = 1): GameState {
+function createLocalGame(setup: LocalPlayerSetup, requestedBotProfiles: number | readonly BotProfile[] = ["BALANCED"]): GameState {
   const human = validateSetup(setup);
-  const botCount = validateBotCount(requestedBotCount);
-  const bots = randomBotIdentities(human, botCount);
+  const profiles = validateBotProfiles(requestedBotProfiles);
+  const bots = randomBotIdentities(human, profiles.length);
   let next = createGame("local-solo", LOCAL_GAME_CODE, 20_260_813);
   next = addPlayer(next, { id: LOCAL_HUMAN_ID, ...human });
   for (const [index, bot] of bots.entries()) next = addPlayer(next, { id: `bot-${index + 1}`, ...bot });
   next = setPlayerReady(next, LOCAL_HUMAN_ID, true);
   for (const player of next.players.filter((player) => isLocalBotId(player.id))) next = setPlayerReady(next, player.id, true);
+  botProfiles = Object.fromEntries(profiles.map((profile, index) => [`bot-${index + 1}`, profile]));
   return startGame(next);
 }
 
@@ -208,7 +229,7 @@ function publicView(current: GameState, botThinkingPlayerId: string | null = nul
       connected,
       ready,
       isBot: isLocalBotId(id),
-      botProfile: isLocalBotId(id) ? "BALANCED" : null,
+      botProfile: isLocalBotId(id) ? botProfiles[id] ?? "BALANCED" : null,
       position,
       lapsCompleted,
       turnsToSkip,
@@ -285,9 +306,9 @@ export function resumeLocalGame(mode: DisplayMode = "MOBILE_ONLY", includePlayer
   return restore(forceStorageReload) ? snapshot([], includePlayer) : null;
 }
 
-export function startLocalGame(setup: LocalPlayerSetup, mode: DisplayMode = "MOBILE_ONLY", includePlayer = true, botCount = 1): LocalGameSnapshot {
+export function startLocalGame(setup: LocalPlayerSetup, mode: DisplayMode = "MOBILE_ONLY", includePlayer = true, profiles: number | readonly BotProfile[] = ["BALANCED"]): LocalGameSnapshot {
   displayMode = mode;
-  state = createLocalGame(setup, botCount);
+  state = createLocalGame(setup, profiles);
   persist();
   return snapshot([], includePlayer);
 }
@@ -378,7 +399,7 @@ function pendingBotTurn(current: GameState): { playerId: string; decision: BotDe
       const shipId = STARTING_RACE_SHIPS.find((id) => !taken.has(id))!;
       return { playerId: player.id, decision: { type: "SELECT_STARTING_SHIP", shipId, reason: "AUTOMATIC_STARTING_SHIP" } };
     }
-    const decision = decideBotAction(observeGameForBot(current, player.id), player.id, "BALANCED");
+    const decision = decideBotAction(observeGameForBot(current, player.id), player.id, botProfiles[player.id] ?? "BALANCED");
     if (decision) return { playerId: player.id, decision };
   }
   return null;

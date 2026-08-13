@@ -46,6 +46,12 @@ const meta = computed(() => {
 <template>
   <section v-if="space && meta" class="landing-notice" :class="[`tone-${meta.tone}`, { compact }]">
     <AssetCard v-if="asset" :asset-id="asset.id" :price="currentPrice" :owner="owner?.name ?? null" compact />
+    <div v-else-if="space.type === 'special'" class="landing-notice__special-card" aria-hidden="true">
+      <span class="landing-notice__special-icon"><GameIcon :name="meta.icon" /></span>
+      <small>{{ meta.eyebrow }}</small>
+      <strong>{{ card?.title ?? meta.title }}</strong>
+      <em>{{ meta.status }}</em>
+    </div>
     <div class="landing-notice__body">
       <div class="landing-notice__top"><span class="landing-notice__icon"><GameIcon :name="meta.icon" /></span><span class="landing-notice__status">{{ meta.status }}</span></div>
       <p class="eyebrow">{{ meta.eyebrow }}</p><h2>{{ meta.title }}</h2><p>{{ meta.description }}</p>

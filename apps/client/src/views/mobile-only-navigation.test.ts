@@ -46,12 +46,20 @@ describe("mobile-only map-first experience", () => {
     expect(theme).toContain(':not(.dice-animation-phone):not(.player-credit-float)');
   });
 
-  it("renders roll and end-turn as contextual bottom actions", () => {
+  it("keeps roll contextual and shows the complete landing card over the route", () => {
     expect(playerView).toContain('action-card--roll mobile-map-overlay');
-    expect(playerView).toContain('end-turn-action mobile-map-overlay');
-    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*sticky[^}]*inset:\s*auto auto var\(--safe-bottom\)/s);
+    expect(playerView).toContain('end-turn-action landing-result-overlay mobile-map-overlay');
+    expect(playerView).toContain('v-else-if="mobileOnly && store.game.landedSpaceId" class="landing-result-overlay landing-result-overlay--spectator mobile-map-overlay"');
+    expect(playerView).toContain('Résolution en cours sur le téléphone de');
+    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll\s*\{[^}]*position:\s*sticky[^}]*inset:\s*auto auto var\(--safe-bottom\)/s);
     expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll > :not\(\.dice-button\)[\s\S]*display:\s*none/s);
-    expect(theme).toMatch(/\.controller-screen--map:has\(> \.mobile-map-overlay:not\(\.action-card--roll\):not\(\.end-turn-action\)\) > \.mobile-map-panel\s*\{[^}]*display:\s*none/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.landing-result-overlay\s*\{[^}]*position:\s*absolute[^}]*overflow-y:\s*auto/s);
+    expect(theme).toContain(':not(.action-card--roll):not(.landing-result-overlay)');
+    expect(theme).not.toContain('.end-turn-action > :not(div)');
+  });
+
+  it("shows the landed world's image during a classic purchase", () => {
+    expect(playerView).toContain('<AssetCard v-if="store.game.pendingPurchase?.source === \'classic\'" :asset-id="pendingAsset.id" compact />');
   });
 
   it("offers a new game directly from the host's final screen", () => {
@@ -69,7 +77,8 @@ describe("mobile-only map-first experience", () => {
     expect(mobileToasts).toContain('class="mobile-live-toast" role="status" aria-live="polite" aria-atomic="true"');
     expect(mobileToasts).toContain("+{{ state.pendingCount }}");
     expect(mobileToasts).toContain("@click=\"queue.dismiss\"");
-    expect(mobileToasts).toMatch(/\.mobile-live-toast button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+    expect(mobileToasts).toContain('class="mobile-live-toast__dismiss"');
+    expect(mobileToasts).toMatch(/\.mobile-live-toast__dismiss\s*\{[^}]*width:\s*100%[^}]*border:\s*0/s);
     expect(theme).toMatch(/\.phone-shell:has\(\.player-credit-float\) > \.mobile-live-toast\s*\{[^}]*top:\s*calc\(var\(--phone-header-height\)/s);
   });
 
@@ -100,6 +109,8 @@ describe("mobile-only map-first experience", () => {
     expect(mobileRoute).toContain('<MapPin :size="12" aria-hidden="true" />');
     expect(mobileRoute).not.toContain('small>Case {{ positionOf(player) + 1 }}');
     expect(mobileRoute).not.toContain("WorldBoard");
+    expect(mobileRoute).toContain("Révèle un Événement cosmique et applique immédiatement son effet");
+    expect(mobileRoute).not.toContain("Une règle spéciale s’applique sur cette étape");
   });
 
   it("keeps the focused route stop centered without width-based vertical padding", () => {

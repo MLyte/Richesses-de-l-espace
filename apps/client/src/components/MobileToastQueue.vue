@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from "vue";
-import { ChevronRight, X } from "@lucide/vue";
+import { X } from "@lucide/vue";
 import { createMobileToastQueue, type MobileToastNotice, type MobileToastQueueSnapshot } from "./mobile-toast-queue";
 
 const props = defineProps<{
@@ -23,11 +23,10 @@ onBeforeUnmount(queue.dispose);
 <template>
   <Transition name="mobile-toast" mode="out-in">
     <aside v-if="state.current" :key="state.current.key" class="mobile-live-toast" role="status" aria-live="polite" aria-atomic="true">
-      <p>{{ state.current.message }}</p>
-      <span v-if="state.pendingCount" class="mobile-live-toast__pending">+{{ state.pendingCount }}</span>
-      <button type="button" :aria-label="state.pendingCount ? 'Afficher le message suivant' : 'Fermer le message'" @click="queue.dismiss">
-        <ChevronRight v-if="state.pendingCount" :size="20" aria-hidden="true" />
-        <X v-else :size="18" aria-hidden="true" />
+      <button class="mobile-live-toast__dismiss" type="button" :aria-label="state.pendingCount ? 'Fermer le message et afficher le suivant' : 'Fermer le message'" @click="queue.dismiss">
+        <p>{{ state.current.message }}</p>
+        <span v-if="state.pendingCount" class="mobile-live-toast__pending">+{{ state.pendingCount }}</span>
+        <X :size="18" aria-hidden="true" />
       </button>
     </aside>
   </Transition>
@@ -39,19 +38,27 @@ onBeforeUnmount(queue.dispose);
   z-index: var(--layer-toast);
   top: calc(var(--phone-header-height) + var(--safe-top) + .5rem);
   left: 50%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: .65rem;
   width: min(calc(100% - 2rem), 430px);
-  min-height: 54px;
-  padding: .35rem .4rem .35rem 1rem;
   transform: translateX(-50%);
   color: #f3f8fc;
   border: 1px solid rgba(111, 221, 234, .72);
   border-radius: 12px;
   background: rgba(11, 36, 58, .96);
   box-shadow: 0 12px 30px rgba(0, 0, 0, .38);
+}
+.mobile-live-toast__dismiss {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: .65rem;
+  width: 100%;
+  min-height: 54px;
+  padding: .35rem .8rem .35rem 1rem;
+  color: inherit;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  text-align: left;
 }
 .mobile-live-toast p {
   min-width: 0;
@@ -72,21 +79,8 @@ onBeforeUnmount(queue.dispose);
   background: #6fddea;
   font: 800 .68rem "IBM Plex Mono", monospace;
 }
-.mobile-live-toast button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  color: #e4f7fa;
-  border: 0;
-  border-radius: 9px;
-  background: rgba(111, 221, 234, .12);
-}
-.mobile-live-toast button:hover,
-.mobile-live-toast button:focus-visible {
-  color: #06111f;
-  background: #6fddea;
+.mobile-live-toast__dismiss:hover { background: rgba(111, 221, 234, .12); }
+.mobile-live-toast__dismiss:focus-visible {
   outline: 2px solid #f3f8fc;
   outline-offset: 2px;
 }
