@@ -36,7 +36,7 @@
 @supports (height: 100dvh) { :root { --app-viewport-height: 100dvh; } }
 
 * { scrollbar-color: #39768f #071827; }
-html, body, #app { max-width: 100%; overflow-x: hidden; }
+html, body, #app { max-width: 100%; overflow-x: hidden; touch-action: manipulation; }
 body {
   color: var(--ink);
   background:
@@ -44,12 +44,17 @@ body {
     url('/space-background.jpg') center / cover fixed no-repeat #06111f;
 }
 body::before { display: none; }
-button, input, select { font: inherit; }
-button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible {
+button, input, select, textarea { font: inherit; }
+button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid #f6c64d;
   outline-offset: 3px;
 }
 button:disabled { opacity: 1; color: #6f8798; border-color: #587184; background: #132b3d; }
+
+/* iOS zoome au focus lorsque le texte d'un champ est inférieur à 16 px. */
+@media (hover: none) and (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+}
 
 .display-shell, .phone-shell, .credits-shell { color: var(--ink); background: transparent; }
 h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: var(--ink); }

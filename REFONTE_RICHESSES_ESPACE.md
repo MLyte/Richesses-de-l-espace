@@ -6,6 +6,8 @@ Ce document constitue la référence de conception pour transformer Orbisium en 
 
 La refonte est une transposition thématique de la jouabilité de *Richesses du Monde*, pas une nouvelle variante. Les quantités, proportions économiques, familles de cases, conditions de déclenchement et enchaînements de règles doivent rester stables. Seuls l’univers, les noms, les textes, les illustrations, les sons et la présentation sont remplacés.
 
+Dans ce document, « familles de cases » désigne les types de cases du plateau. Les 24 ressources de référence sont indépendantes : aucune famille économique ou visuelle supérieure ne doit leur être ajoutée.
+
 Sources de référence :
 
 - notice officielle Lansay : <https://lansay.fr/sites/default/files/2021-10/75045_NOTICE%20%281%29_0.pdf> ;
@@ -133,49 +135,49 @@ interface SpaceConcession {
   id: string;
   worldId: string;
   systemId: string;
-  sectorId: string;
+  stellarSectorId: string;
   resourceId: string;
   sharePercent: number;
   purchasePrice: number;
 }
 ```
 
-Le `systemId` et le `sectorId` servent à la navigation et aux Portails sectoriels. Le calcul économique principal reste fondé sur `resourceId`.
+Le `systemId` et le `stellarSectorId` servent à la navigation et aux Portails sectoriels. Le calcul économique principal reste fondé sur `resourceId`.
 
 ## Conversion des 24 ressources
 
 Chaque emplacement économique original reçoit un équivalent spatial. Ses six pourcentages, ses prix et son barème restent attachés au même emplacement de données.
 
-| Ressource de référence | Ressource spatiale | Famille visuelle |
-|---|---|---|
-| Aluminium | Aluminium de régolithe | Minerais stellaires |
-| Blé | Cultures hydroponiques | Bioressources orbitales |
-| Bois | Biofibres orbitales | Bioressources orbitales |
-| Cacao | Bionutriments orbitaux | Bioressources orbitales |
-| Café | Biostimulants orbitaux | Bioressources orbitales |
-| Charbon | Carbone astéroïdal | Minerais stellaires |
-| Cobalt | Cobalt astéroïdal | Minerais stellaires |
-| Coton | Fibres biosynthétiques | Bioressources orbitales |
-| Cuivre | Cuivre orbital | Minerais stellaires |
-| Éolien | Courants ioniques | Énergies cosmiques |
-| Fer | Fer météorique | Minerais stellaires |
-| Gaz | Hélium-3 stellaire | Énergies cosmiques |
-| Hydraulique | Glace cométaire | Glaces et carburants cosmiques |
-| Laine | Textiles biosynthétiques | Bioressources orbitales |
-| Maïs | Algues orbitales | Bioressources orbitales |
-| Or | Or stellaire | Minerais stellaires |
-| Pétrole | Hydrocarbures planétaires | Glaces et carburants cosmiques |
-| Plomb | Plomb astéroïdal | Minerais stellaires |
-| Riz | Bioprotéines orbitales | Bioressources orbitales |
-| Solaire | Rayonnement stellaire | Énergies cosmiques |
-| Sucre | Biosucres orbitaux | Bioressources orbitales |
-| Thé | Aromates hydroponiques | Bioressources orbitales |
-| Tourisme | Corridors interstellaires | Exploration galactique |
-| Uranium | Isotopes fissiles cosmiques | Énergies cosmiques |
+| Ressource de référence | Ressource spatiale |
+|---|---|
+| Aluminium | Aluminium de régolithe |
+| Blé | Blé hydroponique |
+| Bois | Bois de biosphère |
+| Cacao | Cacao orbital |
+| Café | Café orbital |
+| Charbon | Charbon astéroïdal |
+| Cobalt | Cobalt stellaire |
+| Coton | Coton biosynthétique |
+| Cuivre | Cuivre orbital |
+| Éolien | Vents ioniques |
+| Fer | Fer météorique |
+| Gaz | Hélium-3 stellaire |
+| Hydraulique | Glace cométaire |
+| Laine | Laine biosynthétique |
+| Maïs | Maïs hydroponique |
+| Or | Or cosmique |
+| Pétrole | Hydrocarbures planétaires |
+| Plomb | Plomb astéroïdal |
+| Riz | Riz hydroponique |
+| Solaire | Rayonnement stellaire |
+| Sucre | Sucre de biosphère |
+| Thé | Thé orbital |
+| Tourisme | Tourisme interstellaire |
+| Uranium | Isotopes fissiles |
 
-Les familles servent uniquement à organiser l’interface. Elles ne possèdent aucun indice fluctuant, ne changent pas les prix et ne produisent aucun droit collectif.
+Chaque ressource spatiale transpose exactement un emplacement économique de référence et reste indépendante des 23 autres. Les couleurs des concessions proviennent du secteur stellaire de leur monde producteur, comme les couleurs des titres originaux proviennent de leur rattachement géographique. Elles ne classent jamais les ressources par matière ou par activité.
 
-La nomenclature suit trois règles de lisibilité : chaque famille nomme une activité ou une matière identifiable, chaque ressource contient un marqueur qui suggère sa famille, et l’ensemble reste explicitement ancré dans l’exploitation spatiale, orbitale, stellaire ou galactique. Les identifiants techniques restent stables afin que ce renommage n’altère aucune règle économique.
+La nomenclature conserve un lien sémantique reconnaissable avec chaque richesse de référence tout en restant explicitement ancrée dans l’espace. Les identifiants techniques restent stables afin que ce renommage n’altère aucune règle économique.
 
 ## Règles fondamentales conservées
 
@@ -494,7 +496,7 @@ Pour ne pas réinventer la jouabilité, les éléments suivants disparaissent co
 - la propriété exclusive d’une case ;
 - les enchères déclenchées par un simple refus d’achat.
 
-Les familles colorées restent possibles comme classement visuel, sans modifier les règles.
+Les ressources ne reçoivent aucun classement visuel supérieur. Seuls les mondes et secteurs producteurs portent une couleur géographique.
 
 ## Architecture des données visée
 
@@ -520,8 +522,8 @@ interface ProducingWorld {
 
 interface CosmicResource {
   id: string;
+  referenceName: string;
   name: string;
-  familyId: string;
   royaltyTable: {
     30: number;
     50: number;
@@ -534,7 +536,7 @@ interface SpaceConcession {
   id: string;
   worldId: string;
   systemId: string;
-  sectorId: string;
+  stellarSectorId: string;
   resourceId: string;
   sharePercent: number;
   purchasePrice: number;

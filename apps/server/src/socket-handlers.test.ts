@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import type { CommandResult, PlayerGameView, PublicGameView, SessionResult } from "@richesses-espace/protocol";
+import { STARTING_RACE_SHIPS, nextRandom, type RaceShipId } from "@richesses-espace/game";
 import { RoomStore } from "./room-store";
 import { registerSocketHandlers } from "./socket-handlers";
 
@@ -34,11 +35,29 @@ async function waitFor(predicate: () => boolean, timeout = 2_000): Promise<void>
   }
 }
 
+function predictedRaceOrder(seed: number): RaceShipId[] {
+  const order = [...STARTING_RACE_SHIPS];
+  let nextSeed = seed;
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const [value, updatedSeed] = nextRandom(nextSeed);
+    nextSeed = updatedSeed;
+    const target = Math.floor(value * (index + 1));
+    [order[index], order[target]] = [order[target]!, order[index]!];
+  }
+  return order;
+}
+
+async function completeStartingRace(code: string, players: Socket[]): Promise<void> {
+  const order = predictedRaceOrder(roomStore.get(code)!.state.rngState);
+  for (const [index, player] of players.entries()) expect((await command(player, "race:select-ship", { shipId: order[index] })).ok).toBe(true);
+  await waitFor(() => roomStore.get(code)?.state.phase === "WAITING_FOR_ROLL");
+}
+
 beforeEach(async () => {
   httpServer = http.createServer();
   ioServer = new Server(httpServer);
   roomStore = new RoomStore();
-  registerSocketHandlers(ioServer, roomStore, 5173, undefined, { botDelayScale: .1 });
+  registerSocketHandlers(ioServer, roomStore, 5173, undefined, { botDelayScale: .1, startingRaceDurationMs: 5 });
   await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
   const address = httpServer.address();
   if (!address || typeof address === "string") throw new Error("Port de test indisponible");
@@ -107,7 +126,9 @@ describe("Socket.IO game flow", () => {
     statePromise = nextState(admin);
     const started = await command(first, "game:start");
     expect(started.ok).toBe(true);
-    let state = await statePromise;
+    await statePromise;
+    await completeStartingRace(code, [first, second]);
+    let state = roomStore.get(code)!.state as unknown as PublicGameView;
     expect(state.activePlayerId).toBe(joinedFirst.data!.playerId);
 
     const emptyTrade = await command(first, "trade:propose", { targetId: joinedSecond.data!.playerId, offeredResourceId: null, requestedResourceId: null, offeredCredits: 2, requestedCredits: 0 });
@@ -175,6 +196,7 @@ describe("Socket.IO game flow", () => {
     await command(first, "lobby:set-ready", { ready: true });
     await command(second, "lobby:set-ready", { ready: true });
     await command(first, "game:start");
+    await completeStartingRace(created.data!.code, [first, second]);
 
     const offlineState = nextState(admin);
     second.disconnect();
@@ -211,6 +233,7 @@ describe("Socket.IO game flow", () => {
     await command(second, "lobby:set-ready", { ready: true });
     await command(third, "lobby:set-ready", { ready: true });
     await command(first, "game:start");
+    await completeStartingRace(created.data!.code, [first, second, third]);
 
     const room = roomStore.get(created.data!.code)!;
     room.state = {
@@ -258,6 +281,7 @@ describe("Socket.IO game flow", () => {
     await command(first, "lobby:set-ready", { ready: true });
     await command(second, "lobby:set-ready", { ready: true });
     await command(first, "game:start");
+    await completeStartingRace(created.data!.code, [first, second]);
     const replacement = await openClient();
     const resumed = await command<SessionResult>(replacement, "session:resume", { token: joinedFirst.data!.token });
     expect(resumed.ok).toBe(true);
@@ -308,6 +332,7 @@ describe("Socket.IO game flow", () => {
     const botId = added.data!.playerId;
     await command(host, "lobby:set-ready", { ready: true });
     await command(host, "game:start");
+    await completeStartingRace(created.data!.code, [host]);
     await command(host, "turn:roll");
     let room = roomStore.get(created.data!.code)!;
     if (room.state.phase === "WAITING_FOR_PURCHASE") await command(host, "purchase:pass");
@@ -350,6 +375,7 @@ describe("Socket.IO game flow", () => {
     await command(second, "lobby:set-ready", { ready: true });
     await command(third, "lobby:set-ready", { ready: true });
     await command(first, "game:start");
+    await completeStartingRace(created.data!.code, [first, second, third]);
     const room = roomStore.get(created.data!.code)!;
     room.state = { ...room.state, phase: "WAITING_FOR_LEVER_PURCHASE", pendingLever: { playerId: joinedFirst.data!.playerId!, leverId: "emergency-propulsor", price: 3 } };
     const publicPromise = nextState(admin);

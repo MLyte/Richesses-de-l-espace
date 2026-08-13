@@ -1,4 +1,4 @@
-import type { AssetId, AuctionState, BoardSpace, BotProfile, FinishReason, GameEvent, GamePhase, RaceShipId, SectorId, StartingRaceState, TradeOffer } from "@richesses-espace/game";
+import type { AssetId, AuctionState, BoardSpace, BotProfile, FinishReason, GameEvent, GamePhase, RaceShipId, StartingRaceState, TradeOffer } from "@richesses-espace/game";
 
 export type { BotProfile } from "@richesses-espace/game";
 
@@ -9,7 +9,6 @@ export interface PublicPlayerView {
   isBot: boolean; botProfile: BotProfile | null;
   position: number; lapsCompleted: number; turnsToSkip: number; capital: number; assetIds: AssetId[]; leverCount: number; bankrupt: boolean; netWorth: number;
   allianceId: string | null; mergedIntoId: string | null;
-  sectorInfluence: Record<SectorId, number>;
 }
 
 export interface PublicGameView {

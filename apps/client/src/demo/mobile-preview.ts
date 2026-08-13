@@ -1,4 +1,4 @@
-import { ASSETS, BOARD, SECTORS, type AssetId, type SectorId } from "@richesses-espace/game";
+import { ASSETS, BOARD, type AssetId } from "@richesses-espace/game";
 import type { PlayerGameView, PublicGameView, PublicPlayerView } from "@richesses-espace/protocol";
 
 export type MobilePreviewPlayerId = "orion" | "lyra";
@@ -6,21 +6,13 @@ export type MobilePreviewPlayerId = "orion" | "lyra";
 const orionAssets = ["xylem-fibers-vesta", "stellar-cobalt-vesta", "algal-biomass-vesta", "cellular-proteins-vesta"] as AssetId[];
 const lyraAssets = ["aluminous-regolith-mars", "synthetic-stimulants-mars", "water-ice-mars"] as AssetId[];
 
-function influence(): Record<SectorId, number> {
-  return Object.fromEntries(SECTORS.map((sector) => [sector.id, 0])) as Record<SectorId, number>;
-}
-
-function player(input: Omit<PublicPlayerView, "sectorInfluence">): PublicPlayerView {
-  return { ...input, sectorInfluence: influence() };
-}
-
 export function createMobilePreviewGame(): PublicGameView {
   const landingAssetId = "algal-biomass-vesta" as AssetId;
   const landingPosition = BOARD.findIndex((space) => space.type === "asset" && space.assetId === landingAssetId);
   const orionPosition = BOARD.findIndex((space) => space.type === "asset" && space.assetId === "stellar-cobalt-vesta");
   const players = [
-    player({ id: "orion", name: "Orion", color: "#3784a6", symbol: "cat", connected: true, ready: true, isBot: false, botProfile: null, position: orionPosition, lapsCompleted: 0, turnsToSkip: 0, capital: 78, assetIds: orionAssets, leverCount: 0, bankrupt: false, netWorth: 120, allianceId: null, mergedIntoId: null }),
-    player({ id: "lyra", name: "Lyra", color: "#e4a72f", symbol: "bird", connected: true, ready: true, isBot: false, botProfile: null, position: landingPosition, lapsCompleted: 1, turnsToSkip: 0, capital: 84, assetIds: lyraAssets, leverCount: 0, bankrupt: false, netWorth: 111, allianceId: null, mergedIntoId: null })
+    { id: "orion", name: "Orion", color: "#3784a6", symbol: "cat", connected: true, ready: true, isBot: false, botProfile: null, position: orionPosition, lapsCompleted: 0, turnsToSkip: 0, capital: 78, assetIds: orionAssets, leverCount: 0, bankrupt: false, netWorth: 120, allianceId: null, mergedIntoId: null },
+    { id: "lyra", name: "Lyra", color: "#e4a72f", symbol: "bird", connected: true, ready: true, isBot: false, botProfile: null, position: landingPosition, lapsCompleted: 1, turnsToSkip: 0, capital: 84, assetIds: lyraAssets, leverCount: 0, bankrupt: false, netWorth: 111, allianceId: null, mergedIntoId: null }
   ];
 
   return {

@@ -2,8 +2,14 @@ import { describe, expect, it } from "vitest";
 import { ASSETS } from "../data/assets";
 import { LEVER_CARDS } from "../data/levers";
 import type { GameState } from "../types";
-import { addPlayer, buyPendingAsset, buyPendingLever, createGame, declareBankruptcy, endTurn, passAuction, passPendingAsset, passPendingLever, payPendingPayment, placeBid, respondToTrade, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
+import { STARTING_RACE_SHIPS, addPlayer, buyPendingAsset, buyPendingLever, createGame, declareBankruptcy, endTurn, finishStartingRace, passAuction, passPendingAsset, passPendingLever, payPendingPayment, placeBid, respondToTrade, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
 import { decideBotAction, observeGameForBot, type BotDecision } from "./bot-strategy";
+
+function completeStartingRace(state: GameState): GameState {
+  let next = startGame(state);
+  for (const [index, player] of next.players.entries()) next = selectStartingShip(next, player.id, STARTING_RACE_SHIPS[index]!, 0);
+  return finishStartingRace(next);
+}
 
 function startedGame(): GameState {
   let state = createGame("game", "BOT1", 42);
@@ -11,7 +17,7 @@ function startedGame(): GameState {
   state = addPlayer(state, { id: "bot", name: "Nova", color: "#3784a6", symbol: "dog" });
   state = setPlayerReady(state, "human", true);
   state = setPlayerReady(state, "bot", true);
-  return startGame(state);
+  return completeStartingRace(state);
 }
 
 function botTurn(state = startedGame()): GameState {
@@ -43,7 +49,7 @@ function simulatedTable(playerCount: number): GameState {
     state = addPlayer(state, { id: `p${index}`, name: `Joueur ${index}`, color: `color-${index}`, symbol: `symbol-${index}` });
     state = setPlayerReady(state, `p${index}`, true);
   }
-  return startGame(state);
+  return completeStartingRace(state);
 }
 
 describe("bot strategy", () => {

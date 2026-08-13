@@ -2,14 +2,120 @@ import { ref } from "vue";
 import type { GameEventType } from "@richesses-espace/game";
 
 export type SoundName = "dice" | "move" | "reveal" | "visit" | "purchase" | "payment" | "pass" | "market" | "turn" | "pause" | "resume" | "start" | "enable";
-export const soundEnabled = ref(localStorage.getItem("richesses-espace:sound") !== "off");
+function storedSoundPreference(): boolean {
+  try { return localStorage.getItem("richesses-espace:sound") !== "off"; }
+  catch { return true; }
+}
+
+export const soundEnabled = ref(storedSoundPreference());
 let context: AudioContext | null = null;
 let reminderNodes: { sources: AudioScheduledSourceNode[]; gains: GainNode[] } | null = null;
+let reminderRequested = false;
+let pendingTurnStart = false;
+let lifecycleListenersInstalled = false;
 
 function audioContext(): AudioContext {
   context ??= new AudioContext();
-  if (context.state === "suspended") void context.resume();
   return context;
+}
+
+function stopActionReminder(): void {
+  if (!reminderNodes) return;
+  const ctx = context;
+  if (ctx) {
+    const stopAt = ctx.currentTime + .22;
+    reminderNodes.gains.forEach((gain) => {
+      gain.gain.cancelScheduledValues(ctx.currentTime);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, .0001), ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.0001, stopAt);
+    });
+    reminderNodes.sources.forEach((source) => { try { source.stop(stopAt + .04); } catch { /* déjà arrêté */ } });
+  }
+  reminderNodes = null;
+}
+
+function startActionReminder(): void {
+  if (!reminderRequested || !soundEnabled.value || reminderNodes) return;
+  const ctx = audioContext();
+  if (ctx.state !== "running") return;
+
+  const master = ctx.createGain();
+  const engineGain = ctx.createGain();
+  const horizonGain = ctx.createGain();
+  const noiseGain = ctx.createGain();
+  const pulseDepth = ctx.createGain();
+  const engineFilter = ctx.createBiquadFilter();
+  const noiseFilter = ctx.createBiquadFilter();
+  const pulse = ctx.createOscillator();
+  const engine = ctx.createOscillator();
+  const horizon = ctx.createOscillator();
+  const noise = ctx.createBufferSource();
+
+  // Fréquences audibles sur un petit haut-parleur mobile, mais suffisamment
+  // douces pour rester en fond pendant toute la décision du joueur.
+  master.gain.value = .36;
+  engineGain.gain.value = .011;
+  horizonGain.gain.value = .0032;
+  noiseGain.gain.value = .0015;
+  pulseDepth.gain.value = .0024;
+  engineFilter.type = "lowpass"; engineFilter.frequency.value = 620; engineFilter.Q.value = .5;
+  noiseFilter.type = "bandpass"; noiseFilter.frequency.value = 720; noiseFilter.Q.value = .55;
+  pulse.type = "sine"; pulse.frequency.value = .14;
+  engine.type = "triangle"; engine.frequency.value = 196;
+  horizon.type = "sine"; horizon.frequency.value = 293.66;
+
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let index = 0; index < noiseData.length; index += 1) noiseData[index] = (Math.random() * 2 - 1) * .15;
+  noise.buffer = noiseBuffer;
+  noise.loop = true;
+
+  pulse.connect(pulseDepth).connect(engineGain.gain);
+  engine.connect(engineFilter).connect(engineGain).connect(master);
+  horizon.connect(horizonGain).connect(master);
+  noise.connect(noiseFilter).connect(noiseGain).connect(master);
+  master.connect(ctx.destination);
+  pulse.start(); engine.start(); horizon.start(); noise.start();
+  reminderNodes = {
+    sources: [pulse, engine, horizon, noise],
+    gains: [master, engineGain, horizonGain, noiseGain, pulseDepth]
+  };
+}
+
+function flushImportantAudio(): void {
+  if (!soundEnabled.value || !context || context.state !== "running") return;
+  if (pendingTurnStart) {
+    pendingTurnStart = false;
+    playSound("turn");
+  }
+  startActionReminder();
+}
+
+/**
+ * À appeler directement depuis un geste utilisateur. Safari/iOS et Chrome
+ * mobile exigent ce passage synchrone avant d'autoriser les sons ultérieurs.
+ */
+export function unlockAudio(): void {
+  if (!soundEnabled.value) return;
+  try {
+    const ctx = audioContext();
+    if (ctx.state === "running") { flushImportantAudio(); return; }
+    void ctx.resume().then(flushImportantAudio).catch(() => { /* un autre geste retentera */ });
+  } catch { /* AudioContext indisponible sur ce navigateur. */ }
+}
+
+/** Installe une seule fois le déverrouillage et la reprise après arrière-plan. */
+export function installAudioLifecycle(): void {
+  if (lifecycleListenersInstalled || typeof window === "undefined" || typeof document === "undefined") return;
+  lifecycleListenersInstalled = true;
+  const unlockFromGesture = () => unlockAudio();
+  window.addEventListener("pointerdown", unlockFromGesture, { capture: true, passive: true });
+  window.addEventListener("touchend", unlockFromGesture, { capture: true, passive: true });
+  window.addEventListener("keydown", unlockFromGesture, { capture: true });
+  window.addEventListener("pageshow", unlockAudio);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") unlockAudio();
+  });
 }
 
 function tone(frequency: number, offset: number, duration: number, volume: number, type: OscillatorType = "sine"): void {
@@ -48,6 +154,11 @@ function softTap(offset: number, pitch = 420, volume = .045): void {
 export function playSound(name: SoundName): void {
   if (!soundEnabled.value) return;
   try {
+    const ctx = audioContext();
+    if (ctx.state !== "running") {
+      void ctx.resume().catch(() => { /* le prochain geste utilisateur retentera */ });
+      return;
+    }
     if (name === "dice") {
       softTap(0, 260, .032); softTap(.045, 410, .028); softTap(.09, 320, .032);
       softTap(.15, 540, .025); softTap(.22, 370, .03); softTap(.31, 620, .022);
@@ -79,64 +190,29 @@ export function playSound(name: SoundName): void {
  * entièrement résolu (ou lorsque le son est coupé).
  */
 export function setActionReminder(active: boolean): void {
-  if (!active || !soundEnabled.value) {
-    if (!reminderNodes) return;
-    const ctx = context;
-    if (ctx) {
-      const stopAt = ctx.currentTime + .22;
-      reminderNodes.gains.forEach((gain) => {
-        gain.gain.cancelScheduledValues(ctx.currentTime);
-        gain.gain.setValueAtTime(Math.max(gain.gain.value, .0001), ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(.0001, stopAt);
-      });
-      reminderNodes.sources.forEach((source) => { try { source.stop(stopAt + .04); } catch { /* déjà arrêté */ } });
-    }
-    reminderNodes = null;
-    return;
-  }
-  if (reminderNodes) return;
+  reminderRequested = active;
+  if (!active || !soundEnabled.value) { stopActionReminder(); return; }
   try {
     const ctx = audioContext();
-    const master = ctx.createGain();
-    const engineGain = ctx.createGain();
-    const horizonGain = ctx.createGain();
-    const noiseGain = ctx.createGain();
-    const pulseDepth = ctx.createGain();
-    const engineFilter = ctx.createBiquadFilter();
-    const noiseFilter = ctx.createBiquadFilter();
-    const pulse = ctx.createOscillator();
-    const engine = ctx.createOscillator();
-    const horizon = ctx.createOscillator();
-    const noise = ctx.createBufferSource();
-
-    master.gain.value = .34;
-    engineGain.gain.value = .008;
-    horizonGain.gain.value = .0018;
-    noiseGain.gain.value = .0011;
-    pulseDepth.gain.value = .0022;
-    engineFilter.type = "lowpass"; engineFilter.frequency.value = 280; engineFilter.Q.value = .55;
-    noiseFilter.type = "bandpass"; noiseFilter.frequency.value = 360; noiseFilter.Q.value = .45;
-    pulse.type = "sine"; pulse.frequency.value = .16;
-    engine.type = "triangle"; engine.frequency.value = 84;
-    horizon.type = "sine"; horizon.frequency.value = 168;
-
-    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const noiseData = noiseBuffer.getChannelData(0);
-    for (let index = 0; index < noiseData.length; index += 1) noiseData[index] = (Math.random() * 2 - 1) * .18;
-    noise.buffer = noiseBuffer;
-    noise.loop = true;
-
-    pulse.connect(pulseDepth).connect(engineGain.gain);
-    engine.connect(engineFilter).connect(engineGain).connect(master);
-    horizon.connect(horizonGain).connect(master);
-    noise.connect(noiseFilter).connect(noiseGain).connect(master);
-    master.connect(ctx.destination);
-    pulse.start(); engine.start(); horizon.start(); noise.start();
-    reminderNodes = {
-      sources: [pulse, engine, horizon, noise],
-      gains: [master, engineGain, horizonGain, noiseGain, pulseDepth]
-    };
+    if (ctx.state === "running") startActionReminder();
+    else void ctx.resume().then(flushImportantAudio).catch(() => { /* le prochain geste retentera */ });
   } catch { /* Un premier geste utilisateur peut être requis par le navigateur. */ }
+}
+
+/** Programme le signal de début de tour, même si l'audio attend encore un geste. */
+export function playTurnStart(): void {
+  if (!soundEnabled.value) return;
+  pendingTurnStart = true;
+  try {
+    const ctx = audioContext();
+    if (ctx.state === "running") flushImportantAudio();
+    else void ctx.resume().then(flushImportantAudio).catch(() => { /* le prochain geste retentera */ });
+  } catch { /* le prochain geste retentera si AudioContext devient disponible */ }
+}
+
+/** Évite de jouer tardivement un signal si le tour est déjà passé. */
+export function cancelPendingTurnStart(): void {
+  pendingTurnStart = false;
 }
 
 /** Petit contact bois/verre à chaque case, puis tintement doux sur la destination. */
@@ -154,7 +230,7 @@ export function playMoveStep(step: number, total: number, audible = true): void 
 }
 
 const eventSounds: Partial<Record<GameEventType, SoundName>> = {
-  game_started: "start", dice_rolled: "dice", pawn_moved: "move", space_landed: "reveal", purchase_offered: "reveal",
+  game_started: "start", ship_selected: "enable", ship_race_started: "start", ship_race_finished: "purchase", dice_rolled: "dice", pawn_moved: "move", space_landed: "reveal", purchase_offered: "reveal",
   asset_visited: "visit", payment_due: "payment", payment_completed: "payment", asset_purchased: "purchase", purchase_passed: "pass",
   trend_drawn: "market", lever_offered: "reveal", lever_drawn: "purchase", lever_passed: "pass", lever_used: "purchase", auction_started: "reveal", auction_bid: "payment", auction_won: "purchase",
   trade_proposed: "reveal", trade_accepted: "purchase", trade_rejected: "pass", player_bankrupt: "pause",
@@ -169,7 +245,13 @@ export function playEventSound(type: GameEventType): void {
 
 export function toggleSound(): void {
   soundEnabled.value = !soundEnabled.value;
-  localStorage.setItem("richesses-espace:sound", soundEnabled.value ? "on" : "off");
-  if (soundEnabled.value) playSound("enable");
-  else setActionReminder(false);
+  try { localStorage.setItem("richesses-espace:sound", soundEnabled.value ? "on" : "off"); } catch { /* préférence non persistante */ }
+  if (soundEnabled.value) {
+    unlockAudio();
+    playSound("enable");
+    startActionReminder();
+  } else {
+    pendingTurnStart = false;
+    stopActionReminder();
+  }
 }

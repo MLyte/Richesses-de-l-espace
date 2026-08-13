@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import { ASSETS, RESOURCES, SECTORS, type BoardSpace } from "@richesses-espace/game";
+import { ASSETS, RESOURCES, SPACE_REGIONS, type BoardSpace } from "@richesses-espace/game";
 import type { PublicPlayerView } from "@richesses-espace/protocol";
 import { ChevronLeft, ChevronRight, LocateFixed, MapPin, Orbit } from "@lucide/vue";
 import PlayerTokenIcon from "./PlayerTokenIcon.vue";
@@ -53,7 +53,7 @@ function routeEntry(index: number) {
   if (space.type === "asset") {
     const asset = ASSETS.find((item) => item.id === space.assetId);
     const resource = RESOURCES.find((item) => item.id === space.resourceId);
-    const sector = SECTORS.find((item) => item.id === asset?.sectorId);
+    const region = SPACE_REGIONS.find((item) => item.id === asset?.stellarSectorId);
     const ownerId = props.ownership[space.assetId];
     const owner = props.players.find((player) => player.id === ownerId);
     const rightsHolders = getResourceRightsHolders(props.players, space.resourceId);
@@ -63,7 +63,7 @@ function routeEntry(index: number) {
       title: asset?.name ?? "Concession spatiale",
       label: resource?.name ?? "Concession",
       detail: `${owner ? `Contrôlée par ${owner.name}` : `${asset?.share ?? 0} % disponibles · ${asset?.basePrice ?? 0} crédits`} · ${rightsDetail}`,
-      color: sector?.color ?? "#35d0e2",
+      color: region?.color ?? "#35d0e2",
       owner,
       rightsHolders,
       players: playersAt(normalizedIndex)
@@ -73,14 +73,13 @@ function routeEntry(index: number) {
     return { index: normalizedIndex, title: space.name, label: "Point de départ", detail: "Le centre logistique de toutes les expéditions", color: "#35d0e2", owner: null, rightsHolders: [], players: playersAt(normalizedIndex) };
   }
   const resource = space.kind === "dividend" ? RESOURCES.find((item) => item.id === space.resourceId) : null;
-  const sector = resource ? SECTORS.find((item) => item.id === resource.sectorId) : null;
   const rightsHolders = getResourceRightsHolders(props.players, resource?.id ?? null);
   return {
     index: normalizedIndex,
     title: space.name,
     label: specialLabels[space.kind] ?? "Étape spéciale",
     detail: resource ? `Ressource concernée : ${resource.name}${rightsHolders.length ? ` · Droits : ${rightsHolders.map((holder) => `${holder.name} ${holder.share} %`).join(" · ")}` : " · Aucun droit à payer"}` : "Une règle spéciale s’applique sur cette étape",
-    color: sector?.color ?? "#9666b4",
+    color: "#9666b4",
     owner: null,
     rightsHolders,
     players: playersAt(normalizedIndex)

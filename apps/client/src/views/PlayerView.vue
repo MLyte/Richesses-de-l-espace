@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
+import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
 import ErrorToast from "../components/ErrorToast.vue";
 import { useAccessibleModal } from "../composables/useAccessibleModal";
@@ -91,16 +91,12 @@ const pausedPlayer = computed(() => store.game?.players.find((player) => player.
 const myAssets = computed(() => ASSETS.filter((asset) => me.value?.assetIds.includes(asset.id)));
 const myResources = computed(() => RESOURCES.filter((resource) => myAssets.value.some((asset) => asset.resourceId === resource.id)));
 const resourcesPerPortfolioPage = 3;
-const resourcePortfolioPages = computed(() => SECTORS.flatMap((sector) => {
-  const resources = myResources.value.filter((resource) => resource.sectorId === sector.id);
-  return Array.from({ length: Math.ceil(resources.length / resourcesPerPortfolioPage) }, (_, index) => ({
-    sector,
-    resources: resources.slice(index * resourcesPerPortfolioPage, index * resourcesPerPortfolioPage + resourcesPerPortfolioPage)
-  }));
-}));
+const resourcePortfolioPages = computed(() => Array.from({ length: Math.ceil(myResources.value.length / resourcesPerPortfolioPage) }, (_, index) =>
+  myResources.value.slice(index * resourcesPerPortfolioPage, index * resourcesPerPortfolioPage + resourcesPerPortfolioPage)
+));
 const portfolioPageCount = computed(() => Math.max(1, resourcePortfolioPages.value.length));
 const activePortfolioPage = computed(() => resourcePortfolioPages.value[portfolioPage.value] ?? null);
-const visibleResources = computed(() => activePortfolioPage.value?.resources ?? []);
+const visibleResources = computed(() => activePortfolioPage.value ?? []);
 function openPortfolio() { portfolioPage.value = 0; portfolioOpen.value = true; }
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
@@ -144,7 +140,7 @@ const personalMoneyNotice = computed(() => {
   if (!event || !me.value || !["payment_due", "payment_completed"].includes(event.type)) return null;
   return event.data?.payerId === me.value.id || event.data?.recipientId === me.value.id ? event.message : null;
 });
-const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"]);
+const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready", "ship_selected", "ship_race_started"]);
 const mobileEventNotice = computed<MobileToastNotice | null>(() => {
   const event = store.animatedEvent;
   if (!event || quietMobileEventTypes.has(event.type)) return null;
@@ -368,7 +364,7 @@ async function finishAsHost() {
         <Teleport to="body">
           <div v-if="portfolioOpen" class="portfolio-backdrop" @click.self="portfolioOpen = false">
             <section ref="portfolioDialog" class="portfolio-drawer" role="dialog" aria-modal="true" aria-labelledby="portfolio-title" tabindex="-1" @keydown="onPortfolioKeydown">
-              <header><div class="section-title section-title--portfolio"><span>Type de ressources</span><b id="portfolio-title" :style="{ color: activePortfolioPage?.sector.color }">{{ activePortfolioPage?.sector.name ?? 'Vos ressources' }}</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }} · {{ me.capital }}&nbsp;crédits</small></div></header>
+              <header><div class="section-title section-title--portfolio"><span>Portefeuille</span><b id="portfolio-title">Ressources indépendantes</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }} · {{ me.capital }}&nbsp;crédits</small></div></header>
               <div v-if="!myAssets.length" class="empty-portfolio">Vos futures parts apparaîtront ici.</div>
               <div v-else class="resource-score-list resource-score-list--drawer"><ResourceInfluenceScore v-for="resource in visibleResources" :key="resource.id" :resource-id="resource.id" :asset-ids="me.assetIds" /></div>
               <footer v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></footer>

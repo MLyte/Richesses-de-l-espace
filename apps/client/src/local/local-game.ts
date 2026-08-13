@@ -1,7 +1,6 @@
 import {
   BOARD,
   RuleError,
-  SECTORS,
   STARTING_RACE_SHIPS,
   addPlayer,
   buyPendingAsset,
@@ -13,7 +12,6 @@ import {
   finishGame,
   finishStartingRace,
   getNetWorth,
-  getSectorInfluence,
   observeGameForBot,
   passAuction,
   passPendingAsset,
@@ -220,8 +218,7 @@ function publicView(current: GameState, botThinkingPlayerId: string | null = nul
       bankrupt,
       allianceId,
       mergedIntoId,
-      netWorth: getNetWorth(current, id),
-      sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(current, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number>
+      netWorth: getNetWorth(current, id)
     })),
     activePlayerId: current.activePlayerId,
     botThinkingPlayerId,

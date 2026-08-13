@@ -17,6 +17,21 @@ describe("référentiel Richesses de l’espace", () => {
     expect(BOARD_COUNTS).toEqual({ total: 78, classic: 48, special: 29, countries: 28 });
   });
 
+  it("transpose exactement les 24 richesses de référence sans famille ajoutée", () => {
+    expect(COSMIC_RESOURCES.map(({ referenceName }) => referenceName)).toEqual([
+      "Aluminium", "Blé", "Bois", "Cacao", "Café", "Charbon", "Cobalt", "Coton", "Cuivre", "Éolien", "Fer", "Gaz",
+      "Hydraulique", "Laine", "Maïs", "Or", "Pétrole", "Plomb", "Riz", "Solaire", "Sucre", "Thé", "Tourisme", "Uranium"
+    ]);
+    for (const resource of COSMIC_RESOURCES) {
+      expect(resource).not.toHaveProperty("familyId");
+      expect(resource).not.toHaveProperty("sectorId");
+    }
+    for (const concession of SPACE_CONCESSIONS) {
+      expect(concession).not.toHaveProperty("familyId");
+      expect(concession).not.toHaveProperty("sectorId");
+    }
+  });
+
   it("relie chaque système, monde et concession à des références valides", () => {
     const regionIds = new Set(SPACE_REGIONS.map(({ id }) => id));
     const systemIds = new Set(PLANETARY_SYSTEMS.map(({ id }) => id));

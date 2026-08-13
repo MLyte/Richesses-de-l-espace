@@ -622,6 +622,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
 .resource-rent-backdrop { position: fixed; z-index: var(--layer-critical-modal); inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(18,31,30,.7); backdrop-filter: blur(8px); }
 .resource-rent-dialog { position: relative; width: min(560px, 100%); max-height: calc(var(--app-viewport-height) - 2rem); overflow: auto; padding: clamp(1.35rem, 4vw, 2.4rem); background: var(--paper); box-shadow: 0 28px 90px rgba(0,0,0,.3); }
 .resource-rent-dialog__close { position: absolute; top: .8rem; right: .8rem; width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--ink); font-size: 1.5rem; }
+.resource-rent-dialog { --resource-color: var(--teal); }
 .resource-rent-dialog h2 { margin: 0 0 1rem; font-size: clamp(2rem, 7vw, 3.4rem); line-height: 1; letter-spacing: -.05em; }
 .resource-rent-dialog > p:not(.eyebrow) { color: var(--muted); font-size: .82rem; line-height: 1.55; }
 .resource-rent-dialog__current { display: flex; align-items: baseline; justify-content: space-between; margin: 1rem 0; padding: 1rem; border-left: 4px solid var(--resource-color); background: rgba(255,255,255,.55); }
@@ -1968,7 +1969,7 @@ body {
   align-items: baseline;
   gap: .55rem;
 }
-/* Portefeuille courant : les trois types possédés restent réunis sur une seule page. */
+/* Portefeuille courant : trois ressources indépendantes restent réunies sur une page. */
 .resource-score-list--drawer {
   grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: .6rem;

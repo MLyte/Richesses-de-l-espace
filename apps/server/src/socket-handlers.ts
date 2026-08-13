@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 import {
-  BOARD, LEVER_CARDS, SECTORS, STARTING_RACE_SHIPS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame, finishStartingRace,
-  getNetWorth, getSectorInfluence, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
+  BOARD, LEVER_CARDS, STARTING_RACE_SHIPS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame, finishStartingRace,
+  getNetWorth, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
   pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, setPlayerConnected,
   selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever, observeGameForBot,
   type BotDecision, type BotProfile, type GameState
@@ -39,7 +39,7 @@ function publicView(room: Room, publicPort: number, publicOrigin?: string): Publ
   const state = room.state;
   return {
     code: state.code, displayMode: room.displayMode, revision: state.revision, status: state.status, phase: state.phase,
-    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, isBot: Boolean(room.bots[id]), botProfile: room.bots[id] ?? null, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: getNetWorth(state, id), sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(state, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number> })),
+    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, isBot: Boolean(room.bots[id]), botProfile: room.bots[id] ?? null, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: getNetWorth(state, id) })),
     activePlayerId: state.activePlayerId, botThinkingPlayerId: room.botThinkingPlayerId, startingRace: state.startingRace, turnNumber: state.turnNumber, roundNumber: state.roundNumber,
     ownership: state.ownership, lastRoll: state.lastRoll,
     pendingAssetId: state.pendingAction?.availableAssetIds[0] ?? null,
@@ -89,10 +89,11 @@ function playerView(room: Room, playerId: string, sessionToken: string): PlayerG
   return { playerId, token: sessionToken, isHost: room.hostPlayerId === playerId, allowedActions: actionsFor(room.state, playerId), leverIds: room.state.players.find((player) => player.id === playerId)?.leverIds ?? [], pendingLever };
 }
 
-export interface SocketHandlerOptions { botDelayScale?: number }
+export interface SocketHandlerOptions { botDelayScale?: number; startingRaceDurationMs?: number }
 
 export function registerSocketHandlers(io: Server, store: RoomStore, publicPort: number, publicOrigin?: string, options: SocketHandlerOptions = {}): void {
   const botDelayScale = Math.max(0, options.botDelayScale ?? 1);
+  const startingRaceDurationMs = Math.max(0, options.startingRaceDurationMs ?? 7_000);
   const auctionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const auctionPausedAt = new Map<string, number>();
   const startingRaceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -125,7 +126,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
 
   function botMutation(state: GameState, botId: string, decision: BotDecision): GameState {
     switch (decision.type) {
-      case "SELECT_STARTING_SHIP": return selectStartingShip(state, botId, decision.shipId);
+      case "SELECT_STARTING_SHIP": return selectStartingShip(state, botId, decision.shipId, Date.now(), startingRaceDurationMs);
       case "ROLL": return rollDice(state, botId);
       case "BUY_ASSETS": return buyPendingAsset(state, botId, decision.assetIds);
       case "PASS_ASSETS": return passPendingAsset(state, botId);
@@ -142,16 +143,20 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     }
   }
 
+  function botDecision(room: Room, playerId: string, profile: BotProfile): BotDecision | null {
+    if (room.state.phase === "SHIP_SELECTION" && !room.state.startingRace.selections[playerId]) {
+      const taken = new Set(Object.values(room.state.startingRace.selections));
+      const shipId = STARTING_RACE_SHIPS.find((id) => !taken.has(id))!;
+      return { type: "SELECT_STARTING_SHIP", shipId, reason: "AUTOMATIC_STARTING_SHIP" };
+    }
+    return decideBotAction(observeGameForBot(room.state, playerId), playerId, profile);
+  }
+
   function pendingBot(room: Room): { playerId: string; profile: BotProfile; decision: BotDecision } | null {
     for (const player of room.state.players) {
       const profile = room.bots[player.id];
       if (!profile) continue;
-      if (room.state.phase === "SHIP_SELECTION" && !room.state.startingRace.selections[player.id]) {
-        const taken = new Set(Object.values(room.state.startingRace.selections));
-        const shipId = STARTING_RACE_SHIPS.find((id) => !taken.has(id))!;
-        return { playerId: player.id, profile, decision: { type: "SELECT_STARTING_SHIP", shipId, reason: "AUTOMATIC_STARTING_SHIP" } };
-      }
-      const decision = decideBotAction(observeGameForBot(room.state, player.id), player.id, profile);
+      const decision = botDecision(room, player.id, profile);
       if (decision) return { playerId: player.id, profile, decision };
     }
     return null;
@@ -187,7 +192,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
           return;
         }
         const currentProfile = room.bots[pending.playerId];
-        const currentDecision = currentProfile ? decideBotAction(observeGameForBot(room.state, pending.playerId), pending.playerId, currentProfile) : null;
+        const currentDecision = currentProfile ? botDecision(room, pending.playerId, currentProfile) : null;
         room.botThinkingPlayerId = null;
         if (!currentDecision) {
           scheduleBot(room);
@@ -409,7 +414,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     socket.on("game:start", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, startGame); return undefined; }));
     socket.on("race:select-ship", (payload: { shipId?: string }, ack: Ack) => void safe(ack, async () => {
       const { room, session } = requireRoom(socket, "player");
-      await mutate(room, (state) => selectStartingShip(state, session.playerId!, payload.shipId as never));
+      await mutate(room, (state) => selectStartingShip(state, session.playerId!, payload.shipId as never, Date.now(), startingRaceDurationMs));
       return undefined;
     }));
     playerMutation("turn:roll", (state, playerId) => rollDice(state, playerId));

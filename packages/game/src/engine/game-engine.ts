@@ -3,9 +3,8 @@ import { BOARD } from "../data/board";
 import { COUNTRIES } from "../data/countries";
 import { LEVER_CARDS, type LeverCard } from "../data/levers";
 import { RESOURCES, type Resource } from "../data/resources";
-import { SECTORS } from "../data/sectors";
 import { TREND_CARDS, type TrendCard } from "../data/trends";
-import type { Asset, AuctionState, GameEvent, GameState, PlayerState, RaceShipId, SectorId, TradeOffer } from "../types";
+import type { Asset, AuctionState, GameEvent, GameState, PlayerState, RaceShipId, TradeOffer } from "../types";
 import { nextRandom, rollDie } from "./rng";
 
 export const STARTING_CAPITAL: Record<number, number> = { 2: 100, 3: 66, 4: 50, 5: 40, 6: 33 };
@@ -118,7 +117,7 @@ function shuffledRaceShips(rngState: number): { order: RaceShipId[]; rngState: n
   return { order, rngState: nextState };
 }
 
-export function selectStartingShip(state: GameState, playerId: string, shipId: RaceShipId, now = Date.now()): GameState {
+export function selectStartingShip(state: GameState, playerId: string, shipId: RaceShipId, now = Date.now(), raceDurationMs = 7_000): GameState {
   if (state.phase !== "SHIP_SELECTION") throw new RuleError("INVALID_PHASE", "La sélection des vaisseaux est terminée.");
   const player = requirePlayer(state, playerId);
   if (!STARTING_RACE_SHIPS.includes(shipId)) throw new RuleError("INVALID_SHIP", "Ce vaisseau n’existe pas.");
@@ -133,7 +132,7 @@ export function selectStartingShip(state: GameState, playerId: string, shipId: R
   const playerByShip = new Map(Object.entries(selections).map(([id, selectedShip]) => [selectedShip, id]));
   const winnerShipId = race.order.find((id) => playerByShip.has(id))!;
   const winnerPlayerId = playerByShip.get(winnerShipId)!;
-  return commit({ ...state, phase: "SHIP_RACE", rngState: race.rngState, startingRace: { selections, finishOrder: race.order, winnerPlayerId, raceEndsAt: now + 7_000 } }, [
+  return commit({ ...state, phase: "SHIP_RACE", rngState: race.rngState, startingRace: { selections, finishOrder: race.order, winnerPlayerId, raceEndsAt: now + raceDurationMs } }, [
     selectionEvent,
     makeEvent(state, { type: "ship_race_started", message: "Les sept vaisseaux s’élancent vers la balise de départ." })
   ]);
@@ -158,25 +157,11 @@ export function getNetWorth(state: GameState, playerId: string): number {
   return player.capital + player.assetIds.reduce((total, assetId) => total + getCurrentPrice(state, assetById.get(assetId)!), 0);
 }
 
-export function getSectorInfluence(state: GameState, playerId: string, sectorId: SectorId): number {
-  return requirePlayer(state, playerId).assetIds.reduce((total, assetId) => {
-    const asset = assetById.get(assetId);
-    return total + (asset?.sectorId === sectorId ? asset.share : 0);
-  }, 0);
-}
-
 export function getResourceInfluence(state: GameState, playerId: string, resourceId: string): number {
   return requirePlayer(state, playerId).assetIds.reduce((total, assetId) => {
     const asset = assetById.get(assetId);
     return total + (asset?.resourceId === resourceId ? asset.share : 0);
   }, 0);
-}
-
-export function getSectorLeaderId(state: GameState, sectorId: SectorId): string | null {
-  const counts = state.players.filter((player) => !player.bankrupt).map((player) => ({ id: player.id, count: getSectorInfluence(state, player.id, sectorId) / 20 }));
-  const maximum = Math.max(0, ...counts.map((item) => item.count));
-  if (maximum < 3 || counts.filter((item) => item.count === maximum).length !== 1) return null;
-  return counts.find((item) => item.count === maximum)!.id;
 }
 
 export function getPaymentAmount(state: GameState, asset: Asset, ownerId: string): number {

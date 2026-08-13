@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { ASSETS, COUNTRIES, RESOURCES, SECTORS, type BoardSpace } from "@richesses-espace/game";
+import { ASSETS, COUNTRIES, RESOURCES, SPACE_REGIONS, type BoardSpace } from "@richesses-espace/game";
 import type { PublicPlayerView } from "@richesses-espace/protocol";
 import PlayerTokenIcon from "./PlayerTokenIcon.vue";
 import GameIcon from "./GameIcon.vue";
@@ -38,16 +38,6 @@ onMounted(() => {
   if (boardRoot.value) resizeObserver.observe(boardRoot.value);
 });
 onBeforeUnmount(() => resizeObserver?.disconnect());
-
-const continentColors: Record<string, string> = {
-  "Système intérieur": "#F6C64D",
-  "Ceinture rouge": "#F2674A",
-  "Royaumes jovien et saturnien": "#8067E8",
-  "Frontière solaire": "#35D0E2",
-  "Voisinage d’Orion": "#6FAFE7",
-  "Corridor des exoplanètes": "#C76EEB",
-  "Lointains stellaires": "#EFAE5B"
-};
 
 function gridPosition(index: number) {
   let col = 0; let row = 0;
@@ -93,14 +83,14 @@ const tiles = computed(() => props.board.map((space, index) => {
   const position = gridPosition(index);
   if (space.type !== "asset") {
     const resourceId = space.type === "special" && space.kind === "dividend" ? space.resourceId : null;
-    return { space, index, ...position, special: specialMeta(space), title: null, country: null, resource: null, sector: null, owner: null, rightsHolders: getResourceRightsHolders(props.players, resourceId) };
+    return { space, index, ...position, special: specialMeta(space), title: null, country: null, resource: null, region: null, owner: null, rightsHolders: getResourceRightsHolders(props.players, resourceId) };
   }
   const title = ASSETS.find((asset) => asset.id === space.assetId)!;
   const country = COUNTRIES.find((item) => item.id === title.countryId)!;
   const resource = RESOURCES.find((item) => item.id === title.resourceId)!;
-  const sector = SECTORS.find((item) => item.id === title.sectorId)!;
+  const region = SPACE_REGIONS.find((item) => item.id === title.stellarSectorId)!;
   const owner = props.players.find((player) => player.id === props.ownership[space.assetId]) ?? null;
-  return { space, index, ...position, special: null, title, country, resource, sector, owner, rightsHolders: getResourceRightsHolders(props.players, space.resourceId) };
+  return { space, index, ...position, special: null, title, country, resource, region, owner, rightsHolders: getResourceRightsHolders(props.players, space.resourceId) };
 }));
 </script>
 
@@ -118,10 +108,10 @@ const tiles = computed(() => props.board.map((space, index) => {
       <g v-for="tile in tiles" :key="tile.space.id" class="board-tile" :class="{ 'board-tile--has-rights': tile.rightsHolders.length, 'board-tile--occupied': playersAt(tile.index).length, 'board-tile--active': playersAt(tile.index).some(player => player.id === activePlayerId) }" :data-owner-id="tile.owner?.id" :data-rights-holder-ids="tile.rightsHolders.map(holder => holder.id).join(',')" :transform="`translate(${tile.x} ${tile.y})`">
         <title v-if="tile.title">{{ tile.country?.continent }} · {{ tile.country?.name }} · {{ tile.resource?.name }}{{ tile.owner ? ` · Propriété de ${tile.owner.name}` : ' · Libre' }}{{ tile.rightsHolders.length ? ` · Droits : ${tile.rightsHolders.map(holder => `${holder.name} ${holder.share} %`).join(' · ')}` : ' · Aucun droit à payer' }}</title>
         <title v-else>{{ tile.space.name }}{{ tile.rightsHolders.length ? ` · Droits : ${tile.rightsHolders.map(holder => `${holder.name} ${holder.share} %`).join(' · ')}` : '' }}</title>
-        <template v-if="tile.title && tile.country && tile.resource && tile.sector">
+        <template v-if="tile.title && tile.country && tile.resource && tile.region">
           <rect class="tile-frame" :width="tileWidth" :height="tileHeight" rx=".08" />
-          <rect class="tile-country" x=".06" y=".06" :width="Math.max(0, tileWidth - .12)" :height="tileHeight * .40" :fill="continentColors[tile.country.continent]" />
-          <rect class="tile-resource" x=".06" :y="tileHeight * .46" :width="Math.max(0, tileWidth - .12)" :height="tileHeight * .48" :fill="tile.sector.color" />
+          <rect class="tile-country" x=".06" y=".06" :width="Math.max(0, tileWidth - .12)" :height="tileHeight * .40" :fill="tile.region.color" />
+          <rect class="tile-resource" x=".06" :y="tileHeight * .46" :width="Math.max(0, tileWidth - .12)" :height="tileHeight * .48" :fill="tile.region.color" />
           <text class="tile-country__code" :x="tileWidth / 2" :y="tileHeight * .20" text-anchor="middle">{{ compactLabel(tile.country.name, 6) }}</text>
           <text class="tile-resource__code" :x="tileWidth / 2" :y="tileHeight * .88" text-anchor="middle">{{ compactLabel(tile.resource.name, 6) }}</text>
         </template>

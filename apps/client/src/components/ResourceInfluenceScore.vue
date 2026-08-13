@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ASSETS, RESOURCES, SECTORS } from "@richesses-espace/game";
+import { ASSETS, RESOURCES } from "@richesses-espace/game";
 import { useAccessibleModal } from "../composables/useAccessibleModal";
 
 const props = withDefaults(defineProps<{ resourceId: string; assetIds: readonly string[]; compact?: boolean; showRoyaltiesDetails?: boolean }>(), {
@@ -10,7 +10,6 @@ const royaltiesOpen = ref(false);
 const royaltiesDialog = ref<HTMLElement | null>(null);
 const { onKeydown: onRoyaltiesKeydown } = useAccessibleModal(royaltiesOpen, royaltiesDialog, () => { royaltiesOpen.value = false; });
 const resource = computed(() => RESOURCES.find((item) => item.id === props.resourceId)!);
-const sector = computed(() => SECTORS.find((item) => item.id === resource.value.sectorId)!);
 const titles = computed(() => ASSETS.filter((asset) => asset.resourceId === props.resourceId && props.assetIds.includes(asset.id)));
 const influence = computed(() => titles.value.reduce((total, title) => total + title.share, 0));
 const reachedThreshold = computed(() => [90, 70, 50, 30].find((threshold) => influence.value >= threshold) ?? 0);
@@ -20,7 +19,7 @@ const activeThreshold = computed(() => [...thresholds].reverse().find((threshold
 </script>
 
 <template>
-  <article class="resource-score" :class="{ compact }" :style="{ '--resource-color': sector.color }">
+  <article class="resource-score" :class="{ compact }">
     <header><span>{{ resource.name }}</span><strong>{{ influence }}<small>%</small></strong></header>
     <div class="resource-score__track" role="meter" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="influence" :aria-label="`${influence} % de ${resource.name}`">
       <i :style="{ width: `${Math.min(100, influence)}%` }" />
@@ -43,7 +42,7 @@ const activeThreshold = computed(() => [...thresholds].reverse().find((threshold
         <button class="resource-rent-dialog__close" type="button" aria-label="Fermer" @click="royaltiesOpen = false">×</button>
         <p class="eyebrow">Barème de la ressource</p>
         <h2>{{ resource.name }}</h2>
-        <div class="resource-rent-dialog__current" :style="{ '--resource-color': sector.color }"><span>Votre cumul actuel</span><strong>{{ influence }} %</strong></div>
+        <div class="resource-rent-dialog__current"><span>Votre cumul actuel</span><strong>{{ influence }} %</strong></div>
         <p>Lorsqu’un autre équipage visite une case <strong>{{ resource.name }}</strong>, vos droits d’extraction dépendent du plus haut seuil atteint, tous mondes producteurs confondus.</p>
         <ol class="resource-rent-table">
           <li v-for="threshold in thresholds" :key="threshold" :class="{ reached: influence >= threshold, active: activeThreshold === threshold }">

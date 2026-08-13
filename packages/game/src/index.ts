@@ -3,7 +3,6 @@ export * from "./data/assets";
 export * from "./data/countries";
 export * from "./data/resources";
 export * from "./data/board";
-export * from "./data/sectors";
 export * from "./data/trends";
 export * from "./data/levers";
 export * from "./engine/game-engine";

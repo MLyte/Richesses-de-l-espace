@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { io, type Socket } from "socket.io-client";
 import type { BotProfile, CommandResult, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
 import type { GameEvent } from "@richesses-espace/game";
-import { playEventSound, playMoveStep, setActionReminder } from "../services/audio";
+import { cancelPendingTurnStart, playEventSound, playMoveStep, playTurnStart, setActionReminder } from "../services/audio";
 import { playErrorHaptic, playEventHaptic } from "../services/haptics";
 import {
   LOCAL_GAME_CODE,
@@ -22,7 +22,7 @@ type Role = "admin" | "player" | null;
 type DiceAnimationState = { eventId: number; playerId: string; dice: [number, number]; total: number; rolling: boolean };
 type PersistentNotification = { key: string; event: GameEvent };
 const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
-const silentNotificationTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"]);
+const silentNotificationTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready", "ship_selected", "ship_race_started"]);
 const mandatoryActionNames = new Set(["SELECT_STARTING_SHIP", "ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "END_TURN"]);
 const localGameBuild = import.meta.env.VITE_LOCAL_GAME === "true";
 let localBotTimer = 0;
@@ -46,6 +46,7 @@ export const useGameStore = defineStore("game", {
     diceAnimation: null as DiceAnimationState | null,
     visualPlayerPositions: {} as Record<string, number>,
     movingPlayerId: null as string | null,
+    announcedTurnKey: null as string | null,
     localGame: localGameBuild
   }),
   getters: {
@@ -67,7 +68,7 @@ export const useGameStore = defineStore("game", {
       this.sessionToken = null;
       this.connected = true;
       this.error = "";
-      setActionReminder(Boolean(snapshot.player?.allowedActions.some((action) => mandatoryActionNames.has(action))));
+      this.syncAudioAttention();
       for (const event of snapshot.events) this.enqueueEvent(event);
     },
     bindLocalGameSync() {
@@ -165,10 +166,11 @@ export const useGameStore = defineStore("game", {
           else if (this.movingPlayerId !== player.id) this.visualPlayerPositions[player.id] = player.position;
         }
         this.game = state;
+        this.syncAudioAttention();
       });
       this.socket.on("state:player", (state: PlayerGameView) => {
         this.player = state;
-        setActionReminder(state.allowedActions.some((action) => mandatoryActionNames.has(action)));
+        this.syncAudioAttention();
       });
       this.socket.on("game:event", (event: GameEvent) => { this.enqueueEvent(event); });
     },
@@ -234,7 +236,9 @@ export const useGameStore = defineStore("game", {
           }
 
           if (event.type === "turn_started") {
-            if (this.role === "admin" || event.playerId === this.player?.playerId) playEventSound(event.type);
+            // Le téléphone se fie à l'état personnel, plus fiable qu'un événement
+            // pouvant arriver avant le déverrouillage audio. L'écran TV garde ce son.
+            if (this.role === "admin") playEventSound(event.type);
             await wait(440);
             continue;
           }
@@ -363,8 +367,24 @@ export const useGameStore = defineStore("game", {
       this.role = "player"; this.sessionToken = session.token;
       localStorage.setItem(`richesses-espace:player:${session.code}`, session.token);
     },
+    syncAudioAttention() {
+      const gameAcceptsActions = Boolean(this.game && !["LOBBY", "PAUSED", "FINISHED"].includes(this.game.phase));
+      const actionRequired = Boolean(this.role === "player" && gameAcceptsActions && this.player?.allowedActions.some((action) => mandatoryActionNames.has(action)));
+      setActionReminder(actionRequired);
+
+      const playerId = this.player?.playerId;
+      const ownsCurrentTurn = Boolean(playerId && gameAcceptsActions && this.game?.activePlayerId === playerId);
+      if (!ownsCurrentTurn || !this.game || !playerId) {
+        cancelPendingTurnStart();
+        return;
+      }
+      const turnKey = `${this.game.code}:${this.game.roundNumber}:${this.game.turnNumber}:${playerId}`;
+      if (turnKey === this.announcedTurnKey) return;
+      this.announcedTurnKey = turnKey;
+      playTurnStart();
+    },
     syncActionReminder() {
-      setActionReminder(Boolean(this.player?.allowedActions.some((action) => mandatoryActionNames.has(action))));
+      this.syncAudioAttention();
     },
     hasSavedLocalGame() { return hasSavedLocalGameState(); },
     setReady(ready: boolean) { return this.command("lobby:set-ready", { ready }); },

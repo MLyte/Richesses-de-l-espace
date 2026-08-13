@@ -1,18 +1,13 @@
-export type ResourceFamilyId = "minerals" | "biospheres" | "energies" | "volatiles" | "networks";
-/** @deprecated Use ResourceFamilyId. Kept for wire compatibility. */
-export type SectorId = ResourceFamilyId;
 export type AssetId = string;
 export type PlayerId = string;
 export type BotProfile = "CAUTIOUS" | "BALANCED" | "AMBITIOUS";
 export type RaceShipId = "inner-system" | "red-belt" | "giant-realms" | "solar-frontier" | "orion-neighborhood" | "exoplanet-corridor" | "stellar-farlands";
 
-export interface ResourceFamily { id: ResourceFamilyId; name: string; shortName: string; color: string; icon: string }
-export type Sector = ResourceFamily;
 export interface SpaceConcession {
   id: AssetId; name: string; worldId: string; systemId: string; stellarSectorId: string;
-  resourceId: string; familyId: ResourceFamilyId; sharePercent: number; purchasePrice: number; imageId: string;
+  resourceId: string; sharePercent: number; purchasePrice: number; imageId: string;
   /** @deprecated Compatibility aliases removed from all presentation copy. */
-  countryId: string; hub: string; sectorId: ResourceFamilyId; share: number; basePrice: number;
+  countryId: string; hub: string; share: number; basePrice: number;
 }
 export type Asset = SpaceConcession;
 

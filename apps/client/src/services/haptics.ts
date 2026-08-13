@@ -11,6 +11,8 @@ export function playEventHaptic(event: GameEvent, playerId: string | null) {
   if (!involved) return;
 
   if (event.type === "dice_rolled") vibrate(35);
+  else if (event.type === "ship_selected") vibrate([24, 30, 38]);
+  else if (event.type === "ship_race_finished") vibrate([30, 35, 30, 35, 65]);
   else if (event.type === "asset_purchased") vibrate([28, 45, 42]);
   else if (event.type === "payment_due") vibrate([60, 45, 60]);
   else if (event.type === "payment_completed") vibrate([26, 35, 26]);

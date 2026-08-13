@@ -5,7 +5,14 @@ import { COUNTRIES } from "../data/countries";
 import { LEVER_CARDS } from "../data/levers";
 import { TREND_CARDS } from "../data/trends";
 import type { GameState } from "../types";
-import { addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, getCurrentPrice, getPaymentAmount, getRoyaltyAmount, passAuction, passPendingAsset, passPendingLever, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, selectAuctionAssets, setPlayerReady, startGame, useLever } from "./game-engine";
+import { STARTING_RACE_SHIPS, addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, finishStartingRace, getCurrentPrice, getPaymentAmount, getRoyaltyAmount, passAuction, passPendingAsset, passPendingLever, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
+
+function startTurns(state: GameState): GameState {
+  let next = startGame(state);
+  for (const [index, player] of next.players.entries()) next = selectStartingShip(next, player.id, STARTING_RACE_SHIPS[index]!, 0);
+  next = finishStartingRace(next);
+  return { ...next, activePlayerId: next.players[0]!.id };
+}
 
 function startedGame() {
   let game = createGame("game", "TEST", 1);
@@ -13,7 +20,7 @@ function startedGame() {
   game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "dog" });
   game = setPlayerReady(game, "p1", true);
   game = setPlayerReady(game, "p2", true);
-  return startGame(game);
+  return startTurns(game);
 }
 
 function startedGameWithThree() {
@@ -22,7 +29,7 @@ function startedGameWithThree() {
   game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "dog" });
   game = addPlayer(game, { id: "p3", name: "Chloé", color: "#75a341", symbol: "bird" });
   game = setPlayerReady(game, "p1", true); game = setPlayerReady(game, "p2", true); game = setPlayerReady(game, "p3", true);
-  return startGame(game);
+  return startTurns(game);
 }
 
 function landOn(index: number) {
@@ -39,6 +46,27 @@ function landOnSpace(game: GameState, spaceId: string) {
 }
 
 describe("Richesses de l’espace game engine", () => {
+  it("runs the seven-ship opening race and lets the best selected finisher start", () => {
+    let game = createGame("race", "RACE", 91);
+    game = addPlayer(game, { id: "p1", name: "Aline", color: "#e05f42", symbol: "cat" });
+    game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "dog" });
+    game = setPlayerReady(setPlayerReady(game, "p1", true), "p2", true);
+    game = startGame(game);
+    expect(game).toMatchObject({ phase: "SHIP_SELECTION", activePlayerId: null });
+    game = selectStartingShip(game, "p1", "inner-system", 1_000);
+    expect(() => selectStartingShip(game, "p2", "inner-system", 1_000)).toThrowError(/choisi/);
+    game = selectStartingShip(game, "p2", "stellar-farlands", 1_000);
+    expect(game.phase).toBe("SHIP_RACE");
+    expect(game.startingRace.finishOrder).toHaveLength(7);
+    expect(new Set(game.startingRace.finishOrder).size).toBe(7);
+    const selectedRanking = game.startingRace.finishOrder.filter((shipId) => Object.values(game.startingRace.selections).includes(shipId));
+    const expectedWinnerId = Object.entries(game.startingRace.selections).find(([, shipId]) => shipId === selectedRanking[0])?.[0];
+    expect(game.startingRace.winnerPlayerId).toBe(expectedWinnerId);
+    game = finishStartingRace(game);
+    expect(game).toMatchObject({ phase: "WAITING_FOR_ROLL", activePlayerId: expectedWinnerId });
+    expect(game.recentEvents.find((event) => event.type === "ship_race_finished")?.playerId).toBe(expectedWinnerId);
+  });
+
   it("starts with two ready players", () => {
     const game = startedGame();
     expect(game.phase).toBe("WAITING_FOR_ROLL");
@@ -163,7 +191,7 @@ describe("Richesses de l’espace game engine", () => {
     game = addPlayer(game, { id: "p1", name: "Aline", color: "#e05f42", symbol: "star" });
     game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "diamond" });
     game = setPlayerReady(setPlayerReady(game, "p1", true), "p2", true);
-    game = startGame(game);
+    game = { ...startTurns(game), rngState: 10 };
     const destinationIndex = BOARD.findIndex((space, index) => index > 4 && space.type === "asset");
     game = { ...game, players: game.players.map((player) => player.id === "p1" ? { ...player, position: destinationIndex - 4 } : player) };
     const capitalBefore = game.players[0]!.capital;
@@ -178,7 +206,7 @@ describe("Richesses de l’espace game engine", () => {
     game = addPlayer(game, { id: "p1", name: "Aline", color: "#e05f42", symbol: "star" });
     game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "diamond" });
     game = setPlayerReady(setPlayerReady(game, "p1", true), "p2", true);
-    game = startGame(game);
+    game = { ...startTurns(game), rngState: 10 };
     game = { ...game, players: game.players.map((player) => player.id === "p1" ? { ...player, capital: 1 } : player) };
     game = rollDice(game, "p1");
     expect(game.lastRoll?.dice).toEqual([2, 2]);
