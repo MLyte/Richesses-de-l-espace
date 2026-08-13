@@ -147,19 +147,23 @@ describe("Richesses de l’espace game engine", () => {
     expect(game.recentEvents.find((event) => event.type === "player_bankrupt")?.data).toMatchObject({ amount: 2, creditorCompensation: 0, debtToBank: 2 });
   });
 
-  it("buys from the country then pays every qualified holder of the case resource", () => {
+  it("pays every qualified holder before offering purchases from the country", () => {
     const featured = ASSETS.find((asset) => asset.resourceId === "hydroponic-crops" && asset.share === 30)!;
     const space = BOARD.find((item) => item.type === "asset" && item.resourceId === featured.resourceId);
     if (!space || space.type !== "asset") throw new Error("Case Blé introuvable dans le référentiel de test.");
     let initial = startedGame();
     initial = { ...initial, players: initial.players.map((player) => player.id === "p2" ? { ...player, assetIds: [featured.id] } : player), ownership: { [featured.id]: "p2" } };
     let game = landOnSpace(initial, space.id);
-    expect(game.phase).toBe("WAITING_FOR_PURCHASE");
+    expect(game.phase).toBe("WAITING_FOR_PAYMENT");
     expect(game.pendingAction?.countryId).toBe(space.worldId);
     expect(game.pendingAction?.availableAssetIds).not.toContain(featured.id);
-    game = passPendingAsset(game, "p1");
-    expect(game.phase).toBe("WAITING_FOR_PAYMENT");
     expect(game.pendingPayment).toMatchObject({ recipientId: "p2", resourceId: featured.resourceId });
+    expect(game.recentEvents.some((event) => event.type === "purchase_offered")).toBe(false);
+    game = payPendingPayment(game, "p1");
+    expect(game.phase).toBe("WAITING_FOR_PURCHASE");
+    expect(game.recentEvents.at(-1)?.type).toBe("purchase_offered");
+    game = passPendingAsset(game, "p1");
+    expect(game.phase).toBe("WAITING_FOR_END_TURN");
   });
 
   it("queues royalties for every other player holding at least 30 percent", () => {
@@ -174,13 +178,46 @@ describe("Richesses de l’espace game engine", () => {
     };
     const space = BOARD.find((item) => item.type === "asset" && item.resourceId === "hydroponic-crops")!;
     game = landOnSpace(game, space.id);
-    game = passPendingAsset(game, "p1");
     expect(game.pendingPayment?.recipientId).toBe("p2");
     expect(game.paymentQueue.map((payment) => payment.recipientId)).toEqual(["p3"]);
     game = payPendingPayment(game, "p1");
     expect(game.pendingPayment?.recipientId).toBe("p3");
     game = payPendingPayment(game, "p1");
+    expect(game.phase).toBe("WAITING_FOR_PURCHASE");
+    game = passPendingAsset(game, "p1");
     expect(game.phase).toBe("WAITING_FOR_END_TURN");
+  });
+
+  it("offers the country catalogue immediately when no royalty is due", () => {
+    const featured = ASSETS.find((asset) => asset.resourceId === "hydroponic-crops" && asset.share === 25)!;
+    const space = BOARD.find((item) => item.type === "asset" && item.resourceId === featured.resourceId);
+    if (!space || space.type !== "asset") throw new Error("Case Blé introuvable dans le référentiel de test.");
+    let initial = startedGame();
+    initial = { ...initial, players: initial.players.map((player) => player.id === "p2" ? { ...player, assetIds: [featured.id] } : player), ownership: { [featured.id]: "p2" } };
+    const game = landOnSpace(initial, space.id);
+    expect(game.phase).toBe("WAITING_FOR_PURCHASE");
+    expect(game.pendingPayment).toBeNull();
+    expect(game.pendingAction?.countryId).toBe(space.worldId);
+    expect(game.recentEvents.at(-1)?.type).toBe("purchase_offered");
+  });
+
+  it("does not offer a purchase when royalties bankrupt the active player", () => {
+    const featured = ASSETS.find((asset) => asset.resourceId === "hydroponic-crops" && asset.share === 30)!;
+    const space = BOARD.find((item) => item.type === "asset" && item.resourceId === featured.resourceId);
+    if (!space || space.type !== "asset") throw new Error("Case Blé introuvable dans le référentiel de test.");
+    let initial = startedGameWithThree();
+    initial = { ...initial, players: initial.players.map((player) => player.id === "p2" ? { ...player, assetIds: [featured.id] } : player), ownership: { [featured.id]: "p2" } };
+    const preview = landOnSpace(initial, space.id);
+    const [red, white] = preview.lastRoll!.dice;
+    const doubleTax = red === white ? red : 0;
+    const royalty = getPaymentAmount(initial, featured, "p2");
+    initial = { ...initial, players: initial.players.map((player) => player.id === "p1" ? { ...player, capital: doubleTax + royalty - 0.5 } : player) };
+    let game = landOnSpace(initial, space.id);
+    expect(game.phase).toBe("WAITING_FOR_PAYMENT");
+    expect(game.pendingAction).not.toBeNull();
+    game = declareBankruptcy(game, "p1");
+    expect(game.pendingAction).toBeNull();
+    expect(game.recentEvents.some((event) => event.type === "purchase_offered")).toBe(false);
   });
 
   it("pays nothing below 30 percent of the resource", () => {

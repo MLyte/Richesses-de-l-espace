@@ -240,6 +240,19 @@ function startAuction(state: GameState, playerId: string, redDie: number): { sta
   return { state: { ...state, phase: "AUCTION", auction }, event: makeEvent(state, { type: "auction_started", playerId, message: `${seller.name} doit proposer ${targetCount} concession${targetCount > 1 ? "s" : ""} au Marché orbital, selon le dé rouge (${redDie}).`, data: { redDie, targetCount } }) };
 }
 
+function continueAfterRoyalties(state: GameState, events: GameEvent[]): GameState {
+  const pending = state.pendingAction;
+  if (!pending) return { ...state, phase: "WAITING_FOR_END_TURN" };
+  const player = requirePlayer(state, pending.playerId);
+  events.push(makeEvent(state, {
+    type: "purchase_offered",
+    playerId: pending.playerId,
+    message: `${player.name} peut maintenant acheter jusqu’à ${pending.maxAssets} concessions encore disponibles dans le registre de ${pending.label}.`,
+    data: { source: pending.source, ...(pending.countryId ? { countryId: pending.countryId, worldId: pending.countryId } : {}), ...(pending.resourceId ? { resourceId: pending.resourceId } : {}), availableCount: pending.availableAssetIds.length }
+  }));
+  return { ...state, phase: "WAITING_FOR_PURCHASE" };
+}
+
 function beginRoyalties(state: GameState, payerId: string, resourceId: string, events: GameEvent[]): GameState {
   const payer = requirePlayer(state, payerId);
   const resource = resourceById.get(resourceId)!;
@@ -255,7 +268,7 @@ function beginRoyalties(state: GameState, payerId: string, resourceId: string, e
   const [pendingPayment, ...paymentQueue] = payments;
   if (!pendingPayment) {
     events.push(makeEvent(state, { type: "asset_visited", playerId: payerId, message: `${resource.name} : aucun autre joueur ne détient les 30 % requis pour recevoir des droits d’extraction.`, data: { resourceId } }));
-    return { ...state, pendingPayment: null, paymentQueue: [], phase: "WAITING_FOR_END_TURN" };
+    return continueAfterRoyalties({ ...state, pendingPayment: null, paymentQueue: [] }, events);
   }
   const recipient = requirePlayer(state, pendingPayment.recipientId);
   events.push(makeEvent(state, { type: "payment_due", playerId: payerId, message: `${payer.name} doit verser ${pendingPayment.amount} crédit${pendingPayment.amount > 1 ? "s" : ""} à ${recipient.name} pour ${resource.name}.`, data: { payerId, recipientId: recipient.id, amount: pendingPayment.amount, resourceId } }));
@@ -324,13 +337,11 @@ export function rollDice(state: GameState, playerId: string): GameState {
     const featured = assetById.get(space.assetId)!;
     const resource = resourceById.get(featured.resourceId)!;
     const availableAssetIds = ASSETS.filter((asset) => asset.countryId === featured.countryId && !state.ownership[asset.id]).map((asset) => asset.id);
-    events.push(makeEvent(state, { type: "asset_visited", playerId, message: `Case ${featured.hub} · ${resource.name} : achats dans le registre du monde, puis droits d’extraction de la ressource.`, data: { countryId: featured.countryId, worldId: featured.worldId, resourceId: featured.resourceId } }));
+    events.push(makeEvent(state, { type: "asset_visited", playerId, message: `Case ${featured.hub} · ${resource.name} : droits d’extraction de la ressource, puis achats dans le registre du monde.`, data: { countryId: featured.countryId, worldId: featured.worldId, resourceId: featured.resourceId } }));
     if (availableAssetIds.length) {
-      next = { ...next, pendingAction: { type: "purchase", source: "classic", playerId, countryId: featured.countryId, resourceId: featured.resourceId, label: featured.hub, availableAssetIds, maxAssets: 6 }, phase: "WAITING_FOR_PURCHASE" };
-      events.push(makeEvent(state, { type: "purchase_offered", playerId, message: `${player.name} peut acheter jusqu’à 6 concessions encore disponibles dans le registre de ${featured.hub}.`, data: { countryId: featured.countryId, worldId: featured.worldId, resourceId: featured.resourceId, availableCount: availableAssetIds.length } }));
-    } else {
-      next = beginRoyalties(next, playerId, featured.resourceId, events);
+      next = { ...next, pendingAction: { type: "purchase", source: "classic", playerId, countryId: featured.countryId, resourceId: featured.resourceId, label: featured.hub, availableAssetIds, maxAssets: 6 } };
     }
+    next = beginRoyalties(next, playerId, featured.resourceId, events);
   } else if (space.type === "special" && space.kind === "trend") {
     const result = applyTrend(next, playerId); next = result.state; events.push(result.event);
     if (result.bankDebt) return settleBankruptcy(next, playerId, [{ recipientId: null, amount: result.bankDebt }], events);
@@ -367,8 +378,7 @@ export function buyPendingAsset(state: GameState, playerId: string, assetIds?: s
   const ownership = { ...state.ownership }; selected.forEach((id) => { ownership[id] = playerId; });
   const events = [makeEvent(state, { type: "asset_purchased", playerId, message: `${player.name} achète ${selected.length} concession${selected.length > 1 ? "s" : ""} pour ${price} crédits stellaires.`, data: { source: pending.source, assetCount: selected.length, price, ...bankEventData("player_to_bank", price), ...(pending.countryId ? { worldId: pending.countryId } : {}), ...(pending.resourceId ? { resourceId: pending.resourceId } : {}) } })];
   const purchasedState = { ...state, players, ownership, pendingAction: null };
-  const next = pending.source === "classic" && pending.resourceId ? beginRoyalties(purchasedState, playerId, pending.resourceId, events) : { ...purchasedState, phase: "WAITING_FOR_END_TURN" as const };
-  return commit(next, events);
+  return commit({ ...purchasedState, phase: "WAITING_FOR_END_TURN" }, events);
 }
 
 export function passPendingAsset(state: GameState, playerId: string): GameState {
@@ -377,8 +387,7 @@ export function passPendingAsset(state: GameState, playerId: string): GameState 
   if (state.phase !== "WAITING_FOR_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucun achat n’est proposé.");
   const events = [makeEvent(state, { type: "purchase_passed", playerId, message: `${player.name} n’achète aucune concession sur ${pending.label}.`, data: { source: pending.source, ...(pending.countryId ? { worldId: pending.countryId } : {}), ...(pending.resourceId ? { resourceId: pending.resourceId } : {}) } })];
   const passedState = { ...state, pendingAction: null };
-  const next = pending.source === "classic" && pending.resourceId ? beginRoyalties(passedState, playerId, pending.resourceId, events) : { ...passedState, phase: "WAITING_FOR_END_TURN" as const };
-  return commit(next, events);
+  return commit({ ...passedState, phase: "WAITING_FOR_END_TURN" }, events);
 }
 
 export function buyPendingLever(state: GameState, playerId: string): GameState {
@@ -407,7 +416,7 @@ export function payPendingPayment(state: GameState, playerId: string): GameState
   const players = state.players.map((item) => item.id === payer.id ? { ...item, capital: item.capital - pending.amount } : item.id === recipient.id ? { ...item, capital: item.capital + pending.amount } : item);
   const events = [makeEvent(state, { type: "payment_completed", playerId, message: `${payer.name} verse ${pending.amount} crédit${pending.amount > 1 ? "s" : ""} à ${recipient.name} pour ${resource.name}.`, data: { assetId: pending.assetId, resourceId: pending.resourceId, payerId: playerId, recipientId: recipient.id, amount: pending.amount, due: pending.amount, shortfall: 0 } })];
   const [nextPayment, ...paymentQueue] = state.paymentQueue;
-  if (!nextPayment) return commit({ ...state, players, pendingPayment: null, paymentQueue: [], phase: "WAITING_FOR_END_TURN" }, events);
+  if (!nextPayment) return commit(continueAfterRoyalties({ ...state, players, pendingPayment: null, paymentQueue: [] }, events), events);
   const nextRecipient = requirePlayer(state, nextPayment.recipientId);
   events.push(makeEvent(state, { type: "payment_due", playerId, message: `${payer.name} doit maintenant verser ${nextPayment.amount} crédit${nextPayment.amount > 1 ? "s" : ""} à ${nextRecipient.name} pour ${resource.name}.`, data: { payerId: playerId, recipientId: nextRecipient.id, amount: nextPayment.amount, resourceId: pending.resourceId } }));
   return commit({ ...state, players, pendingPayment: nextPayment, paymentQueue, phase: "WAITING_FOR_PAYMENT" }, events);
@@ -482,7 +491,7 @@ function settleBankruptcy(state: GameState, playerId: string, debts: BankruptcyD
   const totalDebt = debts.reduce((total, debt) => total + debt.amount, 0);
   const creditorCompensation = [...debtByRecipient.values()].reduce((total, amount) => total + amount, 0);
   const debtToBank = totalDebt - creditorCompensation;
-  const base: GameState = { ...state, players, ownership, pendingPayment: null, paymentQueue: [], landedSpaceId: null, landedAssetId: null };
+  const base: GameState = { ...state, players, ownership, pendingAction: null, pendingPayment: null, paymentQueue: [], landedSpaceId: null, landedAssetId: null };
   const bankruptcyEvent = makeEvent(state, {
     type: "player_bankrupt",
     playerId,
