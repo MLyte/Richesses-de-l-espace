@@ -10,6 +10,12 @@ describe("licensed card assets", () => {
     expect(licensedImages.every((image) => image.author && image.licenseUrl && image.classification === "artist_impression" && image.promptReference)).toBe(true);
   });
 
+  it("resolves card and provenance URLs from the configured application base", () => {
+    expect(licensedImages[0]?.file).toBe(`${import.meta.env.BASE_URL}cards/space-01.webp`);
+    expect(licensedImages[0]?.sourceUrl).toBe(`${import.meta.env.BASE_URL}cards/space-art-provenance.json`);
+    expect(licensedImages.every((image) => image.file.startsWith(import.meta.env.BASE_URL))).toBe(true);
+  });
+
   it("ships every responsive format within the size budget", () => {
     for (const image of licensedImages) {
       for (const suffix of ["-480", "-960", ""]) {

@@ -11,6 +11,7 @@ import {
   endTurn,
   finishGame,
   finishStartingRace,
+  getBotThinkingDelay,
   getNetWorth,
   observeGameForBot,
   passAuction,
@@ -416,11 +417,9 @@ export function getLocalBotTurn(): LocalBotTurn | null {
   if (!pending) return null;
   const { playerId, decision } = pending;
   const rolledThisRevision = current.recentEvents.some((event) => event.id === current.revision && event.type === "dice_rolled");
-  const delay = rolledThisRevision ? 2_800 + (current.lastRoll?.total ?? 0) * 210
-    : decision.type === "SELECT_STARTING_SHIP" ? 220
-      : decision.type === "ROLL" ? 700
-      : decision.type === "BID" || decision.type === "PASS_BID" ? 800
-        : 900;
+  const delay = getBotThinkingDelay(decision, botProfiles[playerId] ?? "BALANCED", {
+    minimumDelayMs: rolledThisRevision ? 2_800 + (current.lastRoll?.total ?? 0) * 210 : 0
+  });
   return { playerId, decision, expectedRevision: current.revision, delay };
 }
 

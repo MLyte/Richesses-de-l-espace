@@ -18,6 +18,7 @@ import MobileRouteMap from "../components/MobileRouteMap.vue";
 import MobileToastQueue from "../components/MobileToastQueue.vue";
 import StartingShipRace from "../components/StartingShipRace.vue";
 import AuctionCountdown from "../components/AuctionCountdown.vue";
+import BotThinkingIndicator from "../components/BotThinkingIndicator.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
 import { pickSpacefarerName, resolvePlayerName } from "./player-name-placeholder";
 import { ArrowLeftRight, Bot, Dices, HandCoins, House, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
@@ -240,6 +241,8 @@ function goHome() { void router.push("/"); }
     <header class="phone-header">
       <div class="brand compact"><span class="brand-mark"><GameIcon name="reward" /></span><span>RICHESSES DE L’ESPACE</span></div>
       <div class="phone-tools">
+        <div v-if="store.player && mobileOnly && !['LOBBY', 'SHIP_SELECTION', 'SHIP_RACE'].includes(store.game?.phase ?? '')" class="phone-header__capital" role="status" aria-live="polite" :aria-label="`Capital disponible : ${store.me?.capital ?? 0} crédits`"><HandCoins :size="17" aria-hidden="true" /><strong>{{ store.me?.capital ?? 0 }}</strong><small>cr.</small></div>
+        <button v-if="store.player && mobileOnly" type="button" class="phone-resource-button" @click="openPortfolio" aria-haspopup="dialog"><PackageOpen :size="18" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
         <details v-if="isPhoneHost && store.game?.phase !== 'LOBBY'" class="mobile-host-menu">
           <summary aria-label="Commandes de l’hôte"><Menu :size="18" aria-hidden="true" /></summary>
@@ -322,14 +325,8 @@ function goHome() { void router.push("/"); }
       <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly }">
         <DiceAnimation v-if="store.diceAnimation && store.diceAnimation.playerId === me.id" class="dice-animation-phone" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" compact />
         <Transition name="event"><div v-if="personalMoneyNotice" class="personal-money-notice">{{ personalMoneyNotice }}</div></Transition>
-        <div v-if="mobileOnly" class="player-credit-float" role="status" aria-live="polite" :aria-label="`Capital disponible : ${me.capital} crédits`">
-          <HandCoins :size="19" aria-hidden="true" />
-          <span>Capital</span>
-          <strong>{{ me.capital }}</strong>
-          <small>crédits</small>
-        </div>
         <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b></div></div>
-        <div v-if="botThinkingPlayer" class="bot-thinking" role="status"><Bot :size="18" aria-hidden="true" /><span><strong>{{ botThinkingPlayer.name }}</strong> réfléchit…</span></div>
+        <BotThinkingIndicator v-if="botThinkingPlayer" :player-name="botThinkingPlayer.name" :profile="botThinkingPlayer.botProfile!" :phase="store.game.phase" :revision="store.game.revision" />
         <section v-if="mobileOnly" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">
           <MobileRouteMap :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :current-player-id="me.id" :turn-number="store.game.turnNumber" :ownership="store.game.ownership" :visual-positions="store.visualPlayerPositions" />
         </section>
@@ -490,7 +487,6 @@ function goHome() { void router.push("/"); }
 .bot-row-actions { display: flex; align-items: center; gap: .35rem; }
 .bot-row-actions select { min-height: 44px; max-width: 112px; padding: .3rem .45rem; font-size: .68rem; }
 .bot-row-actions button { display: grid; place-items: center; width: 44px; height: 44px; color: #ffd7cf; border: 1px solid rgba(242, 103, 74, .6); border-radius: 9px; background: rgba(157, 62, 53, .72); }
-.bot-thinking { display: flex; align-items: center; justify-content: center; gap: .5rem; margin: .7rem 0 0; padding: .65rem; color: #c9e8f4; border: 1px solid rgba(53, 208, 226, .3); border-radius: 10px; background: rgba(53, 208, 226, .08); font-size: .75rem; }
 .phone-lobby > .primary-button { position: static; right: auto; left: auto; width: 100%; max-width: none; min-height: 58px; margin-top: .8rem; box-shadow: 0 4px 0 rgba(0, 0, 0, .24); }
 .phone-lobby > .waiting-copy { margin: .7rem 0 1rem; line-height: 1.4; }
 @media (max-width: 760px) {

@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 import {
   BOARD, LEVER_CARDS, STARTING_RACE_DURATION_MS, STARTING_RACE_SHIPS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame, finishStartingRace,
-  getNetWorth, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
+  getBotThinkingDelay, getNetWorth, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
   pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, setPlayerConnected,
   selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever, observeGameForBot,
   type BotDecision, type BotProfile, type GameState
@@ -165,13 +165,11 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     return null;
   }
 
-  function botDelay(room: Room, decision: BotDecision): number {
+  function botDelay(room: Room, decision: BotDecision, profile: BotProfile): number {
     const rolledThisRevision = room.state.recentEvents.some((event) => event.id === room.state.revision && event.type === "dice_rolled");
-    const duration = rolledThisRevision ? 2_800 + (room.state.lastRoll?.total ?? 0) * 210
-      : decision.type === "SELECT_STARTING_SHIP" ? 220
-        : decision.type === "ROLL" ? 700
-        : decision.type === "BID" || decision.type === "PASS_BID" ? 800
-          : 900;
+    const duration = getBotThinkingDelay(decision, profile, {
+      minimumDelayMs: rolledThisRevision ? 2_800 + (room.state.lastRoll?.total ?? 0) * 210 : 0
+    });
     return Math.round(duration * botDelayScale);
   }
 
@@ -216,7 +214,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
         scheduleStartingRace(room);
         scheduleBot(room);
       });
-    }, botDelay(room, pending.decision));
+    }, botDelay(room, pending.decision, pending.profile));
     botTimers.set(room.state.code, timer);
   }
 

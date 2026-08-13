@@ -37,6 +37,14 @@ describe("WCAG interaction semantics", () => {
     expect(player).toContain('role="status" aria-live="polite"');
   });
 
+  it("closes the game menu after an action or an outside click", () => {
+    expect(display).toContain('document.addEventListener("pointerdown", closeGameMenuOnOutsideClick)');
+    expect(display).toContain('!gameMenu.value.contains(event.target as Node)');
+    expect(display).toContain('@click="closeGameMenuAfterAction"');
+    expect(display).toContain('.closest("button, a, [role=\'button\']")');
+    expect(display).toContain('document.removeEventListener("pointerdown", closeGameMenuOnOutsideClick)');
+  });
+
   it("respects reduced motion in animated dice and route scrolling", () => {
     expect(dice).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
     expect(routeMap).toContain('reducedMotion.matches ? "auto" : behavior');

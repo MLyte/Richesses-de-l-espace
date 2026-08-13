@@ -37,13 +37,13 @@ describe("mobile-only map-first experience", () => {
     expect(theme).toMatch(/\.mobile-map-panel\s*\{[^}]*position:\s*relative[^}]*min-height:\s*calc\(var\(--app-viewport-height\)/s);
   });
 
-  it("keeps the player's credits floating above the main map", () => {
-    expect(playerView).toContain('class="player-credit-float" role="status" aria-live="polite"');
-    expect(playerView).toContain('`Capital disponible : ${me.capital} crédits`');
-    expect(playerView).toContain('<strong>{{ me.capital }}</strong>');
-    expect(theme).toMatch(/\.player-credit-float\s*\{[^}]*position:\s*absolute[^}]*z-index:\s*var\(--layer-floating\)[^}]*pointer-events:\s*none/s);
-    expect(theme).toMatch(/\.mobile-map-panel--route\s*\{[^}]*padding-top:\s*4\.25rem/s);
-    expect(theme).toContain(':not(.dice-animation-phone):not(.player-credit-float)');
+  it("keeps the player's credits compact in the header", () => {
+    expect(playerView).toContain('class="phone-header__capital" role="status" aria-live="polite"');
+    expect(playerView).toContain('`Capital disponible : ${store.me?.capital ?? 0} crédits`');
+    expect(playerView).toContain('<strong>{{ store.me?.capital ?? 0 }}</strong>');
+    expect(playerView).not.toContain('class="player-credit-float"');
+    expect(theme).toMatch(/\.phone-header__capital\s*\{[^}]*display:\s*inline-flex[^}]*border-right:/s);
+    expect(theme).toMatch(/\.mobile-map-panel--route\s*\{[^}]*padding-top:\s*\.75rem/s);
   });
 
   it("keeps roll contextual and shows the complete landing card over the route", () => {
@@ -82,7 +82,7 @@ describe("mobile-only map-first experience", () => {
     expect(mobileToasts).toContain("@click=\"queue.dismiss\"");
     expect(mobileToasts).toContain('class="mobile-live-toast__dismiss"');
     expect(mobileToasts).toMatch(/\.mobile-live-toast__dismiss\s*\{[^}]*width:\s*100%[^}]*border:\s*0/s);
-    expect(theme).toMatch(/\.phone-shell:has\(\.player-credit-float\) > \.mobile-live-toast\s*\{[^}]*top:\s*calc\(var\(--phone-header-height\)/s);
+    expect(theme).not.toContain('.phone-shell:has(.player-credit-float)');
   });
 
   it("keeps errors visible without reserving a removed navigation dock", () => {

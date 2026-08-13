@@ -26,6 +26,8 @@ if (!script.includes("Joueur contre ordinateur")) throw new Error("Le mode joueu
 if (!script.includes("robots aux identités aléatoires")) throw new Error("La présentation des robots locaux est absente.");
 if (!script.includes("Votre pseudo")) throw new Error("Le formulaire d’identité du joueur est absent du bundle solo.");
 if (!script.includes("Nombre de robots")) throw new Error("Le choix du nombre de robots est absent du bundle solo.");
+if (!script.includes('"/richesses-espace/"')) throw new Error("La base publique /richesses-espace/ n’est pas intégrée au bundle JavaScript.");
+if (!script.includes("cards/space-art-provenance.json")) throw new Error("Le manifeste visuel n’est pas référencé dans le bundle JavaScript.");
 for (const obsoleteLabel of ["Démo UX", "Laboratoire UX statique", "Plusieurs situations sont disponibles"]) {
   if (script.includes(obsoleteLabel)) throw new Error(`L’ancien mode de démonstration est encore présent : ${obsoleteLabel}`);
 }

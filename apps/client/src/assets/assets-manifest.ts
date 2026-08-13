@@ -21,13 +21,15 @@ const descriptions = [
   "Monde volcanique rouge", "Ferme hydroponique dans une station orbitale", "Astéroïde de carbone dense", "Vortex stellaire corail et violet", "Réseau de stations autour d’une planète bleue"
 ] as const;
 
+const publicAssetUrl = (path: string) => `${import.meta.env.BASE_URL}${path}`;
+
 export const licensedImages: LicensedImage[] = descriptions.map((alt, index) => {
   const id = `space-${String(index + 1).padStart(2, "0")}`;
   return {
     id,
-    file: `/cards/${id}.webp`,
+    file: publicAssetUrl(`cards/${id}.webp`),
     source: "generated",
-    sourceUrl: "/cards/space-art-provenance.json",
+    sourceUrl: publicAssetUrl("cards/space-art-provenance.json"),
     author: "OpenAI ImageGen, sous direction éditoriale du projet",
     authorUrl: "https://openai.com/",
     licenseUrl: "https://openai.com/policies/terms-of-use/",

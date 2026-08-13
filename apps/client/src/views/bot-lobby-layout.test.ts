@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const playerView = readFileSync(fileURLToPath(new URL("./PlayerView.vue", import.meta.url)), "utf8");
 const createGameView = readFileSync(fileURLToPath(new URL("./CreateGameView.vue", import.meta.url)), "utf8");
 const displayView = readFileSync(fileURLToPath(new URL("./DisplayView.vue", import.meta.url)), "utf8");
+const thinkingIndicator = readFileSync(fileURLToPath(new URL("../components/BotThinkingIndicator.vue", import.meta.url)), "utf8");
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.meta.url)), "utf8");
 
@@ -35,11 +36,21 @@ describe("robot lobby and status UI", () => {
     for (const source of [playerView, displayView]) {
       expect(source).toContain("botProfileLabels");
       expect(source).toContain("botThinkingPlayer");
-      expect(source).toContain("réfléchit");
+      expect(source).toContain("BotThinkingIndicator");
       expect(source).toMatch(/import \{[^}]*Bot[^}]*\} from "@lucide\/vue"/);
     }
     expect(displayView).toContain("Robot · {{ botProfileLabels[player.botProfile!] }}");
     expect(styles).toContain(".bot-label");
+  });
+
+  it("uses a compact, accessible orbital animation for robot thinking", () => {
+    expect(thinkingIndicator).toContain('role="status"');
+    expect(thinkingIndicator).toContain('aria-live="polite"');
+    expect(thinkingIndicator).toContain("bot-thinking-orbit");
+    expect(thinkingIndicator).toContain("data-profile");
+    expect(thinkingIndicator).toContain("data-variant");
+    expect(thinkingIndicator).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(displayView).toContain("compact />");
   });
 
   it("keeps lobby help and in-game resource access out of the mobile action layers", () => {

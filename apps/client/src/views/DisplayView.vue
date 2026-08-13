@@ -17,18 +17,31 @@ import PaymentTransfer from "../components/PaymentTransfer.vue";
 import GameIcon from "../components/GameIcon.vue";
 import StartingShipRace from "../components/StartingShipRace.vue";
 import AuctionCountdown from "../components/AuctionCountdown.vue";
+import BotThinkingIndicator from "../components/BotThinkingIndicator.vue";
 import { Bot, HelpCircle, Maximize2, Menu, Pause } from "@lucide/vue";
 import { splitPlayerWings } from "./display-layout";
 
 const store = useGameStore();
 const route = useRoute();
 const fullscreen = ref(Boolean(document.fullscreenElement));
+const gameMenu = ref<HTMLDetailsElement | null>(null);
 function syncFullscreen(): void { fullscreen.value = Boolean(document.fullscreenElement); }
+function closeGameMenu(): void { gameMenu.value?.removeAttribute("open"); }
+function closeGameMenuOnOutsideClick(event: PointerEvent): void {
+  if (gameMenu.value?.open && !gameMenu.value.contains(event.target as Node)) closeGameMenu();
+}
+function closeGameMenuAfterAction(event: MouseEvent): void {
+  if ((event.target as Element).closest("button, a, [role='button']")) closeGameMenu();
+}
 onMounted(() => {
   document.addEventListener("fullscreenchange", syncFullscreen);
+  document.addEventListener("pointerdown", closeGameMenuOnOutsideClick);
   void store.createDisplaySession();
 });
-onBeforeUnmount(() => document.removeEventListener("fullscreenchange", syncFullscreen));
+onBeforeUnmount(() => {
+  document.removeEventListener("fullscreenchange", syncFullscreen);
+  document.removeEventListener("pointerdown", closeGameMenuOnOutsideClick);
+});
 
 const joinUrl = computed(() => store.game?.joinUrls[0] ?? (store.game ? `${location.origin}/play/${store.game.code}` : ""));
 const crewSlots = computed(() => Array.from({ length: 6 }, (_, index) => store.game?.players[index] ?? null));
@@ -83,9 +96,9 @@ async function toggleFullscreen() {
         <div class="session-code"><span>Expédition</span><b>{{ store.game.code }}</b></div>
         <div v-if="store.game.status !== 'LOBBY'" class="round-label">Ronde <b>{{ store.game.roundNumber }}</b></div>
       </template>
-      <details v-if="store.game && store.game.phase !== 'LOBBY'" class="game-menu">
+      <details v-if="store.game && store.game.phase !== 'LOBBY'" ref="gameMenu" class="game-menu">
         <summary><Menu :size="19" aria-hidden="true" /> <span>Menu</span></summary>
-        <div class="game-menu__popover">
+        <div class="game-menu__popover" @click="closeGameMenuAfterAction">
           <div class="game-menu__heading"><strong>Expédition {{ store.game.code }}</strong><span>Ronde {{ store.game.roundNumber }} · sans limite</span></div>
           <div class="game-menu__tools"><HelpOverlay compact /><button class="fullscreen-trigger" type="button" :aria-pressed="fullscreen" @click="toggleFullscreen"><Maximize2 :size="18" aria-hidden="true" /><span>{{ fullscreen ? 'Quitter le plein écran' : 'Plein écran' }}</span></button><SoundToggle /><RouterLink class="game-menu__link" to="/credits">Crédits visuels</RouterLink></div>
         </div>
@@ -162,7 +175,7 @@ async function toggleFullscreen() {
 
         <section class="board-stage" data-tv-zone="board">
           <div v-if="store.game.phase !== 'PAUSED'" class="turn-banner" data-tv-zone="turn">
-            <template v-if="active"><i :style="{ background: active.color }" /><span>Tour de</span><b>{{ active.name }}</b><small v-if="botThinkingPlayer"><Bot :size="14" aria-hidden="true" /> réfléchit…</small></template>
+            <template v-if="active"><i :style="{ background: active.color }" /><span>Tour de</span><b>{{ active.name }}</b><BotThinkingIndicator v-if="botThinkingPlayer" :player-name="botThinkingPlayer.name" :profile="botThinkingPlayer.botProfile!" :phase="store.game.phase" :revision="store.game.revision" compact /></template>
           </div>
           <WorldBoard :board="store.game.board" :players="store.game.players" :ownership="store.game.ownership" :active-player-id="store.game.activePlayerId" :visual-positions="store.visualPlayerPositions" />
           <PaymentTransfer v-if="store.game.pendingPayment && paymentPayer && paymentRecipient" :payer="paymentPayer" :recipient="paymentRecipient" :amount="store.game.pendingPayment.amount" />

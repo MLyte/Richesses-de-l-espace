@@ -569,6 +569,8 @@ function closeAuctionLot(state: GameState, events: GameEvent[] = []): GameState 
   const auction = state.auction;
   if (state.phase !== "AUCTION" || !auction || auction.mode !== "bidding") throw new RuleError("INVALID_PHASE", "Aucun lot n’est à adjuger.");
   const lot = auction.lots[auction.currentLotIndex]!; const seller = requirePlayer(state, auction.sellerId);
+  const lotLabel = lot.map((id) => assetById.get(id)!.name).join(" + ");
+  const auctionResultData = { auctionTurnNumber: state.turnNumber, lotIndex: auction.currentLotIndex, lotLabel, sellerId: seller.id, bankSale: auction.bankSale, assetCount: lot.length };
   const ownership = { ...state.ownership };
   let players = state.players;
   if (auction.leaderId) {

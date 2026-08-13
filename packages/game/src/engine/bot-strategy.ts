@@ -35,6 +35,47 @@ export type BotDecision =
   | { type: "RESPOND_TRADE"; accept: boolean; reason: string }
   | { type: "END_TURN"; reason: string };
 
+const thinkingRanges: Record<BotDecision["type"], readonly [minimum: number, maximum: number]> = {
+  SELECT_STARTING_SHIP: [650, 1_200],
+  ROLL: [700, 1_400],
+  BUY_ASSETS: [1_100, 2_200],
+  PASS_ASSETS: [1_100, 2_200],
+  BUY_LEVER: [1_000, 2_000],
+  PASS_LEVER: [1_000, 2_000],
+  PAY: [550, 900],
+  DECLARE_BANKRUPTCY: [900, 1_600],
+  USE_LEVER: [900, 1_600],
+  SELECT_AUCTION_ASSETS: [1_200, 2_200],
+  BID: [800, 1_500],
+  PASS_BID: [800, 1_500],
+  RESPOND_TRADE: [1_200, 2_200],
+  END_TURN: [500, 850]
+};
+
+const thinkingTempo: Record<BotProfile, number> = {
+  CAUTIOUS: 1.15,
+  BALANCED: 1,
+  AMBITIOUS: .9
+};
+
+export interface BotThinkingDelayOptions {
+  minimumDelayMs?: number;
+  random?: () => number;
+}
+
+/**
+ * Adds a bounded, human-readable pause before a robot action. Mechanical
+ * animations can provide a minimum duration so their time is never stacked
+ * with an artificial thinking delay.
+ */
+export function getBotThinkingDelay(decision: BotDecision, profile: BotProfile, options: BotThinkingDelayOptions = {}): number {
+  const [minimum, maximum] = thinkingRanges[decision.type];
+  const tempo = thinkingTempo[profile];
+  const randomValue = Math.min(1, Math.max(0, (options.random ?? Math.random)()));
+  const sampledDelay = Math.round((minimum + (maximum - minimum) * randomValue) * tempo);
+  return Math.max(Math.max(0, options.minimumDelayMs ?? 0), sampledDelay);
+}
+
 const assetById = new Map(ASSETS.map((asset) => [asset.id, asset]));
 const resourceById = new Map(RESOURCES.map((resource) => [resource.id, resource]));
 const thresholds = [30, 50, 70, 90] as const;
