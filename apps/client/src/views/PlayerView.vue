@@ -19,7 +19,7 @@ import MobileToastQueue from "../components/MobileToastQueue.vue";
 import StartingShipRace from "../components/StartingShipRace.vue";
 import AuctionCountdown from "../components/AuctionCountdown.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
-import { pickSpacefarerFirstName } from "./player-name-placeholder";
+import { pickSpacefarerName, resolvePlayerName } from "./player-name-placeholder";
 import { ArrowLeftRight, Bot, Dices, HandCoins, House, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
 const route = useRoute();
@@ -30,7 +30,7 @@ const searchParams = new URLSearchParams(window.location.search);
 const mobilePreview = import.meta.env.DEV && searchParams.get("preview") === "mobile";
 const previewPlayerId = searchParams.get("player") === "orion" ? "orion" : "lyra";
 const name = ref("");
-const namePlaceholder = pickSpacefarerFirstName();
+const namePlaceholder = pickSpacefarerName();
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
 const botCount = ref(1);
@@ -198,7 +198,7 @@ function updateBot(playerId: string, event: Event) { return run(() => store.upda
 function removeBot(playerId: string) { return run(() => store.removeBot(playerId)); }
 async function join() {
   joining.value = true;
-  try { await store.join(code, name.value, color.value, symbol.value, botProfiles.value.slice(0, botCount.value)); } catch { /* affiché */ }
+  try { await store.join(code, resolvePlayerName(name.value, namePlaceholder), color.value, symbol.value, botProfiles.value.slice(0, botCount.value)); } catch { /* affiché */ }
   finally { joining.value = false; }
 }
 function openTrade(mode: "purchase" | "sale" | "exchange" | "alliance") {
@@ -260,7 +260,7 @@ function goHome() { void router.push("/"); }
       <p class="eyebrow">Expédition {{ code }}</p>
       <h1>Embarquez pour<br><em>l’expédition.</em></h1>
       <form class="join-form" @submit.prevent="join">
-        <label>Votre pseudo<input v-model="name" maxlength="20" autocomplete="nickname" :placeholder="namePlaceholder" required /></label>
+        <label>Votre pseudo (facultatif)<input v-model="name" maxlength="20" autocomplete="nickname" :placeholder="namePlaceholder" /></label>
         <label v-if="store.localGame">Nombre de robots
           <select v-model.number="botCount">
             <option v-for="count in 5" :key="count" :value="count">{{ count }} robot{{ count > 1 ? 's' : '' }}</option>
@@ -277,7 +277,7 @@ function goHome() { void router.push("/"); }
         </fieldset>
         <fieldset><legend>Votre couleur</legend><div class="color-picker"><button v-for="choice in PLAYER_COLORS" :key="choice" type="button" :aria-label="colorLabels[choice]" :aria-pressed="color === choice" :class="{ selected: color === choice }" :style="{ '--choice': choice }" @click="color = choice" /></div></fieldset>
         <fieldset><legend>Votre animal</legend><div class="symbol-picker"><button v-for="choice in PLAYER_SYMBOLS" :key="choice.id" type="button" :title="choice.label" :aria-label="choice.label" :aria-pressed="symbol === choice.id" :class="{ selected: symbol === choice.id }" @click="symbol = choice.id"><PlayerTokenIcon :symbol="choice.id" /></button></div></fieldset>
-        <button class="primary-button" :disabled="joining || !name.trim()">{{ store.localGame ? 'Lancer l’expédition' : 'Rejoindre la flotte' }}</button>
+        <button class="primary-button" :disabled="joining">{{ store.localGame ? 'Lancer l’expédition' : 'Rejoindre la flotte' }}</button>
       </form>
     </section>
 
