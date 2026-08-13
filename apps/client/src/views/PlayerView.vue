@@ -28,6 +28,7 @@ const previewPlayerId = searchParams.get("player") === "orion" ? "orion" : "lyra
 const name = ref("");
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
+const botCount = ref(1);
 const newBotProfile = ref<BotProfile>("BALANCED");
 const botProfileLabels: Record<BotProfile, string> = { CAUTIOUS: "Prudent", BALANCED: "Équilibré", AMBITIOUS: "Ambitieux" };
 const colorLabels: Record<string, string> = {
@@ -167,7 +168,7 @@ function updateBot(playerId: string, event: Event) { return run(() => store.upda
 function removeBot(playerId: string) { return run(() => store.removeBot(playerId)); }
 async function join() {
   joining.value = true;
-  try { await store.join(code, name.value, color.value, symbol.value); } catch { /* affiché */ }
+  try { await store.join(code, name.value, color.value, symbol.value, botCount.value); } catch { /* affiché */ }
   finally { joining.value = false; }
 }
 function openTrade(mode: "purchase" | "sale" | "exchange" | "alliance") {
@@ -216,7 +217,7 @@ async function finishAsHost() {
             <span class="mobile-host-menu__label">Commandes de l’hôte</span>
             <button v-if="store.game?.phase === 'PAUSED'" type="button" @click="run(store.resumeGame)">Reprendre</button>
             <button v-else-if="store.game?.phase !== 'FINISHED'" type="button" @click="run(store.pause)">Mettre en pause</button>
-            <button v-if="store.game?.phase === 'FINISHED'" type="button" @click="run(store.restart)">{{ store.localGame ? 'Rejouer contre le robot' : 'Rejouer avec le groupe' }}</button>
+            <button v-if="store.game?.phase === 'FINISHED'" type="button" @click="run(store.restart)">{{ store.localGame ? 'Rejouer contre les robots' : 'Rejouer avec le groupe' }}</button>
             <button v-else type="button" class="danger" @click="finishAsHost">Terminer</button>
           </div>
         </details>
@@ -230,9 +231,14 @@ async function finishAsHost() {
       <h1>Embarquez pour<br><em>l’expédition.</em></h1>
       <form class="join-form" @submit.prevent="join">
         <label>Votre pseudo<input v-model="name" maxlength="20" autocomplete="nickname" placeholder="Mathieu" required /></label>
+        <label v-if="store.localGame">Nombre de robots
+          <select v-model.number="botCount">
+            <option v-for="count in 5" :key="count" :value="count">{{ count }} robot{{ count > 1 ? 's' : '' }}</option>
+          </select>
+        </label>
         <fieldset><legend>Votre couleur</legend><div class="color-picker"><button v-for="choice in PLAYER_COLORS" :key="choice" type="button" :aria-label="colorLabels[choice]" :aria-pressed="color === choice" :class="{ selected: color === choice }" :style="{ '--choice': choice }" @click="color = choice" /></div></fieldset>
         <fieldset><legend>Votre animal</legend><div class="symbol-picker"><button v-for="choice in PLAYER_SYMBOLS" :key="choice.id" type="button" :title="choice.label" :aria-label="choice.label" :aria-pressed="symbol === choice.id" :class="{ selected: symbol === choice.id }" @click="symbol = choice.id"><PlayerTokenIcon :symbol="choice.id" /></button></div></fieldset>
-        <button class="primary-button" :disabled="joining || !name.trim()">Rejoindre la flotte</button>
+        <button class="primary-button" :disabled="joining || !name.trim()">{{ store.localGame ? 'Lancer l’expédition' : 'Rejoindre la flotte' }}</button>
       </form>
     </section>
 
@@ -291,7 +297,7 @@ async function finishAsHost() {
           <p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p>
           <button v-if="isPhoneHost" type="button" class="primary-button final-phone__restart" :disabled="store.pending" @click="run(store.restart)">
             <RotateCcw :size="19" aria-hidden="true" />
-            <span>{{ store.localGame ? 'Rejouer contre le robot' : 'Rejouer avec le groupe' }}</span>
+            <span>{{ store.localGame ? 'Rejouer contre les robots' : 'Rejouer avec le groupe' }}</span>
           </button>
           <p v-else class="final-phone__waiting">L’hôte peut préparer une nouvelle partie avec le même groupe.</p>
         </div>

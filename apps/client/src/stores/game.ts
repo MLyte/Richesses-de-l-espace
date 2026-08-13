@@ -96,7 +96,7 @@ export const useGameStore = defineStore("game", {
       }
       if (this.game) this.game = { ...this.game, botThinkingPlayerId: turn.playerId };
       localBotTimer = window.setTimeout(() => {
-        const next = runLocalBotTurn(turn.expectedRevision);
+        const next = runLocalBotTurn(turn.expectedRevision, turn.playerId);
         if (next) this.applyLocalGameSnapshot(next);
         this.scheduleLocalBot();
       }, turn.delay);
@@ -199,6 +199,9 @@ export const useGameStore = defineStore("game", {
           }
 
           if (event.type === "pawn_moved" && event.playerId) {
+            // The dice result has had its own reveal time. Remove that overlay
+            // before the first step so the whole trip remains visible.
+            this.diceAnimation = null;
             const boardLength = this.game?.board.length ?? 78;
             const from = Number(event.data?.from ?? this.visualPlayerPositions[event.playerId] ?? 0);
             const to = Number(event.data?.to ?? from);
@@ -213,7 +216,6 @@ export const useGameStore = defineStore("game", {
             await wait(320);
             this.visualPlayerPositions[event.playerId] = to;
             this.movingPlayerId = null;
-            this.diceAnimation = null;
             continue;
           }
 
@@ -319,11 +321,11 @@ export const useGameStore = defineStore("game", {
       if (!token) return;
       try { await this.resume(token); } catch { localStorage.removeItem(`richesses-espace:player:${code.toUpperCase()}`); }
     },
-    async join(code: string, name: string, color: string, symbol: string) {
+    async join(code: string, name: string, color: string, symbol: string, botCount = 1) {
       if (this.localGame) {
         this.error = "";
         try {
-          this.applyLocalGameSnapshot(startLocalGame({ name, color, symbol }, "MOBILE_ONLY"));
+          this.applyLocalGameSnapshot(startLocalGame({ name, color, symbol }, "MOBILE_ONLY", true, botCount));
           this.scheduleLocalBot();
         } catch (error) {
           this.error = error instanceof Error ? error.message : "Impossible de créer la partie solo.";

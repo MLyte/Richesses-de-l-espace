@@ -96,7 +96,7 @@ h1 em { font-family: "Fraunces Variable", "Manrope", sans-serif; font-weight: 70
 /* Téléphone */
 .phone-shell { isolation: isolate; width: min(100%, 520px); min-height: var(--app-viewport-height); margin: auto; padding: var(--safe-top) 1.25rem calc(1.5rem + var(--safe-bottom)); background: radial-gradient(circle at 90% 0, #fff 0, transparent 34%), var(--paper); }
 .phone-header { position: sticky; z-index: var(--layer-header); top: var(--safe-top); display: flex; align-items: center; justify-content: space-between; height: var(--phone-header-height); overflow: visible; border-bottom: 1px solid var(--line); background: var(--paper); }.connection-dot { width: 8px; height: 8px; border-radius: 50%; background: #b35444; }.connection-dot.online { background: #738654; }
-.join-screen, .phone-lobby { padding-top: clamp(3rem, 12vh, 6rem); }.phone-shell h1 { font-size: clamp(2.8rem, 13vw, 4.2rem); }.join-form { display: grid; gap: 1.4rem; margin-top: 3rem; }.join-form label, .join-form legend { display: grid; gap: .6rem; color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .12em; }.join-form input { width: 100%; padding: 1rem 0; border: 0; border-bottom: 1px solid var(--ink); outline: 0; background: transparent; color: var(--ink); font-size: 1.1rem; text-transform: none; }.join-form fieldset { margin: 0; padding: 0; border: 0; }.color-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: .6rem; }.color-picker button { aspect-ratio: 1; border: 5px solid var(--paper); outline: 1px solid transparent; border-radius: 50%; background: var(--choice); }.color-picker button.selected { outline-color: var(--ink); }
+.join-screen, .phone-lobby { padding-top: clamp(3rem, 12vh, 6rem); }.phone-shell h1 { font-size: clamp(2.8rem, 13vw, 4.2rem); }.join-form { display: grid; gap: 1.4rem; margin-top: 3rem; }.join-form label, .join-form legend { display: grid; gap: .6rem; color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .12em; }.join-form input { width: 100%; padding: 1rem 0; border: 0; border-bottom: 1px solid var(--ink); outline: 0; background: transparent; color: var(--ink); font-size: 1.1rem; text-transform: none; }.join-form select { width: 100%; min-height: 48px; padding: .7rem .8rem; border: 1px solid var(--muted); border-radius: 8px; outline: 0; background: #102a43; color: var(--ink); font: 700 .9rem Manrope; text-transform: none; }.join-form fieldset { margin: 0; padding: 0; border: 0; }.color-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: .6rem; }.color-picker button { aspect-ratio: 1; border: 5px solid var(--paper); outline: 1px solid transparent; border-radius: 50%; background: var(--choice); }.color-picker button.selected { outline-color: var(--ink); }
 .identity-card { display: flex; gap: 1rem; align-items: center; margin: 2.5rem 0 1rem; padding: 1.2rem; border: 1px solid var(--line); }.identity-card i { width: 42px; height: 42px; border-radius: 50%; }.identity-card span,.identity-card b { display: block; }.identity-card span { color: var(--muted); font-size: .65rem; }.identity-card b { margin-top: .25rem; font: 500 1.05rem "IBM Plex Mono"; }.phone-lobby > .primary-button { width: 100%; }.mini-roster { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; margin-top: 2rem; }.mini-roster span { display: flex; align-items: center; gap: .35rem; color: var(--muted); font-size: .65rem; }.mini-roster i { width: 6px; height: 6px; border-radius: 50%; }
 .controller-meta { display: flex; justify-content: space-between; align-items: end; padding: 1.2rem 0; border-bottom: 1px solid var(--line); }.controller-meta span,.controller-meta b { display: block; }.controller-meta span { color: var(--muted); font-size: .62rem; text-transform: uppercase; letter-spacing: .1em; }.controller-meta b { margin-top: .25rem; }.controller-meta .capital { text-align: right; }.controller-meta .capital b { font: 500 1.5rem "IBM Plex Mono"; }
 .primary-action { min-height: 48vh; display: flex; flex-direction: column; justify-content: center; }.primary-action h1 { margin-bottom: 2.2rem; font-size: 2.6rem; }.dice-button { min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .45rem; border: 0; background: var(--ink); color: white; font-weight: 700; }.dice-button span { color: #d9b18f; letter-spacing: .4em; }
@@ -496,10 +496,10 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
   justify-items: center;
   min-width: 280px;
   padding: 1.15rem 1.4rem 1.3rem;
-  border: 1px solid rgba(29,43,42,.16);
-  background: rgba(255,253,247,.96);
-  color: var(--ink);
-  box-shadow: 0 24px 70px rgba(29,43,42,.2);
+  border: 1px solid rgba(114,169,194,.72);
+  background: rgba(6,17,31,.97);
+  color: #f3f8fc;
+  box-shadow: 0 24px 70px rgba(0,0,0,.5), 0 0 42px rgba(53,208,226,.1);
   backdrop-filter: blur(12px);
 }
 .dice-cast > p { margin: 0 0 .7rem; color: var(--muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; }
@@ -523,7 +523,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
 .dice-cast > strong small { color: var(--muted); font: 700 .62rem Manrope; text-transform: uppercase; letter-spacing: .13em; }
 .dice-animation-tv { position: absolute; z-index: 9; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .dice-animation-phone { position: fixed; z-index: var(--layer-floating); inset: 50% auto auto 50%; width: min(calc(100% - 2rem), 430px); transform: translate(-50%, -50%); }
-.dice-animation-phone::before { content: ""; position: fixed; z-index: -1; inset: -100vh -100vw; background: rgba(248,241,223,.72); backdrop-filter: blur(5px); }
+.dice-animation-phone::before { content: ""; position: fixed; z-index: -1; inset: -100vh -100vw; background: radial-gradient(circle at 50% 42%, rgba(21,63,93,.72), rgba(2,9,17,.94) 58%); backdrop-filter: blur(5px); }
 .dice-cast.compact .dice-cast__die { width: 68px; height: 68px; font-size: 3.75rem; }
 .tile-pawn { pointer-events: none; animation: pawn-step .21s cubic-bezier(.2,.8,.2,1); transform-box: fill-box; transform-origin: center; }
 @keyframes dice-tumble { from { transform: translateY(-5px) rotate(-8deg) scale(.96); } to { transform: translateY(4px) rotate(9deg) scale(1.03); } }

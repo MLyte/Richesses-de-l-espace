@@ -124,8 +124,8 @@ export class RoomStore {
   addBot(room: Room, profile: BotProfile): string {
     if (!isBotProfile(profile)) throw new Error("INVALID_BOT_PROFILE");
     if (room.state.phase !== "LOBBY") throw new Error("INVALID_PHASE");
-    const name = BOT_NAMES.find((candidate) => !room.state.players.some((player) => player.name.localeCompare(candidate, "fr", { sensitivity: "base" }) === 0))
-      ?? `Robot ${room.state.players.length + 1}`;
+    const availableNames = BOT_NAMES.filter((candidate) => !room.state.players.some((player) => player.name.localeCompare(candidate, "fr", { sensitivity: "base" }) === 0));
+    const name = availableNames.length ? availableNames[crypto.randomInt(availableNames.length)]! : `Robot ${room.state.players.length + 1}`;
     const color = PLAYER_COLORS.find((candidate) => !room.state.players.some((player) => player.color === candidate));
     const symbol = PLAYER_SYMBOLS.find((candidate) => !room.state.players.some((player) => player.symbol === candidate.id))?.id;
     if (!color || !symbol) throw new Error("ROOM_FULL");

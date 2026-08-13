@@ -37,7 +37,10 @@ import { PLAYER_COLORS, PLAYER_SYMBOLS, type DisplayMode, type PlayerAction, typ
 export const LOCAL_GAME_STORAGE_KEY = "richesses-espace:local-game:v2";
 export const LOCAL_GAME_CODE = "SOLO";
 export const LOCAL_HUMAN_ID = "human";
-export const LOCAL_BOT_ID = "orion";
+export const LOCAL_BOT_ID = "bot-1";
+export const LOCAL_BOT_COUNT_MIN = 1;
+export const LOCAL_BOT_COUNT_MAX = 5;
+const LEGACY_LOCAL_BOT_ID = "orion";
 export const LOCAL_BOT_NAMES = [
   "Aigle",
   "Andromède",
@@ -74,7 +77,7 @@ export interface LocalGameSnapshot {
 }
 
 export interface LocalBotTurn {
-  playerId: typeof LOCAL_BOT_ID;
+  playerId: string;
   decision: BotDecision;
   expectedRevision: number;
   delay: number;
@@ -89,7 +92,11 @@ function canUseStorage(): boolean {
 
 function persist(): void {
   if (!state || !canUseStorage()) return;
-  window.localStorage.setItem(LOCAL_GAME_STORAGE_KEY, JSON.stringify({ version: 2, state }));
+  window.localStorage.setItem(LOCAL_GAME_STORAGE_KEY, JSON.stringify({ version: 3, state }));
+}
+
+function isLocalBotId(playerId: string): boolean {
+  return playerId.startsWith("bot-") || playerId === LEGACY_LOCAL_BOT_ID;
 }
 
 function restore(force = false): boolean {
@@ -97,9 +104,9 @@ function restore(force = false): boolean {
   if (force) state = null;
   try {
     const stored = JSON.parse(window.localStorage.getItem(LOCAL_GAME_STORAGE_KEY) ?? "null") as { version?: number; state?: GameState } | null;
-    if (!stored || stored.version !== 2 || !stored.state) return false;
+    if (!stored || ![2, 3].includes(stored.version ?? 0) || !stored.state) return false;
     const ids = stored.state.players.map((player) => player.id);
-    if (!ids.includes(LOCAL_HUMAN_ID) || !ids.includes(LOCAL_BOT_ID)) return false;
+    if (!ids.includes(LOCAL_HUMAN_ID) || !ids.some(isLocalBotId)) return false;
     state = stored.state;
     return true;
   } catch {
@@ -115,29 +122,44 @@ function validateSetup(setup: LocalPlayerSetup): LocalPlayerSetup {
   return { name, color: setup.color, symbol: setup.symbol };
 }
 
-function randomItem<T>(items: readonly T[]): T {
-  return items[Math.floor(Math.random() * items.length)]!;
+function shuffled<T>(items: readonly T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const otherIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[otherIndex]] = [result[otherIndex]!, result[index]!];
+  }
+  return result;
 }
 
-function randomBotIdentity(human: LocalPlayerSetup): LocalPlayerSetup {
-  const availableNames = LOCAL_BOT_NAMES.filter((name) => name.localeCompare(human.name, "fr", { sensitivity: "base" }) !== 0);
-  const availableColors = PLAYER_COLORS.filter((color) => color !== human.color);
-  const availableSymbols = PLAYER_SYMBOLS.filter((symbol) => symbol.id !== human.symbol);
-  return {
-    name: randomItem(availableNames),
-    color: randomItem(availableColors),
-    symbol: randomItem(availableSymbols).id
-  };
+function validateBotCount(botCount: number): number {
+  if (!Number.isInteger(botCount) || botCount < LOCAL_BOT_COUNT_MIN || botCount > LOCAL_BOT_COUNT_MAX) {
+    throw new RuleError("INVALID_BOT_COUNT", `Choisissez entre ${LOCAL_BOT_COUNT_MIN} et ${LOCAL_BOT_COUNT_MAX} robots.`);
+  }
+  return botCount;
 }
 
-function createLocalGame(setup: LocalPlayerSetup): GameState {
+function randomBotIdentities(human: LocalPlayerSetup, botCount: number, previousNames: readonly string[] = []): LocalPlayerSetup[] {
+  const allowedNames = LOCAL_BOT_NAMES.filter((name) => name.localeCompare(human.name, "fr", { sensitivity: "base" }) !== 0);
+  const freshNames = allowedNames.filter((name) => !previousNames.some((previous) => previous.localeCompare(name, "fr", { sensitivity: "base" }) === 0));
+  const names = shuffled(freshNames.length >= botCount ? freshNames : allowedNames);
+  const colors = shuffled(PLAYER_COLORS.filter((color) => color !== human.color));
+  const symbols = shuffled(PLAYER_SYMBOLS.filter((symbol) => symbol.id !== human.symbol));
+  return Array.from({ length: botCount }, (_, index) => ({
+    name: names[index]!,
+    color: colors[index]!,
+    symbol: symbols[index]!.id
+  }));
+}
+
+function createLocalGame(setup: LocalPlayerSetup, requestedBotCount = 1): GameState {
   const human = validateSetup(setup);
-  const bot = randomBotIdentity(human);
+  const botCount = validateBotCount(requestedBotCount);
+  const bots = randomBotIdentities(human, botCount);
   let next = createGame("local-solo", LOCAL_GAME_CODE, 20_260_813);
   next = addPlayer(next, { id: LOCAL_HUMAN_ID, ...human });
-  next = addPlayer(next, { id: LOCAL_BOT_ID, ...bot });
+  for (const [index, bot] of bots.entries()) next = addPlayer(next, { id: `bot-${index + 1}`, ...bot });
   next = setPlayerReady(next, LOCAL_HUMAN_ID, true);
-  next = setPlayerReady(next, LOCAL_BOT_ID, true);
+  for (const player of next.players.filter((player) => isLocalBotId(player.id))) next = setPlayerReady(next, player.id, true);
   return startGame(next);
 }
 
@@ -183,8 +205,8 @@ function publicView(current: GameState, botThinkingPlayerId: string | null = nul
       symbol,
       connected,
       ready,
-      isBot: id === LOCAL_BOT_ID,
-      botProfile: id === LOCAL_BOT_ID ? "BALANCED" : null,
+      isBot: isLocalBotId(id),
+      botProfile: isLocalBotId(id) ? "BALANCED" : null,
       position,
       lapsCompleted,
       turnsToSkip,
@@ -261,9 +283,9 @@ export function resumeLocalGame(mode: DisplayMode = "MOBILE_ONLY", includePlayer
   return restore(forceStorageReload) ? snapshot([], includePlayer) : null;
 }
 
-export function startLocalGame(setup: LocalPlayerSetup, mode: DisplayMode = "MOBILE_ONLY", includePlayer = true): LocalGameSnapshot {
+export function startLocalGame(setup: LocalPlayerSetup, mode: DisplayMode = "MOBILE_ONLY", includePlayer = true, botCount = 1): LocalGameSnapshot {
   displayMode = mode;
-  state = createLocalGame(setup);
+  state = createLocalGame(setup, botCount);
   persist();
   return snapshot([], includePlayer);
 }
@@ -303,10 +325,14 @@ function applyCommand(event: string, playerId: string, payload?: unknown): void 
     case "admin:restart": {
       let restarted = restartGame(current);
       const human = restarted.players.find((player) => player.id === LOCAL_HUMAN_ID)!;
-      const bot = randomBotIdentity(human);
-      restarted = { ...restarted, players: restarted.players.map((player) => player.id === LOCAL_BOT_ID ? { ...player, ...bot } : player) };
-      restarted = setPlayerReady(restarted, LOCAL_HUMAN_ID, true);
-      restarted = setPlayerReady(restarted, LOCAL_BOT_ID, true);
+      const previousBots = restarted.players.filter((player) => isLocalBotId(player.id));
+      const identities = randomBotIdentities(human, previousBots.length, previousBots.map((player) => player.name));
+      let identityIndex = 0;
+      restarted = {
+        ...restarted,
+        players: restarted.players.map((player) => isLocalBotId(player.id) ? { ...player, ...identities[identityIndex++]! } : player)
+      };
+      for (const player of restarted.players) restarted = setPlayerReady(restarted, player.id, true);
       state = startGame(restarted);
       break;
     }
@@ -322,43 +348,53 @@ export function runLocalGameCommand(event: string, payload?: unknown): { snapsho
   return { snapshot: snapshot(events) };
 }
 
-function botMutation(current: GameState, decision: BotDecision): GameState {
+function botMutation(current: GameState, playerId: string, decision: BotDecision): GameState {
   switch (decision.type) {
-    case "ROLL": return rollDice(current, LOCAL_BOT_ID);
-    case "BUY_ASSETS": return buyPendingAsset(current, LOCAL_BOT_ID, decision.assetIds);
-    case "PASS_ASSETS": return passPendingAsset(current, LOCAL_BOT_ID);
-    case "BUY_LEVER": return buyPendingLever(current, LOCAL_BOT_ID);
-    case "PASS_LEVER": return passPendingLever(current, LOCAL_BOT_ID);
-    case "PAY": return payPendingPayment(current, LOCAL_BOT_ID);
-    case "DECLARE_BANKRUPTCY": return declareBankruptcy(current, LOCAL_BOT_ID);
-    case "USE_LEVER": return useLever(current, LOCAL_BOT_ID, decision.leverId);
-    case "SELECT_AUCTION_ASSETS": return selectAuctionAssets(current, LOCAL_BOT_ID, decision.assetIds);
-    case "BID": return placeBid(current, LOCAL_BOT_ID, decision.amount);
-    case "PASS_BID": return passAuction(current, LOCAL_BOT_ID);
-    case "RESPOND_TRADE": return respondToTrade(current, LOCAL_BOT_ID, decision.accept);
-    case "END_TURN": return endTurn(current, LOCAL_BOT_ID);
+    case "ROLL": return rollDice(current, playerId);
+    case "BUY_ASSETS": return buyPendingAsset(current, playerId, decision.assetIds);
+    case "PASS_ASSETS": return passPendingAsset(current, playerId);
+    case "BUY_LEVER": return buyPendingLever(current, playerId);
+    case "PASS_LEVER": return passPendingLever(current, playerId);
+    case "PAY": return payPendingPayment(current, playerId);
+    case "DECLARE_BANKRUPTCY": return declareBankruptcy(current, playerId);
+    case "USE_LEVER": return useLever(current, playerId, decision.leverId);
+    case "SELECT_AUCTION_ASSETS": return selectAuctionAssets(current, playerId, decision.assetIds);
+    case "BID": return placeBid(current, playerId, decision.amount);
+    case "PASS_BID": return passAuction(current, playerId);
+    case "RESPOND_TRADE": return respondToTrade(current, playerId, decision.accept);
+    case "END_TURN": return endTurn(current, playerId);
   }
+}
+
+function pendingBotTurn(current: GameState): { playerId: string; decision: BotDecision } | null {
+  for (const player of current.players) {
+    if (!isLocalBotId(player.id)) continue;
+    const decision = decideBotAction(observeGameForBot(current, player.id), player.id, "BALANCED");
+    if (decision) return { playerId: player.id, decision };
+  }
+  return null;
 }
 
 export function getLocalBotTurn(): LocalBotTurn | null {
   const current = state ?? (restore() ? state : null);
   if (!current) return null;
-  const decision = decideBotAction(observeGameForBot(current, LOCAL_BOT_ID), LOCAL_BOT_ID, "BALANCED");
-  if (!decision) return null;
+  const pending = pendingBotTurn(current);
+  if (!pending) return null;
+  const { playerId, decision } = pending;
   const rolledThisRevision = current.recentEvents.some((event) => event.id === current.revision && event.type === "dice_rolled");
   const delay = rolledThisRevision ? 2_800 + (current.lastRoll?.total ?? 0) * 210
     : decision.type === "ROLL" ? 700
       : decision.type === "BID" || decision.type === "PASS_BID" ? 800
         : 900;
-  return { playerId: LOCAL_BOT_ID, decision, expectedRevision: current.revision, delay };
+  return { playerId, decision, expectedRevision: current.revision, delay };
 }
 
-export function runLocalBotTurn(expectedRevision: number): LocalGameSnapshot | null {
+export function runLocalBotTurn(expectedRevision: number, expectedPlayerId?: string): LocalGameSnapshot | null {
   if (!state || state.revision !== expectedRevision) return null;
-  const decision = decideBotAction(observeGameForBot(state, LOCAL_BOT_ID), LOCAL_BOT_ID, "BALANCED");
-  if (!decision) return null;
+  const pending = pendingBotTurn(state);
+  if (!pending || (expectedPlayerId && pending.playerId !== expectedPlayerId)) return null;
   const beforeRevision = state.revision;
-  state = botMutation(state, decision);
+  state = botMutation(state, pending.playerId, pending.decision);
   const events = state.recentEvents.filter((item) => item.id > beforeRevision);
   persist();
   return snapshot(events);
