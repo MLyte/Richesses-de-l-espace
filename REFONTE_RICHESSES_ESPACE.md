@@ -88,7 +88,7 @@ Le contenu final doit comporter exactement :
 
 | Case spatiale | Équivalent de référence | Nombre | Effet conservé |
 |---|---|---:|---|
-| Monde producteur + ressource | Pays + richesse | 48 | Achat du monde, puis droits de la ressource |
+| Monde producteur + ressource | Pays + richesse | 48 | Droits de la ressource, puis achat dans le monde |
 | Portail sectoriel | Choix continental | 4 | Achat jusqu’à six concessions compatibles dans le secteur |
 | Portail galactique | Choix mondial | 2 | Même principe sur tout le plateau après un tour complet |
 | Marché orbital | Enchères | 4 | Vente forcée après un tour complet |
@@ -202,14 +202,14 @@ Le monde ne possède pas de propriétaire unique. Un joueur possède des concess
 2. Appliquer l’effet d’un éventuel double.
 3. Déplacer le pion de la somme des dés.
 4. Annoncer explicitement le monde et la ressource de la case.
-5. Proposer jusqu’à six concessions encore disponibles dans le catalogue du monde.
-6. Payer à la Banque interstellaire les concessions sélectionnées.
-7. Recalculer les pourcentages de toutes les ressources concernées.
-8. Identifier tous les autres joueurs possédant au moins 30 % de la ressource de la case.
-9. Effectuer et notifier chaque paiement obligatoire.
+5. Identifier tous les autres joueurs possédant au moins 30 % de la ressource de la case.
+6. Effectuer et notifier chaque paiement obligatoire.
+7. Si le joueur reste opérationnel, proposer jusqu’à six concessions encore disponibles dans le catalogue du monde.
+8. Payer à la Banque interstellaire les concessions sélectionnées.
+9. Recalculer les pourcentages de toutes les ressources concernées.
 10. Terminer explicitement le tour.
 
-L’achat est donc résolu avant les droits. Une concession achetée pendant le tour peut faire franchir immédiatement un seuil de droits.
+Les droits sont donc résolus avant l’achat. Ils sont calculés à partir des portefeuilles présents au moment de l’arrivée ; les concessions achetées ensuite n’influencent que les prochains calculs.
 
 ### Cumul des pourcentages
 
@@ -656,7 +656,7 @@ interface WorldResourceSpace {
 - achat atomique de zéro à six concessions ;
 - aucune concession achetée deux fois ;
 - fonds suffisants vérifiés côté serveur ;
-- calcul des droits après l’achat ;
+- calcul des droits avant l’achat ;
 - cumul par ressource uniquement ;
 - plusieurs bénéficiaires possibles ;
 - aucun droit sous 30 % ;
@@ -671,7 +671,7 @@ interface WorldResourceSpace {
 - aucun effet de marché supplémentaire n’existe ;
 - aucun prix, pourcentage ou barème économique n’est modifié lors du renommage ;
 - les pourcentages se cumulent exclusivement par ressource ;
-- une arrivée classique résout toujours achat puis droits ;
+- une arrivée classique résout toujours droits puis achat, si le joueur reste opérationnel ;
 - la victoire standard intervient par élimination des adversaires ;
 - le jeu reste jouable de deux à six joueurs ;
 - les douze animaux sont disponibles comme choix de pion ;

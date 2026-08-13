@@ -38,8 +38,8 @@ Avant le premier tour, chaque joueur choisit sur son téléphone un vaisseau por
 
 1. Le téléphone actif lance deux dés. Un double verse à la Banque interstellaire la valeur d’un dé et ne donne aucun tour supplémentaire.
 2. Le serveur déplace le pion et annonce le monde, la ressource et l’effet.
-3. Sur une case classique, le monde ouvre son registre : le joueur choisit de zéro à six concessions disponibles et paie leur prix fixe à la banque.
-4. Après l’achat, chaque autre joueur possédant au moins 30 % de la ressource reçoit le droit du plus haut seuil atteint : 30, 50, 70 ou 90 %. Plusieurs bénéficiaires peuvent être payés.
+3. Sur une case classique, chaque autre joueur possédant au moins 30 % de la ressource reçoit d’abord le droit du plus haut seuil atteint : 30, 50, 70 ou 90 %. Plusieurs bénéficiaires peuvent être payés.
+4. Une fois tous les droits réglés, le monde ouvre son registre : le joueur choisit de zéro à six concessions disponibles et paie leur prix fixe à la banque.
 5. Le tour est terminé explicitement après toutes les décisions et tous les paiements.
 
 Les parts se cumulent exclusivement par ressource, quels que soient le monde, le système et le secteur d’origine. Le capital initial vaut 100, 66, 50, 40 ou 33 crédits pour respectivement 2, 3, 4, 5 ou 6 joueurs.

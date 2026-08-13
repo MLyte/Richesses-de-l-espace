@@ -131,8 +131,8 @@ async function toggleFullscreen() {
         </header>
         <ol>
           <li><b>1</b><div><strong>Lancez et avancez</strong><span>Le téléphone actif lance les deux dés ; le jeton progresse case par case sur l’écran commun.</span></div></li>
-          <li><b>2</b><div><strong>Le monde ouvre son registre</strong><span>Sur une case classique, choisissez jusqu’à six concessions encore disponibles dans le monde indiqué.</span></div></li>
-          <li><b>3</b><div><strong>La ressource déclenche les droits</strong><span>Les parts d’une même ressource se cumulent, quels que soient leur monde, leur système et leur secteur.</span></div></li>
+          <li><b>2</b><div><strong>La ressource déclenche les droits</strong><span>Les parts d’une même ressource se cumulent, quels que soient leur monde, leur système et leur secteur.</span></div></li>
+          <li><b>3</b><div><strong>Le monde ouvre son registre</strong><span>Une fois les droits réglés, choisissez jusqu’à six concessions encore disponibles dans le monde indiqué.</span></div></li>
           <li><b>4</b><div><strong>Atteignez les paliers</strong><span>À 30, 50, 70 puis 90 %, vos droits d’extraction augmentent. Le dernier consortium opérationnel gagne.</span></div></li>
         </ol>
       </section>

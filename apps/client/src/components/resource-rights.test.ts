@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ASSETS } from "@richesses-espace/game";
 import { getResourceRightsHolders } from "./resource-rights";
 
-const resourceId = ASSETS[0]!.resourceId;
+const resourceId = "hydroponic-crops";
 const resourceAssets = ASSETS.filter((asset) => asset.resourceId === resourceId);
 const assetAt = (share: number) => resourceAssets.find((asset) => asset.sharePercent === share)!.id;
 const player = (id: string, assetIds: string[], extra: Partial<{ bankrupt: boolean; mergedIntoId: string | null }> = {}) => ({

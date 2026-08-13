@@ -9,7 +9,7 @@ interface ConcessionProfile {
 
 // Pourcentages et prix des 144 titres de la notice Richesses du Monde.
 // L'unité monétaire de la notice est le million ; elle devient ici le crédit.
-// Les totaux à 95 % sont intentionnels et reproduisent les valeurs imprimées.
+// Les totaux à 90 % ou 95 % sont intentionnels et reproduisent les valeurs imprimées.
 export const REFERENCE_CONCESSION_PROFILES: Readonly<Record<string, ConcessionProfile>> = {
   Aluminium: { shares: [5, 5, 10, 10, 15, 45], prices: [0.5, 0.5, 1, 1, 1, 3.5] },
   Blé: { shares: [5, 10, 15, 15, 25, 30], prices: [0.5, 1, 1.5, 1.5, 2, 3] },

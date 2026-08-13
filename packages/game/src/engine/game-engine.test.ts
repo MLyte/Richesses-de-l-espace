@@ -149,11 +149,13 @@ describe("Richesses de l’espace game engine", () => {
 
   it("buys from the country then pays every qualified holder of the case resource", () => {
     const featured = ASSETS.find((asset) => asset.resourceId === "hydroponic-crops" && asset.share === 30)!;
-    const space = BOARD.find((item) => item.type === "asset" && ASSETS.find((asset) => asset.id === item.assetId)?.resourceId === featured.resourceId)!;
+    const space = BOARD.find((item) => item.type === "asset" && item.resourceId === featured.resourceId);
+    if (!space || space.type !== "asset") throw new Error("Case Blé introuvable dans le référentiel de test.");
     let initial = startedGame();
     initial = { ...initial, players: initial.players.map((player) => player.id === "p2" ? { ...player, assetIds: [featured.id] } : player), ownership: { [featured.id]: "p2" } };
     let game = landOnSpace(initial, space.id);
-    expect(game.pendingAction?.countryId).toBe("mercure");
+    expect(game.phase).toBe("WAITING_FOR_PURCHASE");
+    expect(game.pendingAction?.countryId).toBe(space.worldId);
     expect(game.pendingAction?.availableAssetIds).not.toContain(featured.id);
     game = passPendingAsset(game, "p1");
     expect(game.phase).toBe("WAITING_FOR_PAYMENT");
