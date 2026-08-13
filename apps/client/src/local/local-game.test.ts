@@ -57,6 +57,15 @@ describe("local player versus computer game", () => {
     expect(bot.name).not.toBe(playerSetup.name);
     expect(bot.color).not.toBe(playerSetup.color);
     expect(bot.symbol).not.toBe(playerSetup.symbol);
+    expect(getLocalBotTurn()).toBeNull();
+  });
+
+  it("waits for the human ship choice before letting the robot choose", () => {
+    expect(getLocalBotTurn()).toBeNull();
+    runLocalGameCommand("race:select-ship", { shipId: STARTING_RACE_SHIPS[2] });
+    const botTurn = getLocalBotTurn();
+    expect(botTurn?.playerId).toBe(LOCAL_BOT_ID);
+    expect(botTurn?.decision.type).toBe("SELECT_STARTING_SHIP");
   });
 
   it("offers exactly 20 French constellation names and avoids the human name", () => {

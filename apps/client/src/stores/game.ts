@@ -385,7 +385,7 @@ export const useGameStore = defineStore("game", {
       if (!token) return;
       try { await this.resume(token); } catch { localStorage.removeItem(`richesses-espace:player:${code.toUpperCase()}`); }
     },
-    async join(code: string, name: string, color: string, symbol: string, botProfiles: readonly BotProfile[] = ["BALANCED"]) {
+    async join(code: string, name: string, color: string, symbol: string, botProfiles: number | readonly BotProfile[] = ["BALANCED"]) {
       if (this.localGame) {
         this.error = "";
         try {

@@ -392,6 +392,10 @@ function botMutation(current: GameState, playerId: string, decision: BotDecision
 }
 
 function pendingBotTurn(current: GameState): { playerId: string; decision: BotDecision } | null {
+  if (current.phase === "SHIP_SELECTION") {
+    const humanStillChoosing = current.players.some((player) => !isLocalBotId(player.id) && !current.startingRace.selections[player.id]);
+    if (humanStillChoosing) return null;
+  }
   for (const player of current.players) {
     if (!isLocalBotId(player.id)) continue;
     if (current.phase === "SHIP_SELECTION" && !current.startingRace.selections[player.id]) {

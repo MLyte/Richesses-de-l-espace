@@ -960,9 +960,9 @@ button:disabled {
     padding-bottom: calc(5.5rem + var(--safe-bottom));
   }
   .controller-screen--map > .landing-result-overlay {
-    position: absolute;
+    position: fixed;
     z-index: var(--layer-action);
-    inset: 4.75rem .75rem calc(.75rem + var(--safe-bottom));
+    inset: calc(var(--phone-header-height) + var(--safe-top) + .75rem) .75rem calc(.75rem + var(--safe-bottom));
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
     gap: .65rem;

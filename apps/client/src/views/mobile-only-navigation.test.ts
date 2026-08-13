@@ -53,7 +53,7 @@ describe("mobile-only map-first experience", () => {
     expect(playerView).toContain('Résolution en cours sur le téléphone de');
     expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll\s*\{[^}]*position:\s*sticky[^}]*inset:\s*auto auto var\(--safe-bottom\)/s);
     expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll > :not\(\.dice-button\)[\s\S]*display:\s*none/s);
-    expect(theme).toMatch(/\.controller-screen--map > \.landing-result-overlay\s*\{[^}]*position:\s*absolute[^}]*overflow-y:\s*auto/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.landing-result-overlay\s*\{[^}]*position:\s*fixed[^}]*overflow-y:\s*auto/s);
     expect(theme).toContain(':not(.action-card--roll):not(.landing-result-overlay)');
     expect(theme).not.toContain('.end-turn-action > :not(div)');
   });
@@ -62,8 +62,11 @@ describe("mobile-only map-first experience", () => {
     expect(playerView).toContain('<AssetCard v-if="store.game.pendingPurchase?.source === \'classic\'" :asset-id="pendingAsset.id" compact />');
   });
 
-  it("offers a new game directly from the host's final screen", () => {
+  it("offers home navigation and a new game from the final screen", () => {
     expect(playerView).toContain('v-else-if="store.game.phase === \'FINISHED\'" class="state-message final-phone mobile-map-overlay"');
+    expect(playerView).toContain('class="secondary-button final-phone__home" @click="goHome"');
+    expect(playerView).toContain('<span>Accueil</span>');
+    expect(playerView).toContain('function goHome() { void router.push("/"); }');
     expect(playerView).toContain('v-if="isPhoneHost" type="button" class="primary-button final-phone__restart"');
     expect(playerView).toContain('@click="run(store.restart)"');
     expect(playerView).toContain("L’hôte peut préparer une nouvelle partie avec le même groupe.");

@@ -328,6 +328,25 @@ describe("Socket.IO game flow", () => {
     expect(hostJoined.data?.isHost).toBe(true);
   });
 
+  it("waits for every human ship choice before scheduling robot choices", async () => {
+    const display = await openClient();
+    const created = await command<SessionResult>(display, "room:create", { displayMode: "MOBILE_ONLY" });
+    const host = await openClient();
+    await command<SessionResult>(host, "room:join", { code: created.data!.code, name: "Aline", color: "#e05f42", symbol: "cat", hostToken: created.data!.token });
+    const added = await command<{ playerId: string }>(host, "lobby:bot-add", { profile: "BALANCED" });
+    await command(host, "lobby:set-ready", { ready: true });
+    await command(host, "game:start");
+
+    const room = roomStore.get(created.data!.code)!;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(room.state.startingRace.selections[added.data!.playerId]).toBeUndefined();
+    expect(room.botThinkingPlayerId).toBeNull();
+
+    expect((await command(host, "race:select-ship", { shipId: STARTING_RACE_SHIPS[2] })).ok).toBe(true);
+    expect(room.botThinkingPlayerId).toBe(added.data!.playerId);
+    await waitFor(() => room.state.phase === "WAITING_FOR_ROLL");
+  });
+
   it("pauses, resumes and restarts a server-driven robot turn without stale actions", async () => {
     const display = await openClient();
     const created = await command<SessionResult>(display, "room:create", { displayMode: "MOBILE_ONLY" });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ASSETS, AUCTION_BID_GRACE_MS, AUCTION_INITIAL_DURATION_MS, COUNTRIES, LEVER_CARDS, RESOURCES, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
 import ErrorToast from "../components/ErrorToast.vue";
@@ -20,9 +20,10 @@ import StartingShipRace from "../components/StartingShipRace.vue";
 import AuctionCountdown from "../components/AuctionCountdown.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
 import { pickSpacefarerFirstName } from "./player-name-placeholder";
-import { ArrowLeftRight, Bot, Dices, HandCoins, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
+import { ArrowLeftRight, Bot, Dices, HandCoins, House, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
 const route = useRoute();
+const router = useRouter();
 const store = useGameStore();
 const code = String(route.params.code ?? "").toUpperCase();
 const searchParams = new URLSearchParams(window.location.search);
@@ -218,6 +219,7 @@ async function shareInvitation() {
 async function finishAsHost() {
   if (window.confirm("Terminer la partie pour tous les joueurs ?")) await run(store.finish);
 }
+function goHome() { void router.push("/"); }
 </script>
 
 <template>
@@ -326,11 +328,17 @@ async function finishAsHost() {
           <p class="eyebrow">Partie terminée</p>
           <h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2>
           <p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p>
-          <button v-if="isPhoneHost" type="button" class="primary-button final-phone__restart" :disabled="store.pending" @click="run(store.restart)">
-            <RotateCcw :size="19" aria-hidden="true" />
-            <span>{{ store.localGame ? 'Rejouer contre les robots' : 'Rejouer avec le groupe' }}</span>
-          </button>
-          <p v-else class="final-phone__waiting">L’hôte peut préparer une nouvelle partie avec le même groupe.</p>
+          <div class="final-phone__actions" :class="{ 'final-phone__actions--single': !isPhoneHost }">
+            <button type="button" class="secondary-button final-phone__home" @click="goHome">
+              <House :size="19" aria-hidden="true" />
+              <span>Accueil</span>
+            </button>
+            <button v-if="isPhoneHost" type="button" class="primary-button final-phone__restart" :disabled="store.pending" @click="run(store.restart)">
+              <RotateCcw :size="19" aria-hidden="true" />
+              <span>{{ store.localGame ? 'Rejouer contre les robots' : 'Rejouer avec le groupe' }}</span>
+            </button>
+          </div>
+          <p v-if="!isPhoneHost" class="final-phone__waiting">L’hôte peut préparer une nouvelle partie avec le même groupe.</p>
         </div>
         <div v-else-if="me.bankrupt" class="state-message bankruptcy-state mobile-map-overlay"><p class="eyebrow">Faillite déclarée</p><h2>Vous quittez la partie.</h2><p>Vous restez spectateur jusqu’au classement final.</p></div>
         <span v-else-if="turnTravelVisible" class="sr-only" role="status">Déplacement de {{ store.activePlayer?.name }} en cours.</span>

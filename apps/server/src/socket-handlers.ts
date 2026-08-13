@@ -152,6 +152,10 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
   }
 
   function pendingBot(room: Room): { playerId: string; profile: BotProfile; decision: BotDecision } | null {
+    if (room.state.phase === "SHIP_SELECTION") {
+      const humanStillChoosing = room.state.players.some((player) => !room.bots[player.id] && !room.state.startingRace.selections[player.id]);
+      if (humanStillChoosing) return null;
+    }
     for (const player of room.state.players) {
       const profile = room.bots[player.id];
       if (!profile) continue;

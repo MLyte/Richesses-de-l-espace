@@ -23,6 +23,15 @@ describe("starting ship race UI", () => {
     expect(race).toContain("prefers-reduced-motion: reduce");
   });
 
+  it("explains the choice before robots play and keeps the human ship identifiable", () => {
+    expect(race).toContain("Avant que les robots choisissent");
+    expect(race).toContain("Les robots choisissent après vous");
+    expect(race).toContain("Votre vaisseau dans la course");
+    expect(race).toContain("race-lane--mine");
+    expect(race).toContain("ship-choice__badge--taken");
+    expect(race).toContain("Choisi par {{ selectedBy(region.id)?.name }}");
+  });
+
   it("is present on both the shared display and the phone controller", () => {
     for (const source of [playerView, displayView]) {
       expect(source).toContain("StartingShipRace");

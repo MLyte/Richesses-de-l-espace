@@ -97,11 +97,12 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
     expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\) \.controller-screen\s*\{[^}]*min-height:\s*calc\(var\(--app-viewport-height\) - var\(--phone-header-height\) - var\(--safe-top\)\)/s);
   });
 
-  it("keeps contextual actions sticky without removing the map from document flow", () => {
+  it("keeps contextual actions accessible while the map stays in document flow", () => {
     expect(theme).toMatch(/\.controller-screen--mobile-only\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
     expect(theme).toMatch(/\.controller-screen--map > :not\(\.mobile-map-panel\):not\(\.mobile-map-overlay\)[^}]*display:\s*none/s);
     expect(theme).toMatch(/\.mobile-map-panel\s*\{[^}]*position:\s*relative[^}]*z-index:\s*var\(--layer-map\)/s);
-    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*sticky[^}]*z-index:\s*var\(--layer-action\)/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll\s*\{[^}]*position:\s*sticky[^}]*z-index:\s*var\(--layer-action\)/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.landing-result-overlay\s*\{[^}]*position:\s*fixed[^}]*z-index:\s*var\(--layer-action\)[^}]*overflow-y:\s*auto/s);
   });
 
   it("keeps TV overlays centered and mobile landscape actions in normal flow", () => {
