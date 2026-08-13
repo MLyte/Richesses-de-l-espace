@@ -15,6 +15,8 @@ Sources de référence :
 
 La notice confirme notamment 24 ressources, six titres par ressource, 144 titres, 13 cartes Joker, 14 cartes Actualité, deux dés, six pions et une partie de deux à six joueurs.
 
+Les 144 concessions reprennent individuellement les pourcentages et prix imprimés dans la notice. Les sommes de 90 % ou 95 % présentes sur certaines ressources sont conservées telles quelles : elles ne sont pas normalisées artificiellement à 100 %.
+
 ## Intention
 
 Le jeu devient une aventure économique spatiale : les joueurs dirigent des consortiums qui acquièrent des concessions sur des planètes, lunes et astéroïdes, regroupent leurs parts d’exploitation par ressource cosmique et perçoivent des droits lorsque d’autres équipages visitent une case associée à cette ressource.
@@ -146,7 +148,7 @@ Le `systemId` et le `stellarSectorId` servent à la navigation et aux Portails s
 
 ## Conversion des 24 ressources
 
-Chaque emplacement économique original reçoit un équivalent spatial. Ses six pourcentages, ses prix et son barème restent attachés au même emplacement de données.
+Chaque emplacement économique original reçoit un équivalent spatial. Ses six pourcentages et ses six prix restent attachés au même emplacement de données. Les barèmes de droits complets devront rester identifiés séparément tant qu’une source exhaustive des 48 plaquettes de royalties n’est pas disponible.
 
 | Ressource de référence | Ressource spatiale |
 |---|---|

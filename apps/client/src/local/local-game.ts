@@ -108,7 +108,7 @@ function restore(force = false): boolean {
     if (!stored || ![2, 3].includes(stored.version ?? 0) || !stored.state) return false;
     const ids = stored.state.players.map((player) => player.id);
     if (!ids.includes(LOCAL_HUMAN_ID) || !ids.some(isLocalBotId)) return false;
-    state = stored.state.startingRace ? stored.state : { ...stored.state, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null } };
+    state = stored.state.startingRace ? { ...stored.state, startingRace: { ...stored.state.startingRace, pausedAt: stored.state.startingRace.pausedAt ?? null } } : { ...stored.state, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null, pausedAt: null } };
     return true;
   } catch {
     return false;

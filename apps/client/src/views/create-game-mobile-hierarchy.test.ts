@@ -11,4 +11,10 @@ describe("create-game mobile hierarchy", () => {
     expect(source).toContain(".mode-card--tv > span:nth-of-type(3) { display: none; }");
     expect(source).toContain(".mode-card--tv .mode-card__mobile-note { display: block;");
   });
+
+  it("shows the date-based build version on the homepage", () => {
+    expect(source).toContain('meta[name="richesses-build-date"]');
+    expect(source).toContain('class="create-game__version"');
+    expect(source).toContain("Version {{ buildVersion }}");
+  });
 });

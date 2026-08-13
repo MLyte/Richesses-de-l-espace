@@ -27,6 +27,7 @@ export interface StartingRaceState {
   finishOrder: RaceShipId[];
   winnerPlayerId: PlayerId | null;
   raceEndsAt: number | null;
+  pausedAt: number | null;
 }
 
 export interface PlayerState {

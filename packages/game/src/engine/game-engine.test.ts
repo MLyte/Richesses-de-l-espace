@@ -67,6 +67,19 @@ describe("Richesses de l’espace game engine", () => {
     expect(game.recentEvents.find((event) => event.type === "ship_race_finished")?.playerId).toBe(expectedWinnerId);
   });
 
+  it("freezes the opening race while the game is paused", () => {
+    let game = createGame("paused-race", "PAUS", 17);
+    game = addPlayer(game, { id: "p1", name: "Aline", color: "#e05f42", symbol: "cat" });
+    game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "dog" });
+    game = startGame(setPlayerReady(setPlayerReady(game, "p1", true), "p2", true));
+    game = selectStartingShip(game, "p1", "inner-system", 1_000);
+    game = selectStartingShip(game, "p2", "red-belt", 1_000);
+    expect(game.startingRace.raceEndsAt).toBe(8_000);
+    game = pauseGame(game, "ADMIN", null, 2_000);
+    game = resumeGame(game, 5_000);
+    expect(game).toMatchObject({ phase: "SHIP_RACE", startingRace: { raceEndsAt: 11_000, pausedAt: null } });
+  });
+
   it("starts with two ready players", () => {
     const game = startedGame();
     expect(game.phase).toBe("WAITING_FOR_ROLL");

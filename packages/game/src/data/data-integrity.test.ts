@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SPACE_CONCESSIONS } from "./assets";
+import { REFERENCE_CONCESSION_PROFILES, SPACE_CONCESSIONS } from "./assets";
 import { BOARD, BOARD_COUNTS } from "./board";
 import { PLANETARY_SYSTEMS, PRODUCING_WORLDS, SPACE_REGIONS } from "./countries";
 import { TECHNOLOGIES } from "./levers";
@@ -50,17 +50,24 @@ describe("référentiel Richesses de l’espace", () => {
     }
   });
 
-  it("conserve six concessions et cent pour cent par ressource", () => {
+  it("conserve les six pourcentages et prix imprimés pour chaque ressource", () => {
+    expect(Object.keys(REFERENCE_CONCESSION_PROFILES)).toEqual(COSMIC_RESOURCES.map(({ referenceName }) => referenceName));
     for (const resource of COSMIC_RESOURCES) {
       const concessions = SPACE_CONCESSIONS.filter((item) => item.resourceId === resource.id);
+      const profile = REFERENCE_CONCESSION_PROFILES[resource.referenceName]!;
       expect(concessions, resource.name).toHaveLength(6);
-      expect(concessions.reduce((total, item) => total + item.sharePercent, 0), resource.name).toBe(100);
+      expect(concessions.map(({ sharePercent }) => sharePercent), resource.referenceName).toEqual(profile.shares);
+      expect(concessions.map(({ purchasePrice }) => purchasePrice), resource.referenceName).toEqual(profile.prices);
       expect(new Set(concessions.map(({ worldId }) => worldId)).size, resource.name).toBe(6);
       expect(Object.keys(resource.royalties).map(Number)).toEqual([30, 50, 70, 90]);
       expect(resource.royalties[30]).toBeLessThan(resource.royalties[50]);
       expect(resource.royalties[50]).toBeLessThan(resource.royalties[70]);
       expect(resource.royalties[70]).toBeLessThan(resource.royalties[90]);
     }
+    expect(COSMIC_RESOURCES.map((resource) => SPACE_CONCESSIONS
+      .filter((item) => item.resourceId === resource.id)
+      .reduce((total, item) => total + item.sharePercent, 0)))
+      .toEqual([90, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 95, 100, 95, 100, 95, 95, 100, 100, 100]);
   });
 
   it("rend chaque catalogue de monde accessible depuis une case classique", () => {

@@ -56,6 +56,7 @@ export const useGameStore = defineStore("game", {
   actions: {
     applyLocalGameSnapshot(snapshot: LocalGameSnapshot) {
       const previous = this.game;
+      if (previous?.phase === "FINISHED" && ["LOBBY", "SHIP_SELECTION"].includes(snapshot.game.phase)) this.announcedTurnKey = null;
       for (const player of snapshot.game.players) {
         const previousPlayer = previous?.players.find((item) => item.id === player.id);
         if (!previousPlayer) this.visualPlayerPositions[player.id] = player.position;
@@ -158,6 +159,7 @@ export const useGameStore = defineStore("game", {
           this.animatedEvent = null;
           this.diceAnimation = null;
           this.movingPlayerId = null;
+          this.announcedTurnKey = null;
         }
         for (const player of state.players) {
           const previousPlayer = previous?.players.find((item) => item.id === player.id);
@@ -308,6 +310,9 @@ export const useGameStore = defineStore("game", {
           this.game = null;
           this.player = null;
           this.role = null;
+          this.announcedTurnKey = null;
+          cancelPendingTurnStart();
+          setActionReminder(false);
           this.error = "";
           this.connected = true;
           return LOCAL_GAME_CODE;

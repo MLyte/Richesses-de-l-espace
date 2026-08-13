@@ -13,6 +13,8 @@ const mobileDevice = computed(() => window.matchMedia("(max-width: 760px), (poin
 const hasSavedLocalGame = computed(() => localGame && store.hasSavedLocalGame());
 const canOpenTv = computed(() => !localGame || hasSavedLocalGame.value);
 const { canInstall, showInstallHint, install } = useInstallPrompt();
+const buildDate = document.querySelector<HTMLMetaElement>('meta[name="richesses-build-date"]')?.content;
+const buildVersion = buildDate?.match(/^\d{4}-\d{2}-\d{2}$/) ? `v${buildDate.replaceAll("-", ".")}` : undefined;
 
 function createTvGame(): void {
   void router.push("/display");
@@ -60,6 +62,7 @@ async function createMobileGame(startFresh = false): Promise<void> {
       <div><strong>Mode plein écran</strong><span>{{ canInstall ? 'Installez le jeu pour masquer les barres du navigateur.' : 'Ajoutez cette page à l’écran d’accueil depuis le menu de votre navigateur.' }}</span></div>
       <button v-if="canInstall" type="button" @click="install">Installer</button>
     </aside>
+    <p v-if="buildVersion" class="create-game__version" aria-label="Version du jeu">Version {{ buildVersion }}</p>
     <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>
@@ -89,10 +92,11 @@ async function createMobileGame(startFresh = false): Promise<void> {
 .install-mode strong { color: #fff; font-size: .85rem; }
 .install-mode span { margin-top: .12rem; color: #b9d8e5; font-size: .75rem; line-height: 1.35; }
 .install-mode button { min-height: 44px; padding: 0 .85rem; color: #06111f; border: 0; border-radius: 9px; background: #35d0e2; font: inherit; font-size: .78rem; font-weight: 800; }
+.create-game__version { margin: -1rem 0 0; color: #9ec2d8; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 @media (max-width: 1100px) and (min-width: 761px) { .create-game { place-content: start center; padding: clamp(2rem, 5vw, 4rem); } .create-game__choices { grid-template-columns: minmax(0, 560px); } }
 @media (max-width: 760px) {
   .create-game { width: 100%; max-width: 100vw; place-content: start stretch; gap: 1.7rem; padding: 1.2rem; }
-  .create-game__intro, .create-game__choices, .create-game__note, .install-mode { width: 100%; max-width: calc(100vw - 2.4rem); min-width: 0; }
+  .create-game__intro, .create-game__choices, .create-game__note, .install-mode, .create-game__version { width: 100%; max-width: calc(100vw - 2.4rem); min-width: 0; }
   .create-game__intro h1 { max-width: 100%; overflow-wrap: anywhere; font-size: clamp(2.1rem, 10.5vw, 3rem); }
   .create-game__choices { grid-template-columns: minmax(0, 1fr); gap: .8rem; }
   .mode-card { width: 100%; max-width: calc(100vw - 2.4rem); grid-template-columns: 58px minmax(0, calc(100% - 78px)); min-height: 245px; padding: 1.25rem; }

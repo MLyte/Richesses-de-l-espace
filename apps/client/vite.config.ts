@@ -3,7 +3,13 @@ import vue from "@vitejs/plugin-vue";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig(() => {
-  const buildId = process.env.VITE_BUILD_ID || new Date().toISOString().replace(/[:.]/g, "-");
+  const buildStartedAt = new Date();
+  const buildId = process.env.VITE_BUILD_ID || buildStartedAt.toISOString().replace(/[:.]/g, "-");
+  const buildDate = process.env.VITE_BUILD_DATE || [
+    buildStartedAt.getFullYear(),
+    String(buildStartedAt.getMonth() + 1).padStart(2, "0"),
+    String(buildStartedAt.getDate()).padStart(2, "0")
+  ].join("-");
   const localGame = process.env.VITE_LOCAL_GAME === "true";
 
   return {
@@ -45,7 +51,10 @@ export default defineConfig(() => {
           const contextualized = localGame
             ? html.replace("aventure économique spatiale multijoueur", "aventure économique spatiale en solo contre ordinateur")
             : html;
-          return contextualized.replace("</head>", `    <meta name="richesses-build" content="${buildId}" />\n  </head>`);
+          return contextualized.replace(
+            "</head>",
+            `    <meta name="richesses-build" content="${buildId}" />\n    <meta name="richesses-build-date" content="${buildDate}" />\n  </head>`
+          );
         }
       }
     ],

@@ -37,7 +37,7 @@ onMounted(async () => {
     <p id="static-welcome-description" class="static-welcome__intro">Créez votre consortium puis disputez une partie complète contre un robot Équilibré qui joue avec les mêmes informations et les mêmes règles que vous. Son nom de constellation, sa couleur et son animal sont tirés au hasard.</p>
 
     <div class="static-welcome__facts">
-      <article><Gamepad2 :size="21" aria-hidden="true" /><div><strong>Votre identité, puis une vraie partie</strong><p>Choisissez votre pseudo, votre couleur et votre animal avant le premier lancer.</p></div></article>
+      <article><Gamepad2 :size="21" aria-hidden="true" /><div><strong>Votre identité, puis une vraie partie</strong><p>Choisissez votre pseudo, votre couleur et votre animal, puis votre vaisseau pour la course d’ouverture.</p></div></article>
       <article><Bot :size="21" aria-hidden="true" /><div><strong>Le robot joue automatiquement</strong><p>Il réfléchit après vos actions, respecte une réserve de capital et ne connaît pas vos informations privées.</p></div></article>
       <article><Save :size="21" aria-hidden="true" /><div><strong>Progression sauvegardée</strong><p>La partie reste sur cet appareil et reprend automatiquement là où vous l’avez laissée.</p></div></article>
     </div>

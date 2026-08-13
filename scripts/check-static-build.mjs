@@ -12,6 +12,8 @@ if (/(?:src|href)="\/assets\//.test(index)) throw new Error("Le build statique c
 if (!index.includes("aventure économique spatiale en solo contre ordinateur")) throw new Error("La description HTML n’annonce pas le mode solo.");
 const buildId = index.match(/<meta name="richesses-build" content="([^"]+)"/i)?.[1];
 if (!buildId) throw new Error("L’identifiant de build est absent de index.html.");
+const buildDate = index.match(/<meta name="richesses-build-date" content="(\d{4}-\d{2}-\d{2})"/i)?.[1];
+if (!buildDate) throw new Error("La date de build est absente de index.html.");
 
 const assetFiles = await readdir(path.join(dist, "assets"));
 const scriptName = assetFiles.find((name) => name.endsWith(".js"));
@@ -34,4 +36,4 @@ for (const required of ["favicon.svg", "space-background.jpg", "cards/space-art-
   if (!(await stat(file)).isFile()) throw new Error(`Fichier statique absent : ${required}`);
 }
 
-console.log(`Build solo valide (${buildId}) : base URL, joueur contre ordinateur et médias prêts pour /richesses-espace/.`);
+console.log(`Build solo valide (${buildId}, version v${buildDate.replaceAll("-", ".")}) : base URL, joueur contre ordinateur et médias prêts pour /richesses-espace/.`);

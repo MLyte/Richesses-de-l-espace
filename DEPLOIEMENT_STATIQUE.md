@@ -25,10 +25,11 @@ L’application utilise une navigation avec `#` après l’ouverture d’un écr
 
 ## Jouer contre les robots
 
-Depuis l’accueil, choisir **Partie contre les robots**. La partie commence immédiatement :
+Depuis l’accueil, choisir **Partie contre les robots**. L’embarquement commence immédiatement :
 
 - le formulaire d’embarquement recueille le pseudo, la couleur, le pion du joueur humain et le nombre de robots, de 1 à 5 ;
-- le joueur humain est placé en premier et commence la partie avec 100 crédits ;
+- le joueur humain choisit l’un des sept vaisseaux régionaux et les robots choisissent automatiquement parmi ceux qui restent ;
+- les sept vaisseaux disputent la course d’ouverture ; le joueur ou robot dont le choix est le mieux classé commence avec le capital prévu pour la taille de la table ;
 - chaque robot reçoit un nom parmi 20 constellations françaises, une couleur et un animal aléatoires, sans doublon ni reprise de l’identité du joueur ;
 - ils sont Équilibrés, connectés et prêts ;
 - chaque décision passe par le moteur de règles complet ;

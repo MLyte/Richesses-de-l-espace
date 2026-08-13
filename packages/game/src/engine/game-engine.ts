@@ -57,7 +57,7 @@ function bankEventData(direction: BankDirection, amount: number): Record<string,
 export function createGame(id: string, code: string, seed: number): GameState {
   return {
     id, code, revision: 0, status: "LOBBY", phase: "LOBBY", previousPhase: null, pauseReason: null, pausePlayerId: null,
-    players: [], activePlayerId: null, turnNumber: 0, roundNumber: 1, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null }, ownership: {},
+    players: [], activePlayerId: null, turnNumber: 0, roundNumber: 1, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null, pausedAt: null }, ownership: {},
     lastRoll: null, pendingAction: null, pendingLever: null, pendingPayment: null, paymentQueue: [], auction: null, tradeOffer: null,
     trendDeck: TREND_CARDS.map((card) => card.id), leverDeck: LEVER_CARDS.map((card) => card.id), lastCard: null,
     landedSpaceId: null, landedAssetId: null, recentEvents: [], rngState: seed >>> 0, winnerId: null, finishReason: null
@@ -100,7 +100,7 @@ export function startGame(state: GameState): GameState {
   if (!state.players.every((player) => player.ready && player.connected)) throw new RuleError("PLAYERS_NOT_READY", "Tous les joueurs doivent être prêts et connectés.");
   const capital = STARTING_CAPITAL[state.players.length]!;
   const players = state.players.map((player) => ({ ...player, capital }));
-  return commit({ ...state, players, status: "PLAYING", phase: "SHIP_SELECTION", activePlayerId: null, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null } }, [
+  return commit({ ...state, players, status: "PLAYING", phase: "SHIP_SELECTION", activePlayerId: null, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null, pausedAt: null } }, [
     makeEvent(state, { type: "game_started", message: "Choisissez chacun un vaisseau régional. La course déterminera qui ouvrira la trajectoire.", data: { startingCapital: capital, bankDirection: "bank_to_player" } })
   ]);
 }
@@ -132,7 +132,7 @@ export function selectStartingShip(state: GameState, playerId: string, shipId: R
   const playerByShip = new Map(Object.entries(selections).map(([id, selectedShip]) => [selectedShip, id]));
   const winnerShipId = race.order.find((id) => playerByShip.has(id))!;
   const winnerPlayerId = playerByShip.get(winnerShipId)!;
-  return commit({ ...state, phase: "SHIP_RACE", rngState: race.rngState, startingRace: { selections, finishOrder: race.order, winnerPlayerId, raceEndsAt: now + raceDurationMs } }, [
+  return commit({ ...state, phase: "SHIP_RACE", rngState: race.rngState, startingRace: { selections, finishOrder: race.order, winnerPlayerId, raceEndsAt: now + raceDurationMs, pausedAt: null } }, [
     selectionEvent,
     makeEvent(state, { type: "ship_race_started", message: "Les sept vaisseaux s’élancent vers la balise de départ." })
   ]);
@@ -719,17 +719,21 @@ export function endTurn(state: GameState, playerId: string): GameState {
   return commit({ ...base, phase: nextPhase, previousPhase: next.player.connected ? null : "WAITING_FOR_ROLL", pauseReason: next.player.connected ? null : "PLAYER_DISCONNECTED", pausePlayerId: next.player.connected ? null : next.player.id }, events);
 }
 
-export function pauseGame(state: GameState, reason: GameState["pauseReason"] = "ADMIN", playerId: string | null = null): GameState {
+export function pauseGame(state: GameState, reason: GameState["pauseReason"] = "ADMIN", playerId: string | null = null, now = Date.now()): GameState {
   if (state.phase === "LOBBY" || state.phase === "FINISHED" || state.phase === "PAUSED") throw new RuleError("INVALID_PHASE", "La partie ne peut pas être mise en pause.");
   const player = playerId ? state.players.find((item) => item.id === playerId) : null;
   const message = reason === "PLAYER_DISCONNECTED" && player ? `La partie est en pause : ${player.name} a perdu la connexion.` : "La partie a été mise en pause par l’hôte.";
-  return commit({ ...state, previousPhase: state.phase, phase: "PAUSED", pauseReason: reason, pausePlayerId: playerId }, [makeEvent(state, { type: "game_paused", message, ...(playerId ? { playerId } : {}) })]);
+  const startingRace = state.phase === "SHIP_RACE" ? { ...state.startingRace, pausedAt: now } : state.startingRace;
+  return commit({ ...state, startingRace, previousPhase: state.phase, phase: "PAUSED", pauseReason: reason, pausePlayerId: playerId }, [makeEvent(state, { type: "game_paused", message, ...(playerId ? { playerId } : {}) })]);
 }
 
-export function resumeGame(state: GameState): GameState {
+export function resumeGame(state: GameState, now = Date.now()): GameState {
   if (state.phase !== "PAUSED" || !state.previousPhase) throw new RuleError("INVALID_PHASE", "La partie n’est pas en pause.");
   if (state.players.some((player) => !player.bankrupt && !player.mergedIntoId && !player.connected)) throw new RuleError("PLAYER_OFFLINE", "Tous les joueurs actifs doivent être reconnectés avant de reprendre.");
-  return commit({ ...state, phase: state.previousPhase, previousPhase: null, pauseReason: null, pausePlayerId: null }, [makeEvent(state, { type: "game_resumed", message: "Tout le monde est reconnecté. La partie reprend." })]);
+  const startingRace = state.previousPhase === "SHIP_RACE" && state.startingRace.raceEndsAt && state.startingRace.pausedAt
+    ? { ...state.startingRace, raceEndsAt: state.startingRace.raceEndsAt + now - state.startingRace.pausedAt, pausedAt: null }
+    : state.startingRace;
+  return commit({ ...state, startingRace, phase: state.previousPhase, previousPhase: null, pauseReason: null, pausePlayerId: null }, [makeEvent(state, { type: "game_resumed", message: "Tout le monde est reconnecté. La partie reprend." })]);
 }
 
 export function finishGame(state: GameState): GameState {
@@ -749,6 +753,6 @@ export function restartGame(state: GameState): GameState {
     ...fresh,
     revision: state.revision + 1,
     players,
-    startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null }, recentEvents: [makeEvent(state, { type: "game_restarted", message: "Une nouvelle partie est prête. Chaque joueur doit confirmer sa présence." })]
+    startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null, pausedAt: null }, recentEvents: [makeEvent(state, { type: "game_restarted", message: "Une nouvelle partie est prête. Chaque joueur doit confirmer sa présence." })]
   };
 }

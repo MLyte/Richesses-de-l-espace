@@ -97,7 +97,6 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
   const auctionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const auctionPausedAt = new Map<string, number>();
   const startingRaceTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  const startingRacePausedAt = new Map<string, number>();
   const botTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const roomQueues = new Map<string, Promise<void>>();
   function broadcast(room: Room): void {
@@ -261,7 +260,6 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     startingRaceTimers.delete(room.state.code);
     const deadline = room.state.startingRace.raceEndsAt;
     if (room.state.phase === "PAUSED" && room.state.previousPhase === "SHIP_RACE" && deadline) {
-      if (!startingRacePausedAt.has(room.state.code)) startingRacePausedAt.set(room.state.code, Date.now());
       return;
     }
     if (room.state.phase !== "SHIP_RACE" || !deadline) return;
@@ -278,12 +276,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       if (pausedAt && next.auction?.mode === "bidding" && next.auction.deadline) {
         next = { ...next, auction: { ...next.auction, deadline: next.auction.deadline + Date.now() - pausedAt } };
       }
-      const racePausedAt = startingRacePausedAt.get(room.state.code);
-      if (racePausedAt && next.startingRace.raceEndsAt) {
-        next = { ...next, startingRace: { ...next.startingRace, raceEndsAt: next.startingRace.raceEndsAt + Date.now() - racePausedAt } };
-      }
       auctionPausedAt.delete(room.state.code);
-      startingRacePausedAt.delete(room.state.code);
       room.state = next;
     });
   }
