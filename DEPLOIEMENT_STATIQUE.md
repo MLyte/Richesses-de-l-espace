@@ -1,6 +1,6 @@
 # Déployer la partie solo statique
 
-Cette version permet de jouer une partie complète sans serveur Node.js, Socket.IO ni PostgreSQL. Le joueur choisit son pseudo, sa couleur et son pion avant d’affronter un robot Équilibré piloté par le même moteur de décision que les robots serveur. Son nom de constellation, sa couleur et son animal sont tirés au hasard. La progression est sauvegardée automatiquement dans le navigateur.
+Cette version permet de jouer une partie complète sans serveur Node.js, Socket.IO ni PostgreSQL. Le joueur choisit son pseudo, sa couleur, son pion et de 1 à 5 robots Équilibrés pilotés par le même moteur de décision que les robots serveur. Leurs noms de constellation, leurs couleurs et leurs animaux sont tirés au hasard sans doublon dans la partie. La progression est sauvegardée automatiquement dans le navigateur.
 
 ## Générer le dossier d’upload
 
@@ -23,18 +23,18 @@ Le résultat se trouve dans `apps/client/dist-static`.
 
 L’application utilise une navigation avec `#` après l’ouverture d’un écran, par exemple `https://mathieuluyten.be/richesses-espace/#/play/SOLO`. C’est volontaire : cette forme fonctionne sur un hébergement statique sans règle Apache ou Nginx supplémentaire.
 
-## Jouer contre le robot
+## Jouer contre les robots
 
-Depuis l’accueil, choisir **Duel contre le robot**. La partie commence immédiatement :
+Depuis l’accueil, choisir **Partie contre les robots**. La partie commence immédiatement :
 
-- le formulaire d’embarquement existant recueille le pseudo, la couleur et le pion du joueur humain ;
+- le formulaire d’embarquement recueille le pseudo, la couleur, le pion du joueur humain et le nombre de robots, de 1 à 5 ;
 - le joueur humain est placé en premier et commence la partie avec 100 crédits ;
-- le robot reçoit un nom parmi 20 constellations françaises, une couleur et un animal aléatoires, sans reprendre ceux du joueur ;
-- il est Équilibré, connecté et prêt ;
+- chaque robot reçoit un nom parmi 20 constellations françaises, une couleur et un animal aléatoires, sans doublon ni reprise de l’identité du joueur ;
+- ils sont Équilibrés, connectés et prêts ;
 - chaque décision passe par le moteur de règles complet ;
-- le robot joue automatiquement après un délai lisible ;
+- chaque robot joue automatiquement après un délai lisible ;
 - la révision de partie empêche une ancienne décision différée de s’exécuter après une pause ou une fin de partie ;
-- **Rejouer contre le robot** démarre une nouvelle partie après la fin et renouvelle son identité.
+- **Rejouer contre les robots** démarre une nouvelle partie après la fin et renouvelle leurs identités.
 
 Le **Pont d’observation** conserve l’écran TV validé. Dans une seconde fenêtre du même navigateur et du même profil, il suit la sauvegarde locale et rejoue les événements de la partie. Des appareils ou navigateurs distincts restent indépendants.
 

@@ -66,7 +66,7 @@ npm run smoke           # vérification HTTP du build
 
 ### Partie solo statique
 
-Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/`. Le joueur choisit son pseudo, sa couleur et son pion avant de disputer une partie complète contre un robot de profil Équilibré. À chaque partie, son nom est tiré parmi 20 constellations françaises, ainsi que sa couleur et son animal :
+Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/`. Le joueur choisit son pseudo, sa couleur, son pion et de **1 à 5 robots** de profil **Équilibré**. À chaque partie, leurs noms sont tirés sans doublon parmi 20 constellations françaises ; leurs couleurs et leurs animaux sont également aléatoires et uniques dans la partie :
 
 ```powershell
 npm.cmd run prepare:static
