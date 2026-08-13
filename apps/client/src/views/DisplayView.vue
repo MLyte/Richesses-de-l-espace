@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import QrcodeVue from "qrcode.vue";
 import { ASSETS, AUCTION_BID_GRACE_MS, AUCTION_INITIAL_DURATION_MS, LEVER_CARDS, RESOURCES, TREND_CARDS } from "@richesses-espace/game";
@@ -18,6 +18,8 @@ import GameIcon from "../components/GameIcon.vue";
 import StartingShipRace from "../components/StartingShipRace.vue";
 import AuctionCountdown from "../components/AuctionCountdown.vue";
 import BotThinkingIndicator from "../components/BotThinkingIndicator.vue";
+import CapitalGainBurst from "../components/CapitalGainBurst.vue";
+import { resolveCapitalGain } from "../components/capital-gain";
 import { Bot, HelpCircle, Maximize2, Menu, Pause } from "@lucide/vue";
 import { splitPlayerWings } from "./display-layout";
 
@@ -25,6 +27,12 @@ const store = useGameStore();
 const route = useRoute();
 const fullscreen = ref(Boolean(document.fullscreenElement));
 const gameMenu = ref<HTMLDetailsElement | null>(null);
+const playerCapitalGains = ref<Record<string, { key: number; amount: number }>>({});
+const knownPlayerCapital = new Map<string, number>();
+const playerCapitalGainTimers = new Map<string, number>();
+let observedGameCode: string | null = null;
+let capitalGainSequence = 0;
+
 function syncFullscreen(): void { fullscreen.value = Boolean(document.fullscreenElement); }
 function closeGameMenu(): void { gameMenu.value?.removeAttribute("open"); }
 function closeGameMenuOnOutsideClick(event: PointerEvent): void {
@@ -41,12 +49,40 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", syncFullscreen);
   document.removeEventListener("pointerdown", closeGameMenuOnOutsideClick);
+  playerCapitalGainTimers.forEach((timer) => window.clearTimeout(timer));
 });
 
 const joinUrl = computed(() => store.game?.joinUrls[0] ?? (store.game ? `${location.origin}/play/${store.game.code}` : ""));
 const crewSlots = computed(() => Array.from({ length: 6 }, (_, index) => store.game?.players[index] ?? null));
 const playerWings = computed(() => splitPlayerWings(store.game?.players ?? []));
 const active = computed(() => store.game?.players.find((player) => player.id === store.game?.activePlayerId));
+watch(() => store.game ? { gameCode: store.game.code, players: store.game.players.map(({ id, capital }) => ({ id, capital })) } : null, (state) => {
+  if (!state || state.gameCode !== observedGameCode) {
+    knownPlayerCapital.clear();
+    playerCapitalGainTimers.forEach((timer) => window.clearTimeout(timer));
+    playerCapitalGainTimers.clear();
+    playerCapitalGains.value = {};
+    observedGameCode = state?.gameCode ?? null;
+  }
+  if (!state) return;
+  const currentPlayerIds = new Set(state.players.map(({ id }) => id));
+  for (const { id, capital } of state.players) {
+    const amount = resolveCapitalGain(knownPlayerCapital.get(id), capital);
+    knownPlayerCapital.set(id, capital);
+    if (amount == null) continue;
+    playerCapitalGains.value = { ...playerCapitalGains.value, [id]: { key: ++capitalGainSequence, amount } };
+    window.clearTimeout(playerCapitalGainTimers.get(id));
+    playerCapitalGainTimers.set(id, window.setTimeout(() => {
+      const { [id]: _expired, ...remaining } = playerCapitalGains.value;
+      playerCapitalGains.value = remaining;
+      playerCapitalGainTimers.delete(id);
+    }, 1900));
+  }
+  for (const id of knownPlayerCapital.keys()) {
+    if (!currentPlayerIds.has(id)) knownPlayerCapital.delete(id);
+  }
+}, { immediate: true });
+
 const botThinkingPlayer = computed(() => store.game?.players.find((player) => player.id === store.game?.botThinkingPlayerId) ?? null);
 const botProfileLabels: Record<BotProfile, string> = { CAUTIOUS: "Prudent", BALANCED: "Équilibré", AMBITIOUS: "Ambitieux" };
 const landedAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.landedAssetId));
@@ -61,6 +97,13 @@ const auctionLeader = computed(() => store.game?.players.find((player) => player
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
 const auctionLotAssets = computed(() => store.game?.auction?.lots[store.game.auction.currentLotIndex]?.map((id) => ASSETS.find((asset) => asset.id === id)!).filter(Boolean) ?? []);
 const auctionDuration = computed(() => store.game?.auction?.currentBid ? AUCTION_BID_GRACE_MS : AUCTION_INITIAL_DURATION_MS);
+const auctionResults = computed(() => {
+  const game = store.game;
+  if (!game || game.phase !== "WAITING_FOR_END_TURN" || game.auction) return [];
+  return game.recentEvents.filter((event) =>
+    ["auction_won", "auction_passed"].includes(event.type) && event.data?.auctionTurnNumber === game.turnNumber && typeof event.data?.lotLabel === "string"
+  );
+});
 const tradeProposer = computed(() => store.game?.players.find((player) => player.id === store.game?.tradeOffer?.proposerId) ?? null);
 const tradeTarget = computed(() => store.game?.players.find((player) => player.id === store.game?.tradeOffer?.targetId) ?? null);
 const revealedCard = computed(() => {
@@ -163,7 +206,7 @@ async function toggleFullscreen() {
           <div class="panel-heading"><span>{{ wingIndex === 0 ? 'Équipages · bâbord' : 'Équipages · tribord' }}</span><b>{{ wingPlayers.length }}</b></div>
           <div v-for="player in wingPlayers" :key="player.id" class="player-summary" :class="{ active: player.id === store.game.activePlayerId, bankrupt: player.bankrupt }">
             <div class="player-identity"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i><strong>{{ player.name }}</strong><span v-if="player.isBot" class="bot-label"><Bot :size="12" aria-hidden="true" />{{ botProfileLabels[player.botProfile!] }}</span><span v-else-if="!player.connected">hors ligne</span></div>
-            <div class="player-balance"><b>{{ player.capital }}</b><small>crédits</small></div>
+            <div class="player-balance"><b>{{ player.capital }}</b><small>crédits</small><CapitalGainBurst v-if="playerCapitalGains[player.id]" :key="playerCapitalGains[player.id]?.key ?? player.id" :amount="playerCapitalGains[player.id]?.amount ?? 0" variant="tv" /></div>
             <div class="player-metrics"><span>{{ player.assetIds.length }} concession{{ player.assetIds.length > 1 ? 's' : '' }}</span><span>Valeur <b>{{ player.netWorth }}</b></span><span>{{ player.leverCount }} technologie{{ player.leverCount > 1 ? 's' : '' }}</span><span v-if="player.turnsToSkip" class="skip-warning">Quarantaine · prochain tour perdu</span></div>
             <div v-if="player.bankrupt" class="bankrupt-label">Faillite</div>
             <div v-if="player.assetIds.length" class="player-holdings">
@@ -198,6 +241,18 @@ async function toggleFullscreen() {
           <div v-else-if="store.game.auction && auctionAsset" class="market-overlay auction-overlay">
             <template v-if="store.game.auction.mode === 'selection'"><p class="eyebrow">Marché orbital · dé rouge {{ store.game.auction.redDie }}</p><h2>{{ auctionSeller?.name }} choisit {{ store.game.auction.targetCount }} concession{{ store.game.auction.targetCount > 1 ? 's' : '' }} à vendre</h2><p>La vente ne commencera qu’après confirmation des lots sur son téléphone. Une Technologie peut encore éviter cette vente.</p></template>
             <template v-else><p class="eyebrow">{{ store.game.auction.bankSale ? 'Perte de licence · vente par la banque' : 'Marché orbital' }} · lot {{ store.game.auction.currentLotIndex + 1 }}/{{ store.game.auction.lots.length }}</p><h2>{{ auctionLotAssets.map(asset => asset.name).join(' + ') }}</h2><p>{{ store.game.auction.bankSale ? `Concessions remises aux registres après la faillite de ${auctionSeller?.name}.` : `Vendeur : ${auctionSeller?.name}.` }} Prix de départ à la moitié de la valeur d’achat.</p><div class="big-bid">{{ store.game.auction.currentBid || store.game.auction.minimumBid }}<small>crédits</small></div><AuctionCountdown :deadline="store.game.auction.deadline" :duration="auctionDuration" /><p>{{ auctionLeader ? `${auctionLeader.name} mène le marché. Les autres joueurs ont encore quelques secondes pour réagir.` : 'Première offre attendue sur les téléphones.' }}</p><div class="auction-participants"><span v-for="playerId in store.game.auction.eligiblePlayerIds" :key="playerId" :class="{ passed: store.game.auction.passedPlayerIds.includes(playerId) }">{{ store.game.players.find(player => player.id === playerId)?.name }} · {{ store.game.auction.passedPlayerIds.includes(playerId) ? 'retiré·e' : playerId === store.game.auction.leaderId ? 'en tête' : 'en course' }}</span></div></template>
+          </div>
+          <div v-else-if="auctionResults.length" class="market-overlay auction-result-overlay" role="status" aria-live="polite">
+            <p class="eyebrow">Marché orbital · vente terminée</p>
+            <h2>Attribution des concessions</h2>
+            <div class="auction-result-list">
+              <article v-for="(result, index) in auctionResults" :key="`${result.id}-${index}`">
+                <span>Lot {{ index + 1 }}</span><b>{{ result.data?.lotLabel }}</b>
+                <p v-if="result.type === 'auction_won'"><strong>{{ store.game.players.find(player => player.id === result.data?.buyerId)?.name }}</strong> remporte ce lot pour <em>{{ result.data?.amount }} crédits</em>.</p>
+                <p v-else>Sans enchérisseur, <strong>la Banque interstellaire</strong> reprend ce lot pour <em>{{ result.data?.amount }} crédits</em>.</p>
+              </article>
+            </div>
+            <p class="auction-result-next"><strong>{{ active?.name }}</strong> peut maintenant terminer son tour depuis son téléphone.</p>
           </div>
           <div v-else-if="store.game.tradeOffer" class="market-overlay trade-overlay-common">
             <p class="eyebrow">{{ store.game.tradeOffer.kind === 'alliance' ? 'Consortium conjoint proposé' : 'Transaction proposée' }}</p><h2>{{ tradeProposer?.name }} ↔ {{ tradeTarget?.name }}</h2>

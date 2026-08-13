@@ -24,8 +24,14 @@ const resourceById = new Map<string, Resource>(RESOURCES.map((resource) => [reso
 const countryById = new Map(COUNTRIES.map((country) => [country.id, country]));
 const makeEvent = (state: GameState, value: Omit<GameEvent, "id">): GameEvent => ({ id: state.revision + 1, ...value });
 
+export function roundCreditAmount(amount: number): number {
+  if (!Number.isFinite(amount)) throw new RuleError("INVALID_CREDIT_AMOUNT", "Le montant en crédits doit être un nombre fini.");
+  return Math.round(amount);
+}
+
 function commit(state: GameState, events: GameEvent[]): GameState {
-  return { ...state, revision: state.revision + 1, recentEvents: [...state.recentEvents, ...events].slice(-20) };
+  const players = state.players.map((player) => Number.isInteger(player.capital) ? player : { ...player, capital: roundCreditAmount(player.capital) });
+  return { ...state, players, revision: state.revision + 1, recentEvents: [...state.recentEvents, ...events].slice(-20) };
 }
 
 function requirePlayer(state: GameState, playerId: string): PlayerState {
@@ -45,12 +51,12 @@ function requireActive(state: GameState, playerId: string): PlayerState {
 type BankDirection = TrendCard["bankDirection"];
 
 function applyBankTransfer(players: PlayerState[], playerId: string, direction: BankDirection, amount: number): PlayerState[] {
-  if (!Number.isFinite(amount) || amount < 0) throw new RuleError("INVALID_BANK_AMOUNT", "Le montant bancaire doit être positif.");
+  if (!Number.isInteger(amount) || amount < 0) throw new RuleError("INVALID_BANK_AMOUNT", "Le montant bancaire doit être un nombre entier positif.");
   const player = players.find((candidate) => candidate.id === playerId);
   if (!player) throw new RuleError("PLAYER_NOT_FOUND", "Joueur introuvable.");
   if (direction === "player_to_bank" && player.capital < amount) throw new RuleError("INSUFFICIENT_FUNDS", "Les liquidités sont insuffisantes pour payer la banque.");
   const delta = direction === "bank_to_player" ? amount : -amount;
-  return players.map((candidate) => candidate.id === playerId ? { ...candidate, capital: candidate.capital + delta } : candidate);
+  return players.map((candidate) => candidate.id === playerId ? { ...candidate, capital: roundCreditAmount(candidate.capital + delta) } : candidate);
 }
 
 function bankEventData(direction: BankDirection, amount: number): Record<string, string | number | boolean> {
@@ -354,9 +360,9 @@ export function rollDice(state: GameState, playerId: string): GameState {
   } else if (space.type === "special" && space.kind === "auction") {
     const result = startAuction(next, playerId, first); next = result.state; events.push(result.event);
   } else if (space.type === "special" && space.kind === "dividend") {
-    const amount = total * 0.5;
+    const amount = roundCreditAmount(total * 0.5);
     next = { ...next, players: applyBankTransfer(next.players, playerId, "bank_to_player", amount) };
-    events.push(makeEvent(state, { type: "dividend_received", playerId, message: `${player.name} reçoit une prime d’expédition de ${amount} crédits de la Banque interstellaire (${total} × 0,5), puis règle les droits d’extraction de ${resourceById.get(space.resourceId)!.name}.`, data: { ...bankEventData("bank_to_player", amount), total, resourceId: space.resourceId } }));
+    events.push(makeEvent(state, { type: "dividend_received", playerId, message: `${player.name} reçoit une prime d’expédition de ${amount} crédits de la Banque interstellaire (moitié de ${total}, arrondie), puis règle les droits d’extraction de ${resourceById.get(space.resourceId)!.name}.`, data: { ...bankEventData("bank_to_player", amount), total, resourceId: space.resourceId } }));
     next = beginRoyalties(next, playerId, space.resourceId, events);
   } else if (space.type === "special" && space.kind === "regional_choice") {
     next = offerSpecialPurchase(next, playerId, "regional", space.regionName, space.continents, events);
@@ -375,7 +381,7 @@ export function buyPendingAsset(state: GameState, playerId: string, assetIds?: s
   if (state.phase !== "WAITING_FOR_PURCHASE" || !pending || pending.playerId !== playerId) throw new RuleError("INVALID_PHASE", "Aucun achat n’est proposé.");
   const selected = [...new Set(assetIds?.length ? assetIds : [pending.availableAssetIds[0]!])];
   if (!selected.length || selected.length > pending.maxAssets || !selected.every((id) => pending.availableAssetIds.includes(id) && !state.ownership[id])) throw new RuleError("INVALID_PURCHASE", "Sélection de concessions invalide.");
-  const price = selected.reduce((total, id) => total + assetById.get(id)!.basePrice, 0);
+  const price = roundCreditAmount(selected.reduce((total, id) => total + assetById.get(id)!.basePrice, 0));
   if (player.capital < price) throw new RuleError("INSUFFICIENT_FUNDS", "Capital insuffisant pour cette sélection.");
   const debitedPlayers = applyBankTransfer(state.players, playerId, "player_to_bank", price);
   const players = debitedPlayers.map((item) => item.id === playerId ? { ...item, assetIds: [...item.assetIds, ...selected] } : item);
@@ -531,7 +537,7 @@ export function declareBankruptcy(state: GameState, playerId: string): GameState
 }
 
 function auctionMinimum(lot: string[]): number {
-  return Math.max(0.5, lot.reduce((total, assetId) => total + assetById.get(assetId)!.basePrice, 0) / 2);
+  return Math.max(1, roundCreditAmount(lot.reduce((total, assetId) => total + assetById.get(assetId)!.basePrice, 0) / 2));
 }
 
 function prepareAuctionLot(auction: AuctionState, index: number): AuctionState {
@@ -582,14 +588,14 @@ function closeAuctionLot(state: GameState, events: GameEvent[] = []): GameState 
       players = players.map((player) => player.id === buyer.id ? { ...player, capital: player.capital - auction.currentBid, assetIds: [...player.assetIds, ...lot] } : player.id === seller.id ? { ...player, capital: player.capital + auction.currentBid, assetIds: player.assetIds.filter((id) => !lot.includes(id)) } : player);
     }
     lot.forEach((assetId) => { ownership[assetId] = buyer.id; });
-    events.push(makeEvent(state, { type: "auction_won", playerId: buyer.id, message: `${buyer.name} remporte ${lot.map((id) => assetById.get(id)!.name).join(" + ")} pour ${auction.currentBid} crédits${auction.bankSale ? " versés à la banque" : ` versés à ${seller.name}`}.`, data: { amount: auction.currentBid, sellerId: seller.id, assetCount: lot.length, ...(auction.bankSale ? bankEventData("player_to_bank", auction.currentBid) : {}) } }));
+    events.push(makeEvent(state, { type: "auction_won", playerId: buyer.id, message: `${buyer.name} remporte ${lotLabel} pour ${auction.currentBid} crédits${auction.bankSale ? " versés à la banque" : ` versés à ${seller.name}`}.`, data: { ...auctionResultData, buyerId: buyer.id, amount: auction.currentBid, ...(auction.bankSale ? bankEventData("player_to_bank", auction.currentBid) : {}) } }));
   } else {
     if (!auction.bankSale) {
       const creditedPlayers = applyBankTransfer(players, seller.id, "bank_to_player", auction.minimumBid);
       players = creditedPlayers.map((player) => player.id === seller.id ? { ...player, assetIds: player.assetIds.filter((id) => !lot.includes(id)) } : player);
     }
     lot.forEach((assetId) => { delete ownership[assetId]; });
-    events.push(makeEvent(state, { type: "auction_passed", playerId: seller.id, message: auction.bankSale ? `Sans enchérisseur, ${lot.map((id) => assetById.get(id)!.name).join(" + ")} retourne au catalogue de la banque.` : `Sans enchérisseur, la banque reprend ${lot.map((id) => assetById.get(id)!.name).join(" + ")} pour ${auction.minimumBid} crédits.`, data: { amount: auction.bankSale ? 0 : auction.minimumBid, sellerId: seller.id, assetCount: lot.length, ...(!auction.bankSale ? bankEventData("bank_to_player", auction.minimumBid) : {}) } }));
+    events.push(makeEvent(state, { type: "auction_passed", playerId: seller.id, message: auction.bankSale ? `Sans enchérisseur, ${lotLabel} retourne au catalogue de la banque.` : `Sans enchérisseur, la banque reprend ${lotLabel} pour ${auction.minimumBid} crédits.`, data: { ...auctionResultData, amount: auction.bankSale ? 0 : auction.minimumBid, ...(!auction.bankSale ? bankEventData("bank_to_player", auction.minimumBid) : {}) } }));
   }
   const nextIndex = auction.currentLotIndex + 1;
   if (nextIndex >= auction.lots.length) {
@@ -627,8 +633,8 @@ function settleAuctionIfComplete(state: GameState, events: GameEvent[]): GameSta
 export function placeBid(state: GameState, playerId: string, amount: number): GameState {
   const player = requirePlayer(state, playerId); const auction = state.auction;
   if (state.phase !== "AUCTION" || !auction || auction.mode !== "bidding" || !auction.eligiblePlayerIds.includes(playerId) || auction.passedPlayerIds.includes(playerId) || auction.leaderId === playerId) throw new RuleError("BID_NOT_ALLOWED", "Vous ne pouvez pas enchérir maintenant.");
-  const minimum = auction.currentBid ? Math.round((auction.currentBid + 0.1) * 10) / 10 : auction.minimumBid;
-  if (!Number.isFinite(amount) || Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-8 || amount < minimum) throw new RuleError("BID_TOO_LOW", `L’offre minimale est de ${minimum} crédits.`);
+  const minimum = auction.currentBid ? auction.currentBid + 1 : auction.minimumBid;
+  if (!Number.isInteger(amount) || amount < minimum) throw new RuleError("BID_TOO_LOW", `L’offre minimale est de ${minimum} crédits entiers.`);
   if (amount > player.capital) throw new RuleError("INSUFFICIENT_FUNDS", "Cette offre dépasse votre capital.");
   const deadline = Math.max(auction.deadline ?? 0, Date.now() + AUCTION_BID_GRACE_MS);
   const next = { ...state, auction: { ...auction, currentBid: amount, leaderId: playerId, deadline } };
@@ -656,14 +662,14 @@ export function proposeTrade(state: GameState, playerId: string, offer: Omit<Tra
     if (liquidation || (state.phase !== "WAITING_FOR_ROLL" && state.phase !== "WAITING_FOR_END_TURN")) throw new RuleError("INVALID_PHASE", "Une alliance se conclut entre deux décisions obligatoires.");
     if (proposer.allianceId || target.allianceId) throw new RuleError("ALLIANCE_EXISTS", "Un des joueurs appartient déjà à un consortium conjoint.");
     const combinedPurchasePrice = [...proposer.assetIds, ...target.assetIds].reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0);
-    const allianceTax = combinedPurchasePrice / 2;
+    const allianceTax = roundCreditAmount(combinedPurchasePrice / 2);
     if (proposer.capital < allianceTax || target.capital < allianceTax) throw new RuleError("INSUFFICIENT_FUNDS", `Chaque associé doit pouvoir verser ${allianceTax} crédits à la Banque interstellaire.`);
     const returnPhase: TradeOffer["returnPhase"] = state.phase === "WAITING_FOR_ROLL" ? "WAITING_FOR_ROLL" : "WAITING_FOR_END_TURN";
     const tradeOffer: TradeOffer = { ...offer, kind: "alliance", allianceTax, id: `alliance-${state.revision + 1}`, proposerId: playerId, returnPhase, offeredResourceId: null, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0 };
     return commit({ ...state, phase: "WAITING_FOR_TRADE", tradeOffer }, [makeEvent(state, { type: "trade_proposed", playerId, message: `${proposer.name} propose à ${target.name} de former un consortium conjoint. Chacun versera ${allianceTax} crédits à la banque.`, data: { tradeId: tradeOffer.id, targetId: target.id, alliance: true, allianceTax } })]);
   }
-  const validAmount = (amount: number) => Number.isFinite(amount) && amount >= 0 && Math.abs(amount * 10 - Math.round(amount * 10)) < 1e-8;
-  if (!validAmount(offer.offeredCredits) || !validAmount(offer.requestedCredits)) throw new RuleError("INVALID_TRADE", "Les montants doivent être positifs, par pas de 0,1 crédit.");
+  const validAmount = (amount: number) => Number.isInteger(amount) && amount >= 0;
+  if (!validAmount(offer.offeredCredits) || !validAmount(offer.requestedCredits)) throw new RuleError("INVALID_TRADE", "Les montants doivent être des crédits entiers positifs.");
   if (offer.offeredCredits > proposer.capital || offer.requestedCredits > target.capital) throw new RuleError("INSUFFICIENT_FUNDS", "Un des montants dépasse le capital disponible.");
   const offeredAssetIds = offer.offeredResourceId ? proposer.assetIds.filter((id) => assetById.get(id)?.resourceId === offer.offeredResourceId) : [];
   const requestedAssetIds = offer.requestedResourceId ? target.assetIds.filter((id) => assetById.get(id)?.resourceId === offer.requestedResourceId) : [];
@@ -685,7 +691,7 @@ export function respondToTrade(state: GameState, playerId: string, accept: boole
   if (!accept) return commit({ ...state, phase: offer.returnPhase, tradeOffer: null }, [makeEvent(state, { type: "trade_rejected", playerId, message: `${playerId === proposer.id ? proposer.name : target.name} annule l’échange.` })]);
   if (offer.kind === "alliance") {
     const combinedAssets = [...proposer.assetIds, ...target.assetIds];
-    const tax = combinedAssets.reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0) / 2;
+    const tax = roundCreditAmount(combinedAssets.reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0) / 2);
     if (proposer.capital < tax || target.capital < tax) throw new RuleError("INSUFFICIENT_FUNDS", "Les capitaux ont changé : la taxe d’alliance ne peut plus être payée.");
     const proposerValue = proposer.assetIds.reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0);
     const targetValue = target.assetIds.reduce((total, id) => total + assetById.get(id)!.purchasePrice, 0);

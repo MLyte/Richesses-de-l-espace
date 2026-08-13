@@ -244,7 +244,7 @@ describe("Socket.IO game flow", () => {
     room.state = {
       ...room.state,
       phase: "AUCTION",
-      auction: { mode: "bidding", sellerId: joinedFirst.data!.playerId!, bankSale: false, targetCount: 1, redDie: 1, assetId: "aluminous-regolith-mercure", selectedAssetIds: ["aluminous-regolith-mercure"], lots: [["aluminous-regolith-mercure"]], currentLotIndex: 0, minimumBid: .5, currentBid: 0, leaderId: null, eligiblePlayerIds: [joinedSecond.data!.playerId!, joinedThird.data!.playerId!], passedPlayerIds: [], deadline: Date.now() + 500 }
+      auction: { mode: "bidding", sellerId: joinedFirst.data!.playerId!, bankSale: false, targetCount: 1, redDie: 1, assetId: "aluminous-regolith-mercure", selectedAssetIds: ["aluminous-regolith-mercure"], lots: [["aluminous-regolith-mercure"]], currentLotIndex: 0, minimumBid: 1, currentBid: 0, leaderId: null, eligiblePlayerIds: [joinedSecond.data!.playerId!, joinedThird.data!.playerId!], passedPlayerIds: [], deadline: Date.now() + 500 }
     };
 
     let statePromise = nextState(admin);

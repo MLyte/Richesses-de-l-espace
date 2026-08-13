@@ -4,7 +4,7 @@ import { resolveCapitalGain } from "./capital-gain";
 describe("capital gain detection", () => {
   it("reports every positive balance change, including decimal credits", () => {
     expect(resolveCapitalGain(18, 22)).toBe(4);
-    expect(resolveCapitalGain(69.9, 70)).toBe(.1);
+    expect(resolveCapitalGain(0, 0.90000000004)).toBe(1);
   });
 
   it("ignores initialization, spending, and unchanged balances", () => {

@@ -205,8 +205,9 @@ function auctionDecision(observation: BotObservation, botId: string, profile: Bo
   const value = portfolioUtility([...player.assetIds, ...lot]) - portfolioUtility(player.assetIds);
   const spendable = Math.max(0, player.capital - reserveFor(observation, profile));
   const ceiling = Math.min(spendable, value * settings[profile].bidFactor);
-  const minimum = auction.currentBid ? Math.round((auction.currentBid + .1) * 10) / 10 : auction.minimumBid;
-  return minimum <= ceiling
+  const minimum = auction.currentBid ? auction.currentBid + 1 : auction.minimumBid;
+  const wholeCreditCeiling = Math.round(ceiling);
+  return minimum <= wholeCreditCeiling
     ? { type: "BID", amount: minimum, reason: "BID_WITHIN_VALUE_CEILING" }
     : { type: "PASS_BID", reason: "BID_EXCEEDS_VALUE_CEILING" };
 }

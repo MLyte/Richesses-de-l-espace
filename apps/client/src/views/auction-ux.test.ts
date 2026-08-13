@@ -26,4 +26,13 @@ describe("fast auction experience", () => {
     expect(store).toMatch(/silentNotificationTypes[^\n]+"auction_bid"/);
     expect(playerView).toMatch(/quietMobileEventTypes[^\n]+"auction_bid"/);
   });
+
+  it("locks bidding after passing and explains the completed sale", () => {
+    expect(playerView).toContain("auctionPassPending");
+    expect(playerView).toContain("@click=\"passCurrentAuction\"");
+    expect(playerView).toContain("Voici qui remporte quoi.");
+    expect(playerView).toContain("Continuer · terminer le tour");
+    expect(displayView).toContain("Attribution des concessions");
+    expect(displayView).toContain("peut maintenant terminer son tour");
+  });
 });

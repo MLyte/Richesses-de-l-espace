@@ -212,7 +212,7 @@ describe("Richesses de l’espace game engine", () => {
     const [red, white] = preview.lastRoll!.dice;
     const doubleTax = red === white ? red : 0;
     const royalty = getPaymentAmount(initial, featured, "p2");
-    initial = { ...initial, players: initial.players.map((player) => player.id === "p1" ? { ...player, capital: doubleTax + royalty - 0.5 } : player) };
+    initial = { ...initial, players: initial.players.map((player) => player.id === "p1" ? { ...player, capital: doubleTax + royalty - 1 } : player) };
     let game = landOnSpace(initial, space.id);
     expect(game.phase).toBe("WAITING_FOR_PAYMENT");
     expect(game.pendingAction).not.toBeNull();
@@ -360,9 +360,10 @@ describe("Richesses de l’espace game engine", () => {
     game = landOnSpace(game, space.id);
     const [red, white] = game.lastRoll!.dice;
     const doubleTax = red === white ? red : 0;
-    expect(game.players[0]!.capital).toBe(capitalBefore - doubleTax + game.lastRoll!.total * .5);
+    expect(game.players[0]!.capital).toBe(capitalBefore - doubleTax + Math.round(game.lastRoll!.total * .5));
     expect(game.pendingPayment).toMatchObject({ recipientId: "p2", resourceId: space.resourceId });
-    expect(game.recentEvents.find((event) => event.type === "dividend_received")?.data).toMatchObject({ bankDirection: "bank_to_player", amount: game.lastRoll!.total * .5 });
+    expect(game.recentEvents.find((event) => event.type === "dividend_received")?.data).toMatchObject({ bankDirection: "bank_to_player", amount: Math.round(game.lastRoll!.total * .5) });
+    expect(game.players.every((player) => Number.isInteger(player.capital))).toBe(true);
   });
 
   it("offers only already-owned resources in the matching regional catalogue", () => {
@@ -417,7 +418,7 @@ describe("Richesses de l’espace game engine", () => {
     game = selectAuctionAssets(game, "p1", selected);
     expect(game.auction?.mode).toBe("bidding");
     expect(game.auction?.lots).toHaveLength(1);
-    expect(game.auction?.minimumBid).toBe(selected.reduce((total, id) => total + ASSETS.find((asset) => asset.id === id)!.basePrice, 0) / 2);
+    expect(game.auction?.minimumBid).toBe(Math.max(1, Math.round(selected.reduce((total, id) => total + ASSETS.find((asset) => asset.id === id)!.basePrice, 0) / 2)));
     const minimum = game.auction!.minimumBid;
     const capitalBeforeSale = game.players.reduce((total, player) => total + player.capital, 0);
     game = placeBid(game, "p2", minimum);
@@ -426,7 +427,15 @@ describe("Richesses de l’espace game engine", () => {
     expect(game.ownership[selected[0]!]).toBe("p2");
     expect(game.players.find((player) => player.id === "p1")!.capital).toBe(66 + minimum);
     expect(game.players.reduce((total, player) => total + player.capital, 0)).toBe(capitalBeforeSale);
+    const result = game.recentEvents.filter((event) => event.type === "auction_won").at(-1);
+    expect(game.phase).toBe("WAITING_FOR_END_TURN");
+    expect(game.auction).toBeNull();
+    expect(result?.data).toMatchObject({
+      auctionTurnNumber: game.turnNumber, lotIndex: 0, buyerId: "p2", amount: minimum,
+      lotLabel: selected.map((id) => ASSETS.find((asset) => asset.id === id)!.name).join(" + ")
+    });
   });
+
 
   it("uses a short auction window and only extends late bids", () => {
     let game = startedGameWithThree();
@@ -440,7 +449,7 @@ describe("Richesses de l’espace game engine", () => {
 
     const lateDeadline = Date.now() + 250;
     game = { ...game, auction: { ...game.auction!, deadline: lateDeadline } };
-    game = placeBid(game, "p3", game.auction!.currentBid + .1);
+    game = placeBid(game, "p3", game.auction!.currentBid + 1);
     expect(game.auction!.deadline! - Date.now()).toBeGreaterThan(AUCTION_BID_GRACE_MS - 100);
   });
 
@@ -524,7 +533,7 @@ describe("Richesses de l’espace game engine", () => {
       ownership: { [first.id]: "p1", [second.id]: "p2" },
       players: game.players.map((player) => player.id === "p1" ? { ...player, assetIds: [first.id] } : player.id === "p2" ? { ...player, assetIds: [second.id] } : player)
     };
-    const tax = (first.purchasePrice + second.purchasePrice) / 2;
+    const tax = Math.round((first.purchasePrice + second.purchasePrice) / 2);
     game = proposeTrade(game, "p1", { targetId: "p2", kind: "alliance", offeredResourceId: null, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0 });
     expect(game.tradeOffer).toMatchObject({ kind: "alliance", allianceTax: tax });
     game = respondToTrade(game, "p2", true);

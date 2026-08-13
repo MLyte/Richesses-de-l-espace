@@ -13,6 +13,7 @@ import {
   finishStartingRace,
   getBotThinkingDelay,
   getNetWorth,
+  roundCreditAmount,
   observeGameForBot,
   passAuction,
   passPendingAsset,
@@ -234,13 +235,13 @@ function publicView(current: GameState, botThinkingPlayerId: string | null = nul
       position,
       lapsCompleted,
       turnsToSkip,
-      capital,
+      capital: roundCreditAmount(capital),
       assetIds,
       leverCount: leverIds.length,
       bankrupt,
       allianceId,
       mergedIntoId,
-      netWorth: getNetWorth(current, id)
+      netWorth: roundCreditAmount(getNetWorth(current, id))
     })),
     activePlayerId: current.activePlayerId,
     botThinkingPlayerId,

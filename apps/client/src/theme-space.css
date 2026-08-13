@@ -102,6 +102,14 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   border-color: #f2674a;
   background: #15344d;
 }
+.auction-result-phone {
+  color: #f3f8fc;
+  border-color: #559db8;
+  background: linear-gradient(145deg, rgba(21, 52, 77, .98), rgba(9, 31, 50, .99));
+  box-shadow: var(--piece-shadow);
+}
+.auction-result-list article { color: #f3f8fc; border-color: #72a9c2; background: #0b243a; }
+.auction-result-list article > span, .auction-result-list article > p { color: #c9e8f4; }
 .auction-selection { gap: .65rem; }
 .auction-selection label {
   grid-template-columns: 28px minmax(0, 1fr) auto;
@@ -360,6 +368,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   border-right: 1px solid rgba(111, 221, 234, .3);
   white-space: nowrap;
 }
+.phone-header__capital, .controller-meta .capital, .player-balance { position: relative; overflow: visible; }
 .phone-header__capital svg { flex: 0 0 auto; color: #6fddea; }
 .phone-header__capital strong { max-width: 5.5ch; overflow: hidden; font: 800 clamp(.82rem, 3.8vw, .95rem) "IBM Plex Mono", monospace; text-overflow: ellipsis; }
 .phone-header__capital small { color: #b8d3df; font-size: .62rem; font-weight: 700; }

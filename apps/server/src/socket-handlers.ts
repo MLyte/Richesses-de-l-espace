@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 import {
   BOARD, LEVER_CARDS, STARTING_RACE_DURATION_MS, STARTING_RACE_SHIPS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame, finishStartingRace,
-  getBotThinkingDelay, getNetWorth, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
+  getBotThinkingDelay, getNetWorth, passAuction, passPendingAsset, passPendingLever, payPendingPayment, roundCreditAmount,
   pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, setPlayerConnected,
   selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever, observeGameForBot,
   type BotDecision, type BotProfile, type GameState
@@ -39,7 +39,7 @@ function publicView(room: Room, publicPort: number, publicOrigin?: string): Publ
   const state = room.state;
   return {
     code: state.code, displayMode: room.displayMode, revision: state.revision, status: state.status, phase: state.phase,
-    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, isBot: Boolean(room.bots[id]), botProfile: room.bots[id] ?? null, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: getNetWorth(state, id) })),
+    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, isBot: Boolean(room.bots[id]), botProfile: room.bots[id] ?? null, position, lapsCompleted, turnsToSkip, capital: roundCreditAmount(capital), assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: roundCreditAmount(getNetWorth(state, id)) })),
     activePlayerId: state.activePlayerId, botThinkingPlayerId: room.botThinkingPlayerId, startingRace: state.startingRace, turnNumber: state.turnNumber, roundNumber: state.roundNumber,
     ownership: state.ownership, lastRoll: state.lastRoll,
     pendingAssetId: state.pendingAction?.availableAssetIds[0] ?? null,

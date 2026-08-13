@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ASSETS, AUCTION_BID_GRACE_MS, AUCTION_INITIAL_DURATION_MS, COUNTRIES, LEVER_CARDS, RESOURCES, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
@@ -19,7 +19,9 @@ import MobileToastQueue from "../components/MobileToastQueue.vue";
 import StartingShipRace from "../components/StartingShipRace.vue";
 import AuctionCountdown from "../components/AuctionCountdown.vue";
 import BotThinkingIndicator from "../components/BotThinkingIndicator.vue";
+import CapitalGainBurst from "../components/CapitalGainBurst.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
+import { resolveCapitalGain } from "../components/capital-gain";
 import { pickSpacefarerName, resolvePlayerName } from "./player-name-placeholder";
 import { ArrowLeftRight, Bot, Dices, HandCoins, House, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
@@ -56,6 +58,7 @@ const requestedResourceId = ref("");
 const offeredCredits = ref(0);
 const requestedCredits = ref(0);
 const bidAmount = ref(1);
+const auctionPassPending = ref(false);
 const auctionSelection = ref<string[]>([]);
 const purchaseSelection = ref<string[]>([]);
 const portfolioOpen = ref(false);
@@ -82,12 +85,15 @@ onMounted(async () => {
   void store.resumePlayer(code);
 });
 const me = computed(() => store.me);
+const capitalGain = ref<{ key: number; amount: number } | null>(null);
+let capitalGainSequence = 0;
+let capitalGainTimer: number | undefined;
 const allowed = (action: string) => store.player?.allowedActions.includes(action as never) ?? false;
 const pendingAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.pendingAssetId));
 const pendingTitles = computed(() => ASSETS.filter((asset) => store.game?.pendingPurchase?.availableAssetIds.includes(asset.id)));
 const pendingCountry = computed(() => COUNTRIES.find((country) => country.id === store.game?.pendingPurchase?.countryId));
 const pendingResource = computed(() => RESOURCES.find((resource) => resource.id === store.game?.pendingPurchase?.resourceId));
-const purchaseTotal = computed(() => purchaseSelection.value.reduce((total, id) => total + (ASSETS.find((asset) => asset.id === id)?.basePrice ?? 0), 0));
+const purchaseTotal = computed(() => Math.round(purchaseSelection.value.reduce((total, id) => total + (ASSETS.find((asset) => asset.id === id)?.basePrice ?? 0), 0)));
 const startingCapital = computed(() => STARTING_CAPITAL[store.game?.players.length ?? 2] ?? 100);
 const landedAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.landedAssetId));
 const landedOwner = computed(() => store.game?.players.find((player) => player.id === (landedAsset.value ? store.game?.ownership[landedAsset.value.id] : null)) ?? null);
@@ -105,11 +111,18 @@ function openPortfolio() { portfolioPage.value = 0; portfolioOpen.value = true; 
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
 const auctionLotAssets = computed(() => store.game?.auction?.lots[store.game.auction.currentLotIndex]?.map((id) => ASSETS.find((asset) => asset.id === id)!).filter(Boolean) ?? []);
-const auctionMinimum = computed(() => store.game?.auction ? (store.game.auction.currentBid ? Math.round((store.game.auction.currentBid + .1) * 10) / 10 : store.game.auction.minimumBid) : .5);
+const auctionMinimum = computed(() => store.game?.auction ? (store.game.auction.currentBid ? store.game.auction.currentBid + 1 : store.game.auction.minimumBid) : 1);
 const auctionReferenceAmount = computed(() => store.game?.auction ? store.game.auction.currentBid || store.game.auction.minimumBid : 0);
-const recommendedBid = computed(() => store.game?.auction?.currentBid ? Math.round((store.game.auction.currentBid + 1) * 10) / 10 : auctionMinimum.value);
-const quickBidAmounts = computed(() => [1, 3, 5].map((increment) => Math.round((auctionReferenceAmount.value + increment) * 10) / 10));
+const recommendedBid = computed(() => store.game?.auction?.currentBid ? store.game.auction.currentBid + 1 : auctionMinimum.value);
+const quickBidAmounts = computed(() => [1, 3, 5].map((increment) => auctionReferenceAmount.value + increment));
 const auctionDuration = computed(() => store.game?.auction?.currentBid ? AUCTION_BID_GRACE_MS : AUCTION_INITIAL_DURATION_MS);
+const auctionResults = computed(() => {
+  const game = store.game;
+  if (!game || game.phase !== "WAITING_FOR_END_TURN" || game.auction) return [];
+  return game.recentEvents.filter((event) =>
+    ["auction_won", "auction_passed"].includes(event.type) && event.data?.auctionTurnNumber === game.turnNumber && typeof event.data?.lotLabel === "string"
+  );
+});
 const leverCards = computed(() => LEVER_CARDS.filter((card) => store.player?.leverIds.includes(card.id)));
 const pendingLeverCard = computed(() => LEVER_CARDS.find((card) => card.id === store.player?.pendingLever?.leverId) ?? null);
 const tradeTargets = computed(() => store.game?.players.filter((player) => player.id !== me.value?.id && !player.bankrupt && !player.mergedIntoId) ?? []);
@@ -187,6 +200,15 @@ const mobileTurnNotice = computed<MobileToastNotice | null>(() => {
 watch(() => store.game?.auction?.mode === "selection" ? `${store.game.turnNumber}:${store.game.auction.sellerId}:${store.game.landedSpaceId}` : null, () => { auctionSelection.value = []; });
 watch(auctionMinimum, (minimum) => { bidAmount.value = minimum; }, { immediate: true });
 watch(() => store.game?.pendingPurchase ? `${store.game.turnNumber}:${store.game.landedSpaceId}` : null, () => { purchaseSelection.value = []; });
+watch(() => store.game?.auction?.mode === "bidding" ? `${store.game.turnNumber}:${store.game.auction.currentLotIndex}` : null, () => { auctionPassPending.value = false; });
+watch(() => me.value?.capital, (capital, previousCapital) => {
+  const amount = resolveCapitalGain(previousCapital, capital);
+  if (amount == null) return;
+  capitalGain.value = { key: ++capitalGainSequence, amount };
+  window.clearTimeout(capitalGainTimer);
+  capitalGainTimer = window.setTimeout(() => { capitalGain.value = null; }, 1900);
+});
+onBeforeUnmount(() => window.clearTimeout(capitalGainTimer));
 async function run(action: () => Promise<unknown>) {
   if (mobilePreview) {
     store.error = "Aperçu solo : les commandes réseau sont désactivées, mais la carte et le portefeuille restent interactifs.";
@@ -215,12 +237,17 @@ function resetRequestedResource() {
   requestedResourceId.value = tradeMode.value === "purchase" || tradeMode.value === "exchange" ? targetResources.value[0]?.id ?? "" : "";
 }
 async function submitTrade() {
-  await run(() => store.proposeTrade({ targetId: tradeTargetId.value, kind: tradeMode.value === "alliance" ? "alliance" : "trade", offeredResourceId: tradeMode.value === "alliance" ? null : offeredResourceId.value || null, requestedResourceId: tradeMode.value === "alliance" ? null : requestedResourceId.value || null, offeredCredits: tradeMode.value === "alliance" ? 0 : Number(offeredCredits.value), requestedCredits: tradeMode.value === "alliance" ? 0 : Number(requestedCredits.value) }));
+  await run(() => store.proposeTrade({ targetId: tradeTargetId.value, kind: tradeMode.value === "alliance" ? "alliance" : "trade", offeredResourceId: tradeMode.value === "alliance" ? null : offeredResourceId.value || null, requestedResourceId: tradeMode.value === "alliance" ? null : requestedResourceId.value || null, offeredCredits: tradeMode.value === "alliance" ? 0 : Math.round(Number(offeredCredits.value)), requestedCredits: tradeMode.value === "alliance" ? 0 : Math.round(Number(requestedCredits.value)) }));
   if (!store.error) tradeOpen.value = false;
 }
-function placeCurrentBid() { return store.bid(Math.max(auctionMinimum.value, Number(bidAmount.value))); }
+function placeCurrentBid() { return store.bid(Math.max(auctionMinimum.value, Math.round(Number(bidAmount.value)))); }
 function placeBid(amount: number) { return store.bid(amount); }
 function selectStartingShip(shipId: RaceShipId) { return run(() => store.selectStartingShip(shipId)); }
+async function passCurrentAuction() {
+  auctionPassPending.value = true;
+  await run(store.passBid);
+  if (allowed("BID")) auctionPassPending.value = false;
+}
 async function shareInvitation() {
   const url = store.game?.joinUrls[0] ?? window.location.href;
   const data = { title: "Rejoindre Richesses de l’espace", text: `Rejoins l’expédition ${code}`, url };
@@ -241,7 +268,7 @@ function goHome() { void router.push("/"); }
     <header class="phone-header">
       <div class="brand compact"><span class="brand-mark"><GameIcon name="reward" /></span><span>RICHESSES DE L’ESPACE</span></div>
       <div class="phone-tools">
-        <div v-if="store.player && mobileOnly && !['LOBBY', 'SHIP_SELECTION', 'SHIP_RACE'].includes(store.game?.phase ?? '')" class="phone-header__capital" role="status" aria-live="polite" :aria-label="`Capital disponible : ${store.me?.capital ?? 0} crédits`"><HandCoins :size="17" aria-hidden="true" /><strong>{{ store.me?.capital ?? 0 }}</strong><small>cr.</small></div>
+        <div v-if="store.player && mobileOnly && !['LOBBY', 'SHIP_SELECTION', 'SHIP_RACE'].includes(store.game?.phase ?? '')" class="phone-header__capital" role="status" aria-live="polite" :aria-label="`Capital disponible : ${store.me?.capital ?? 0} crédits`"><HandCoins :size="17" aria-hidden="true" /><strong>{{ store.me?.capital ?? 0 }}</strong><small>cr.</small><CapitalGainBurst v-if="capitalGain" :key="capitalGain.key" :amount="capitalGain.amount" /></div>
         <button v-if="store.player && mobileOnly" type="button" class="phone-resource-button" @click="openPortfolio" aria-haspopup="dialog"><PackageOpen :size="18" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
         <details v-if="isPhoneHost && store.game?.phase !== 'LOBBY'" class="mobile-host-menu">
@@ -325,7 +352,7 @@ function goHome() { void router.push("/"); }
       <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly }">
         <DiceAnimation v-if="store.diceAnimation && store.diceAnimation.playerId === me.id" class="dice-animation-phone" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" compact />
         <Transition name="event"><div v-if="personalMoneyNotice" class="personal-money-notice">{{ personalMoneyNotice }}</div></Transition>
-        <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b></div></div>
+        <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b><CapitalGainBurst v-if="capitalGain && !mobileOnly" :key="capitalGain.key" :amount="capitalGain.amount" /></div></div>
         <BotThinkingIndicator v-if="botThinkingPlayer" :player-name="botThinkingPlayer.name" :profile="botThinkingPlayer.botProfile!" :phase="store.game.phase" :revision="store.game.revision" />
         <section v-if="mobileOnly" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">
           <MobileRouteMap :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :current-player-id="me.id" :turn-number="store.game.turnNumber" :ownership="store.game.ownership" :visual-positions="store.visualPlayerPositions" />
@@ -368,16 +395,29 @@ function goHome() { void router.push("/"); }
             <p class="auction-seller">{{ store.game.auction.bankSale ? `Concessions de ${auctionSeller?.name} remises aux registres` : `Vendeur : ${auctionSeller?.name}` }} · prix initial à 50 %</p>
             <div class="auction-current"><span>Meilleure offre</span><b>{{ store.game.auction.currentBid || store.game.auction.minimumBid }}</b><small>{{ store.game.players.find(player => player.id === store.game?.auction?.leaderId)?.name ?? 'Prix de départ' }}</small></div>
             <AuctionCountdown :deadline="store.game.auction.deadline" :duration="auctionDuration" />
-            <div v-if="allowed('BID')" class="bid-controls">
-              <div class="action-row bid-controls__primary"><button type="button" class="secondary-button" :disabled="store.pending" @click="run(store.passBid)">Passer</button><button type="button" class="primary-button" :disabled="store.pending || me.capital < recommendedBid" @click="run(() => placeBid(recommendedBid))">Enchérir à {{ recommendedBid }}</button></div>
-              <div class="quick-bids" aria-label="Enchères rapides"><button v-for="(amount, index) in quickBidAmounts" :key="amount" type="button" :disabled="store.pending || me.capital < amount" @click="run(() => placeBid(amount))">+{{ [1, 3, 5][index] }} <small>{{ amount }} cr.</small></button></div>
-              <details class="custom-bid"><summary>Autre montant</summary><label>Votre offre<input v-model.number="bidAmount" type="number" inputmode="decimal" step="0.1" :min="auctionMinimum" :max="me.capital" /></label><button type="button" class="secondary-button wide-button" :disabled="store.pending || me.capital < auctionMinimum" @click="run(placeCurrentBid)">Valider {{ Math.max(auctionMinimum, Number(bidAmount)) }} crédits</button></details>
+            <div v-if="allowed('BID')" class="bid-controls" :class="{ 'bid-controls--locked': auctionPassPending }" :aria-busy="auctionPassPending">
+              <div class="action-row bid-controls__primary"><button type="button" class="secondary-button" :disabled="store.pending || auctionPassPending" @click="passCurrentAuction">{{ auctionPassPending ? 'Retrait…' : 'Passer' }}</button><button type="button" class="primary-button" :disabled="store.pending || auctionPassPending || me.capital < recommendedBid" @click="run(() => placeBid(recommendedBid))">Enchérir à {{ recommendedBid }}</button></div>
+              <div class="quick-bids" aria-label="Enchères rapides"><button v-for="(amount, index) in quickBidAmounts" :key="amount" type="button" :disabled="store.pending || auctionPassPending || me.capital < amount" @click="run(() => placeBid(amount))">+{{ [1, 3, 5][index] }} <small>{{ amount }} cr.</small></button></div>
+              <details class="custom-bid"><summary>Autre montant</summary><label>Votre offre<input v-model.number="bidAmount" type="number" inputmode="numeric" step="1" :min="auctionMinimum" :max="me.capital" :disabled="auctionPassPending" /></label><button type="button" class="secondary-button wide-button" :disabled="store.pending || auctionPassPending || me.capital < auctionMinimum" @click="run(placeCurrentBid)">Valider {{ Math.max(auctionMinimum, Math.round(Number(bidAmount))) }} crédits</button></details>
               <p>Fenêtre initiale de 7 secondes. Une offre tardive garantit 4 secondes pour réagir, sans relancer tout le délai.</p>
             </div>
             <p v-else class="waiting-copy">{{ store.game.auction.sellerId === me.id ? 'Vous êtes le vendeur et recevrez le prix final.' : store.game.auction.leaderId === me.id ? 'Votre offre est en tête.' : 'Vous avez quitté cet appel d’offres.' }}</p>
           </template>
         </div>
         <div v-else-if="payment && me.id === payment.recipientId && !mobileOnly" class="payment-receiver-state"><AssetCard v-if="landedAsset" :asset-id="landedAsset.id" :owner="me.name" compact /><div class="state-message"><span class="waiting-pulse" /><p class="eyebrow">Droit attendu</p><h2>{{ paymentPayer?.name }} vous doit {{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }}.</h2><p>Vous serez crédité dès que le transfert sera confirmé sur son téléphone.</p></div></div>
+        <div v-else-if="auctionResults.length" class="auction-result-phone mobile-map-overlay" role="status" aria-live="polite">
+          <p class="eyebrow">Marché orbital · vente terminée</p>
+          <h2>Voici qui remporte quoi.</h2>
+          <div class="auction-result-list">
+            <article v-for="(result, index) in auctionResults" :key="`${result.id}-${index}`">
+              <span>Lot {{ index + 1 }}</span><b>{{ result.data?.lotLabel }}</b>
+              <p v-if="result.type === 'auction_won'"><strong>{{ store.game.players.find(player => player.id === result.data?.buyerId)?.name }}</strong> remporte ce lot pour <em>{{ result.data?.amount }} crédits</em>.</p>
+              <p v-else>Sans enchérisseur, <strong>la Banque interstellaire</strong> reprend ce lot pour <em>{{ result.data?.amount }} crédits</em>.</p>
+            </article>
+          </div>
+          <button v-if="allowed('END_TURN')" class="primary-button wide-button" :disabled="store.pending" @click="run(store.endTurn)">Continuer · terminer le tour</button>
+          <p v-else class="waiting-copy">Vente enregistrée. {{ store.activePlayer?.name }} doit maintenant terminer son tour.</p>
+        </div>
         <div v-else-if="pendingLeverCard && (allowed('BUY_LEVER') || allowed('PASS_LEVER'))" class="lever-purchase-action mobile-map-overlay"><p class="eyebrow">Station technologique</p><div class="joker-card"><span>TECHNOLOGIE</span><h2>{{ pendingLeverCard.title }}</h2><p>{{ pendingLeverCard.description }}</p><b>{{ store.player?.pendingLever?.price }} crédits</b></div><div class="action-row"><button class="secondary-button" :disabled="store.pending" @click="run(store.passLever)">Passer</button><button class="primary-button" :disabled="store.pending || me.capital < (store.player?.pendingLever?.price ?? 0)" @click="run(store.buyLever)">Acquérir</button></div></div>
         <div v-else-if="!mobileOnly && !allowed('ROLL_DICE') && !allowed('BUY_ASSET') && !allowed('PASS_ASSET') && !allowed('PAY_RETURNS') && !allowed('END_TURN')" class="spectator-state"><div class="state-message"><span class="waiting-pulse" /><h2>Tour de {{ store.activePlayer?.name }}</h2><p>Suivez les mouvements sur l’écran commun.</p></div><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /></div>
         <div v-else-if="allowed('ROLL_DICE')" class="primary-action action-card action-card--roll mobile-map-overlay"><p class="eyebrow">À vous de jouer</p><h1>Faites avancer l’expédition.</h1><button class="dice-button" :disabled="store.pending" @click="run(store.roll)"><Dices :size="28" aria-hidden="true" />Lancer les dés</button></div>
@@ -442,8 +482,8 @@ function goHome() { void router.push("/"); }
             <p class="trade-rule-note">{{ tradeMode === 'alliance' ? 'Chaque associé paie à la Banque interstellaire la moitié du prix d’achat cumulé de toutes les concessions. Le pion du portefeuille le plus précieux devient le pion pilote.' : 'Toutes les concessions de la ressource choisie sont incluses dans l’accord, quel que soit leur monde d’origine.' }}</p>
             <label>Partenaire<select v-model="tradeTargetId" @change="resetRequestedResource"><option v-for="player in tradeTargets" :key="player.id" :value="player.id">{{ player.name }}</option></select></label>
             <div v-if="tradeMode !== 'alliance'" class="trade-form-grid">
-              <fieldset><legend>Vous cédez</legend><label v-if="tradeMode !== 'purchase'">Portefeuille de ressource<select v-model="offeredResourceId" required><option v-for="resource in myResources" :key="resource.id" :value="resource.id">{{ resourceGroupLabel(me, resource.id) }}</option></select></label><p v-else class="trade-empty-side">Aucune concession</p><label v-if="tradeMode !== 'sale'">Crédits<input v-model.number="offeredCredits" type="number" min="0" step="0.1" :max="me.capital" /></label></fieldset>
-              <fieldset><legend>{{ tradeTarget?.name }} cède</legend><label v-if="tradeMode !== 'sale'">Portefeuille de ressource<select v-model="requestedResourceId" required><option v-for="resource in targetResources" :key="resource.id" :value="resource.id">{{ resourceGroupLabel(tradeTarget, resource.id) }}</option></select></label><p v-else class="trade-empty-side">Aucune concession</p><label v-if="tradeMode !== 'purchase'">Crédits<input v-model.number="requestedCredits" type="number" :min="tradeMode === 'sale' ? 0.1 : 0" step="0.1" :max="tradeTarget?.capital ?? 0" :required="tradeMode === 'sale'" /></label></fieldset>
+              <fieldset><legend>Vous cédez</legend><label v-if="tradeMode !== 'purchase'">Portefeuille de ressource<select v-model="offeredResourceId" required><option v-for="resource in myResources" :key="resource.id" :value="resource.id">{{ resourceGroupLabel(me, resource.id) }}</option></select></label><p v-else class="trade-empty-side">Aucune concession</p><label v-if="tradeMode !== 'sale'">Crédits<input v-model.number="offeredCredits" type="number" inputmode="numeric" min="0" step="1" :max="me.capital" /></label></fieldset>
+              <fieldset><legend>{{ tradeTarget?.name }} cède</legend><label v-if="tradeMode !== 'sale'">Portefeuille de ressource<select v-model="requestedResourceId" required><option v-for="resource in targetResources" :key="resource.id" :value="resource.id">{{ resourceGroupLabel(tradeTarget, resource.id) }}</option></select></label><p v-else class="trade-empty-side">Aucune concession</p><label v-if="tradeMode !== 'purchase'">Crédits<input v-model.number="requestedCredits" type="number" inputmode="numeric" :min="tradeMode === 'sale' ? 1 : 0" step="1" :max="tradeTarget?.capital ?? 0" :required="tradeMode === 'sale'" /></label></fieldset>
             </div>
             <button class="primary-button wide-button" :disabled="store.pending">{{ tradeMode === 'alliance' ? 'Proposer le consortium' : 'Envoyer l’offre' }}</button>
           </form>

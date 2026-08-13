@@ -2,7 +2,7 @@
 import { Coins } from "@lucide/vue";
 
 const props = withDefaults(defineProps<{ amount: number; variant?: "phone" | "tv" }>(), { variant: "phone" });
-const formattedAmount = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 }).format(props.amount);
+const formattedAmount = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 0 }).format(Math.round(props.amount));
 </script>
 
 <template>

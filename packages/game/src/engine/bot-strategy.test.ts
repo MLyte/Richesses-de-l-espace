@@ -139,12 +139,12 @@ describe("bot strategy", () => {
       ...base,
       phase: "AUCTION",
       players: base.players.map((player) => player.id === "bot" ? { ...player, capital: 100 } : player),
-      auction: { mode: "bidding", sellerId: "human", bankSale: false, targetCount: 1, redDie: 1, assetId: lot[0]!, selectedAssetIds: lot, lots: [lot], currentLotIndex: 0, minimumBid: .5, currentBid: 0, leaderId: null, eligiblePlayerIds: ["bot"], passedPlayerIds: [], deadline: Date.now() + 10_000 }
+      auction: { mode: "bidding", sellerId: "human", bankSale: false, targetCount: 1, redDie: 1, assetId: lot[0]!, selectedAssetIds: lot, lots: [lot], currentLotIndex: 0, minimumBid: 1, currentBid: 0, leaderId: null, eligiblePlayerIds: ["bot"], passedPlayerIds: [], deadline: Date.now() + 10_000 }
     };
     const affordable = decideBotAction(observeGameForBot(state, "bot"), "bot", "BALANCED");
     const expensiveState = { ...state, auction: { ...state.auction!, currentBid: 99 } };
 
-    expect(affordable).toMatchObject({ type: "BID", amount: .5 });
+    expect(affordable).toMatchObject({ type: "BID", amount: 1 });
     expect(decideBotAction(observeGameForBot(expensiveState, "bot"), "bot", "BALANCED")?.type).toBe("PASS_BID");
   });
 
