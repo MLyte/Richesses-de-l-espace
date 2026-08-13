@@ -157,7 +157,7 @@ async function toggleFullscreen() {
           <div v-if="store.game.phase !== 'PAUSED'" class="turn-banner" data-tv-zone="turn">
             <template v-if="active"><i :style="{ background: active.color }" /><span>Tour de</span><b>{{ active.name }}</b><small v-if="botThinkingPlayer"><Bot :size="14" aria-hidden="true" /> réfléchit…</small></template>
           </div>
-          <WorldBoard :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :visual-positions="store.visualPlayerPositions" />
+          <WorldBoard :board="store.game.board" :players="store.game.players" :ownership="store.game.ownership" :active-player-id="store.game.activePlayerId" :visual-positions="store.visualPlayerPositions" />
           <PaymentTransfer v-if="store.game.pendingPayment && paymentPayer && paymentRecipient" :payer="paymentPayer" :recipient="paymentRecipient" :amount="store.game.pendingPayment.amount" />
           <DiceAnimation v-if="store.diceAnimation" class="dice-animation-tv" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" />
           <div v-if="store.game.phase === 'PAUSED'" class="pause-overlay">

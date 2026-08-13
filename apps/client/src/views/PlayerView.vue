@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
@@ -15,6 +15,8 @@ import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
 import MobileRouteMap from "../components/MobileRouteMap.vue";
+import MobileToastQueue from "../components/MobileToastQueue.vue";
+import type { MobileToastNotice } from "../components/mobile-toast-queue";
 import { ArrowLeftRight, Bot, Dices, HandCoins, Menu, PackageOpen, Pause, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
 const route = useRoute();
@@ -51,8 +53,6 @@ const purchaseSelection = ref<string[]>([]);
 const portfolioOpen = ref(false);
 const portfolioDialog = ref<HTMLElement | null>(null);
 const portfolioPage = ref(0);
-const turnToast = ref<string | null>(null);
-let turnToastTimer = 0;
 const { onKeydown: onTradeKeydown } = useAccessibleModal(tradeOpen, tradeDialog, () => { tradeOpen.value = false; });
 const { onKeydown: onPortfolioKeydown } = useAccessibleModal(portfolioOpen, portfolioDialog, () => { portfolioOpen.value = false; });
 
@@ -139,22 +139,22 @@ const personalMoneyNotice = computed(() => {
   if (!event || !me.value || !["payment_due", "payment_completed"].includes(event.type)) return null;
   return event.data?.payerId === me.value.id || event.data?.recipientId === me.value.id ? event.message : null;
 });
-const mobileLiveNotice = computed(() => store.animatedEvent?.message ?? turnToast.value);
+const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"]);
+const mobileEventNotice = computed<MobileToastNotice | null>(() => {
+  const event = store.animatedEvent;
+  if (!event || quietMobileEventTypes.has(event.type)) return null;
+  return { key: `event:${event.id}`, message: event.message, kind: "event" };
+});
+const mobileTurnNotice = computed<MobileToastNotice | null>(() => {
+  if (!store.game || !store.activePlayer) return null;
+  return {
+    key: `turn:${store.game.roundNumber}:${store.game.turnNumber}:${store.activePlayer.id}`,
+    message: isMyTurn.value ? "À vous de jouer" : `Tour de ${store.activePlayer.name}`,
+    kind: "turn"
+  };
+});
 watch(() => store.game?.auction?.mode === "selection" ? `${store.game.turnNumber}:${store.game.auction.sellerId}:${store.game.landedSpaceId}` : null, () => { auctionSelection.value = []; });
 watch(() => store.game?.pendingPurchase ? `${store.game.turnNumber}:${store.game.landedSpaceId}` : null, () => { purchaseSelection.value = []; });
-watch(() => store.game ? `${store.game.turnNumber}:${store.game.activePlayerId}:${store.game.phase}:${store.player?.allowedActions.join("|") ?? ""}` : null, () => {
-  window.clearTimeout(turnToastTimer);
-  if (!mobileOnly.value || !store.activePlayer) { turnToast.value = null; return; }
-  turnToast.value = isMyTurn.value ? "À vous de jouer" : `Tour de ${store.activePlayer.name}`;
-  turnToastTimer = window.setTimeout(() => { turnToast.value = null; }, 2800);
-}, { immediate: true });
-watch(() => store.animatedEvent?.id ?? null, (eventId) => {
-  if (!eventId) return;
-  window.clearTimeout(turnToastTimer);
-  turnToast.value = null;
-});
-onBeforeUnmount(() => window.clearTimeout(turnToastTimer));
-
 async function run(action: () => Promise<unknown>) {
   if (mobilePreview) {
     store.error = "Aperçu solo : les commandes réseau sont désactivées, mais la carte et le portefeuille restent interactifs.";
@@ -223,7 +223,7 @@ async function finishAsHost() {
       </div>
     </header>
     <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. Tour de {{ store.activePlayer?.name }}. {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
-    <Transition name="event"><div v-if="mobileOnly && mobileLiveNotice" :key="mobileLiveNotice" class="mobile-live-toast" role="status" aria-live="polite">{{ mobileLiveNotice }}</div></Transition>
+    <MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />
 
     <section v-if="!store.player" class="join-screen">
       <p class="eyebrow">Expédition {{ code }}</p>
@@ -273,6 +273,12 @@ async function finishAsHost() {
       <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly }">
         <DiceAnimation v-if="store.diceAnimation && store.diceAnimation.playerId === me.id" class="dice-animation-phone" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" compact />
         <Transition name="event"><div v-if="personalMoneyNotice" class="personal-money-notice">{{ personalMoneyNotice }}</div></Transition>
+        <div v-if="mobileOnly" class="player-credit-float" role="status" aria-live="polite" :aria-label="`Capital disponible : ${me.capital} crédits`">
+          <HandCoins :size="19" aria-hidden="true" />
+          <span>Capital</span>
+          <strong>{{ me.capital }}</strong>
+          <small>crédits</small>
+        </div>
         <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b></div></div>
         <div v-if="botThinkingPlayer" class="bot-thinking" role="status"><Bot :size="18" aria-hidden="true" /><span><strong>{{ botThinkingPlayer.name }}</strong> réfléchit…</span></div>
         <section v-if="mobileOnly" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const playerView = readFileSync(fileURLToPath(new URL("./PlayerView.vue", import.meta.url)), "utf8");
 const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.meta.url)), "utf8");
 const mobileRoute = readFileSync(fileURLToPath(new URL("../components/MobileRouteMap.vue", import.meta.url)), "utf8");
+const mobileToasts = readFileSync(fileURLToPath(new URL("../components/MobileToastQueue.vue", import.meta.url)), "utf8");
 
 describe("mobile-only map-first experience", () => {
   it("reuses the existing identity screen before a first solo game", () => {
@@ -36,6 +37,15 @@ describe("mobile-only map-first experience", () => {
     expect(theme).toMatch(/\.mobile-map-panel\s*\{[^}]*bottom:\s*env\(safe-area-inset-bottom\)/s);
   });
 
+  it("keeps the player's credits floating above the main map", () => {
+    expect(playerView).toContain('class="player-credit-float" role="status" aria-live="polite"');
+    expect(playerView).toContain('`Capital disponible : ${me.capital} crédits`');
+    expect(playerView).toContain('<strong>{{ me.capital }}</strong>');
+    expect(theme).toMatch(/\.player-credit-float\s*\{[^}]*position:\s*fixed[^}]*z-index:\s*95[^}]*pointer-events:\s*none/s);
+    expect(theme).toMatch(/\.mobile-map-panel--route\s*\{[^}]*padding-top:\s*4\.25rem/s);
+    expect(theme).toContain(':not(.dice-animation-phone):not(.player-credit-float)');
+  });
+
   it("renders roll and end-turn as contextual bottom actions", () => {
     expect(playerView).toContain('action-card--roll mobile-map-overlay');
     expect(playerView).toContain('end-turn-action mobile-map-overlay');
@@ -43,12 +53,15 @@ describe("mobile-only map-first experience", () => {
     expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll > :not\(\.dice-button\)[\s\S]*display:\s*none/s);
   });
 
-  it("shows turn and event information as ephemeral live notifications", () => {
-    expect(playerView).toContain('const mobileLiveNotice = computed(() => store.animatedEvent?.message ?? turnToast.value)');
-    expect(playerView).toContain('class="mobile-live-toast" role="status" aria-live="polite"');
-    expect(playerView).toContain('turnToastTimer = window.setTimeout(() => { turnToast.value = null; }, 2800)');
-    expect(playerView).toContain('watch(() => store.animatedEvent?.id ?? null');
-    expect(theme).toMatch(/\.mobile-live-toast\s*\{[^}]*pointer-events:\s*none/s);
+  it("queues readable turn and event notifications without slowing game animations", () => {
+    expect(playerView).toContain('<MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />');
+    expect(playerView).toContain('const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"])');
+    expect(mobileToasts).toContain('createMobileToastQueue');
+    expect(mobileToasts).toContain('class="mobile-live-toast" role="status" aria-live="polite" aria-atomic="true"');
+    expect(mobileToasts).toContain("+{{ state.pendingCount }}");
+    expect(mobileToasts).toContain("@click=\"queue.dismiss\"");
+    expect(mobileToasts).toMatch(/\.mobile-live-toast button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.player-credit-float\) > \.mobile-live-toast\s*\{[^}]*top:\s*calc\(132px/s);
   });
 
   it("keeps errors visible without reserving a removed navigation dock", () => {
