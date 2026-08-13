@@ -129,8 +129,21 @@ const turnTravelVisible = computed(() => {
     || (visualPosition !== undefined && visualPosition !== activePlayer.position);
 });
 const canHostStart = computed(() => Boolean(isPhoneHost.value && store.game && store.game.players.length >= 2 && store.game.players.every((player) => player.connected && player.ready)));
-const hasPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || allowed("END_TURN"));
 const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")));
+const hasThumbAction = computed(() => [
+  "ROLL_DICE",
+  "BUY_ASSET",
+  "PASS_ASSET",
+  "PAY_RETURNS",
+  "DECLARE_BANKRUPTCY",
+  "END_TURN",
+  "BUY_LEVER",
+  "PASS_LEVER",
+  "ACCEPT_TRADE",
+  "REJECT_TRADE",
+  "SELECT_AUCTION_ASSETS",
+  "BID"
+].some(allowed) || Boolean(isPhoneHost.value && (store.game?.phase === "PAUSED" || store.game?.phase === "FINISHED")));
 const currentTrade = computed(() => store.game?.tradeOffer ?? null);
 const tradeProposer = computed(() => store.game?.players.find((player) => player.id === currentTrade.value?.proposerId) ?? null);
 const tradeTargetPlayer = computed(() => store.game?.players.find((player) => player.id === currentTrade.value?.targetId) ?? null);
@@ -227,9 +240,6 @@ function goHome() { void router.push("/"); }
     <header class="phone-header">
       <div class="brand compact"><span class="brand-mark"><GameIcon name="reward" /></span><span>RICHESSES DE L’ESPACE</span></div>
       <div class="phone-tools">
-        <button v-if="mobileOnly && store.game?.phase !== 'LOBBY' && me" type="button" class="phone-resource-button" @click="openPortfolio">
-          <PackageOpen :size="19" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b>
-        </button>
         <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
         <details v-if="isPhoneHost && store.game?.phase !== 'LOBBY'" class="mobile-host-menu">
           <summary aria-label="Commandes de l’hôte"><Menu :size="18" aria-hidden="true" /></summary>
@@ -403,14 +413,13 @@ function goHome() { void router.push("/"); }
 
         <div v-if="lastCard" class="drawn-card"><p class="eyebrow">{{ store.game.lastCard?.kind === 'trend' ? 'Événement révélé' : 'Technologie obtenue' }}</p><h3>{{ lastCard.title }}</h3><p>{{ lastCard.description }}</p></div>
         <section v-if="leverCards.length && !mobileOnly" class="lever-hand"><div class="section-title"><span>Vos technologies</span><b>{{ leverCards.length }}</b></div><article v-for="lever in leverCards" :key="lever.id"><div><strong>{{ lever.title }}</strong><p>{{ lever.description }}</p></div><button :disabled="!canUseLever(lever.kind) || store.pending" @click="run(() => store.useLever(lever.id))">Activer</button></article></section>
-        <button v-if="!mobileOnly" class="portfolio-fab" :class="{ 'portfolio-fab--with-trades': allowed('PROPOSE_TRADE') && tradeTargets.length, 'portfolio-fab--with-primary': hasPrimaryTurnAction }" type="button" @click="openPortfolio"><PackageOpen :size="20" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
+        <button class="portfolio-fab" :class="{ 'portfolio-fab--with-trades': !mobileOnly && allowed('PROPOSE_TRADE') && tradeTargets.length, 'portfolio-fab--with-primary': hasThumbAction }" type="button" @click="openPortfolio"><PackageOpen :size="20" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <Teleport to="body">
           <div v-if="portfolioOpen" class="portfolio-backdrop" @click.self="portfolioOpen = false">
             <section ref="portfolioDialog" class="portfolio-drawer" role="dialog" aria-modal="true" aria-labelledby="portfolio-title" tabindex="-1" @keydown="onPortfolioKeydown">
               <header><div class="section-title section-title--portfolio"><span>Portefeuille</span><b id="portfolio-title">Ressources indépendantes</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }} · {{ me.capital }}&nbsp;crédits</small></div></header>
               <div v-if="!myAssets.length" class="empty-portfolio">Vos futures parts apparaîtront ici.</div>
               <div v-else class="resource-score-list resource-score-list--drawer"><ResourceInfluenceScore v-for="resource in visibleResources" :key="resource.id" :resource-id="resource.id" :asset-ids="me.assetIds" /></div>
-              <footer v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></footer>
               <section v-if="mobileOnly && leverCards.length" class="lever-hand lever-hand--portfolio"><div class="section-title"><span>Vos technologies</span><b>{{ leverCards.length }}</b></div><article v-for="lever in leverCards" :key="lever.id"><div><strong>{{ lever.title }}</strong><p>{{ lever.description }}</p></div><button :disabled="!canUseLever(lever.kind) || store.pending" @click="run(() => store.useLever(lever.id))">Activer</button></article></section>
               <aside v-if="mobileOnly && allowed('PROPOSE_TRADE') && tradeTargets.length" class="portfolio-actions" aria-label="Transferts de concessions">
                 <span>Transactions</span>
@@ -421,7 +430,10 @@ function goHome() { void router.push("/"); }
                   <button v-if="!me.allianceId" type="button" @click="openTrade('alliance')"><Users :size="20" aria-hidden="true" /><span>S’allier</span></button>
                 </div>
               </aside>
-              <button class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
+              <footer class="portfolio-drawer__footer">
+                <div v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></div>
+                <button class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
+              </footer>
             </section>
           </div>
         </Teleport>
@@ -482,7 +494,6 @@ function goHome() { void router.push("/"); }
 .phone-lobby > .primary-button { position: static; right: auto; left: auto; width: 100%; max-width: none; min-height: 58px; margin-top: .8rem; box-shadow: 0 4px 0 rgba(0, 0, 0, .24); }
 .phone-lobby > .waiting-copy { margin: .7rem 0 1rem; line-height: 1.4; }
 @media (max-width: 760px) {
-  .controller-screen:not(.controller-screen--mobile-only) > .portfolio-fab { position: static; width: max-content; margin: .75rem 0 1rem; }
   .join-form > .primary-button,
   .trade-form > .wide-button { position: static; right: auto; bottom: auto; left: auto; width: 100%; max-width: none; margin-top: .8rem; box-shadow: none; }
   .trade-backdrop { place-items: stretch center; padding: max(.5rem, var(--safe-top)) max(.5rem, var(--safe-right)) max(.5rem, var(--safe-bottom)) max(.5rem, var(--safe-left)); }

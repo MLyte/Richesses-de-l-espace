@@ -346,31 +346,6 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   display: grid; flex: 0 0 40px; place-items: center; width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; aspect-ratio: 1; border-radius: 50%;
 }
 .phone-tools .help-trigger > span { display: none; }
-.phone-resource-button {
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  min-height: 44px;
-  padding: 0 .65rem;
-  color: #f3f8fc;
-  border: 1px solid #72a9c2;
-  border-radius: 999px;
-  background: #124a68;
-  font: inherit;
-  font-size: .8rem;
-  font-weight: 800;
-}
-.phone-resource-button b {
-  display: grid;
-  place-items: center;
-  min-width: 21px;
-  height: 21px;
-  padding: 0 .3rem;
-  color: #06111f;
-  border-radius: 999px;
-  background: #35d0e2;
-  font: 800 .7rem "IBM Plex Mono", monospace;
-}
 .player-credit-float {
   position: absolute;
   z-index: var(--layer-floating);
@@ -400,9 +375,11 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .symbol-picker button.selected { color: #06111f; border-color: #f2674a; background: #f2674a; }
 .pause-phone { margin-top: 1.6rem; padding-top: .5rem; }
 
-.portfolio-fab { position: fixed; z-index: var(--layer-floating); left: max(1rem, var(--safe-left)); bottom: calc(6.15rem + var(--safe-bottom)); display: inline-flex; align-items: center; gap: .45rem; min-height: 50px; padding: 0 .85rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #124a68; box-shadow: 0 10px 26px rgba(0, 0, 0, .36); font-weight: 800; }
+.portfolio-fab { position: fixed; z-index: var(--layer-floating); left: max(1rem, var(--safe-left)); bottom: calc(.75rem + var(--safe-bottom)); display: inline-flex; align-items: center; gap: .45rem; min-height: 50px; padding: 0 .85rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #124a68; box-shadow: 0 10px 26px rgba(0, 0, 0, .36); font-weight: 800; }
 .portfolio-fab b { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; color: #06111f; background: #35d0e2; font: 700 .7rem "IBM Plex Mono"; }
-.portfolio-fab--with-trades.portfolio-fab--with-primary { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
+.portfolio-fab--with-primary,
+.portfolio-fab--with-trades { bottom: calc(6.15rem + var(--safe-bottom)); }
+.portfolio-fab--with-trades.portfolio-fab--with-primary { bottom: calc(12.5rem + var(--safe-bottom)); }
 
 /* Le téléphone devient l'écran commun uniquement dans le mode MOBILE_ONLY. */
 .phone-shell:has(.controller-screen--mobile-only) > .error-toast {
@@ -491,9 +468,9 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   :root { --phone-header-height: 58px; }
 }
 .portfolio-backdrop { position: fixed; z-index: var(--layer-modal); inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .76); backdrop-filter: blur(8px); }
-.portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, auto) auto auto; gap: .8rem; width: min(100%, 520px); height: auto; max-height: calc(var(--app-viewport-height) - .35rem); margin: 0 auto; padding: 1rem 1rem calc(1rem + var(--safe-bottom)); color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow-x: hidden; overflow-y: auto; }
+.portfolio-drawer { display: grid; grid-template-rows: auto; gap: .8rem; width: min(100%, 520px); height: auto; max-height: calc(var(--app-viewport-height) - .35rem); margin: 0 auto; padding: 1rem 1rem 0; color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow-x: hidden; overflow-y: auto; }
 .portfolio-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
-.portfolio-close { display: inline-flex; align-items: center; justify-content: center; justify-self: end; gap: .35rem; min-width: 112px; min-height: 46px; padding: 0 .8rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #102a43; font-weight: 800; }
+.portfolio-close { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; gap: .35rem; padding: 0 .8rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #102a43; font-weight: 800; }
 .portfolio-drawer .section-title--portfolio { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: .2rem .55rem; }
 .portfolio-drawer .section-title--portfolio b { flex-basis: 100%; font-size: 1.05rem; }
 .portfolio-drawer .section-title--portfolio small { color: #c9e8f4; font: 700 .72rem "IBM Plex Mono"; }
@@ -513,6 +490,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .portfolio-pager span { color: #c9e8f4; font: 700 .75rem "IBM Plex Mono"; }
 .portfolio-pager button { min-height: 46px; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 10px; background: #153f5d; font-weight: 800; }
 .portfolio-pager button:last-child { background: #1d718d; }
+.portfolio-drawer__footer { position: sticky; z-index: 1; bottom: 0; display: grid; gap: .65rem; margin: 0 -1rem; padding: .7rem 1rem calc(.75rem + var(--safe-bottom)); border-top: 1px solid rgba(114, 169, 194, .45); background: rgba(7, 28, 48, .98); box-shadow: 0 -10px 24px rgba(0, 0, 0, .3); }
 .portfolio-actions { display: grid; gap: .55rem; padding-top: .75rem; border-top: 1px solid rgba(114, 169, 194, .45); }
 .portfolio-actions > span { color: #c9e8f4; font: 800 .75rem "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
 .portfolio-actions .title-actions__grid-four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; }
@@ -999,7 +977,6 @@ button:disabled {
   .phone-header .brand { font-size: .875rem; }
   .phone-shell:has(.controller-screen--mobile-only) .phone-header .brand { display: none; }
   .phone-shell:has(.controller-screen--mobile-only) .phone-tools { width: 100%; justify-content: flex-end; }
-  .phone-shell:has(.controller-screen--mobile-only) .phone-resource-button { margin-right: auto; }
   .controller-meta span,
   .eyebrow { font-size: .75rem; }
   .title-actions button { font-size: .8125rem; }
