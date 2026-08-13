@@ -148,32 +148,34 @@ Chaque emplacement économique original reçoit un équivalent spatial. Ses six 
 
 | Ressource de référence | Ressource spatiale | Famille visuelle |
 |---|---|---|
-| Aluminium | Régolithe aluminifère | Minéraux |
-| Blé | Cultures hydroponiques | Biosphères |
-| Bois | Fibres xylaires | Biosphères |
-| Cacao | Nutriments carbonés | Biosphères |
-| Café | Stimulants synthétiques | Biosphères |
-| Charbon | Carbone dense | Minéraux |
-| Cobalt | Cobalt stellaire | Minéraux |
-| Coton | Fibres polymères | Biosphères |
-| Cuivre | Cuivre orbital | Minéraux |
-| Éolien | Vents ioniques | Énergies |
-| Fer | Fer météoritique | Minéraux |
-| Gaz | Hélium-3 | Énergies |
-| Hydraulique | Glace d’eau | Volatils |
-| Laine | Biotextiles | Biosphères |
-| Maïs | Biomasse algale | Biosphères |
-| Or | Or cosmique | Minéraux |
-| Pétrole | Hydrocarbures de Titan | Volatils |
-| Plomb | Métaux lourds | Minéraux |
-| Riz | Protéines cellulaires | Biosphères |
-| Solaire | Flux photonique | Énergies |
-| Sucre | Glucose biologique | Biosphères |
-| Thé | Cultures aromatiques orbitales | Biosphères |
-| Tourisme | Routes d’exploration | Réseaux |
-| Uranium | Isotopes fissiles | Énergies |
+| Aluminium | Aluminium de régolithe | Minerais stellaires |
+| Blé | Cultures hydroponiques | Bioressources orbitales |
+| Bois | Biofibres orbitales | Bioressources orbitales |
+| Cacao | Bionutriments orbitaux | Bioressources orbitales |
+| Café | Biostimulants orbitaux | Bioressources orbitales |
+| Charbon | Carbone astéroïdal | Minerais stellaires |
+| Cobalt | Cobalt astéroïdal | Minerais stellaires |
+| Coton | Fibres biosynthétiques | Bioressources orbitales |
+| Cuivre | Cuivre orbital | Minerais stellaires |
+| Éolien | Courants ioniques | Énergies cosmiques |
+| Fer | Fer météorique | Minerais stellaires |
+| Gaz | Hélium-3 stellaire | Énergies cosmiques |
+| Hydraulique | Glace cométaire | Glaces et carburants cosmiques |
+| Laine | Textiles biosynthétiques | Bioressources orbitales |
+| Maïs | Algues orbitales | Bioressources orbitales |
+| Or | Or stellaire | Minerais stellaires |
+| Pétrole | Hydrocarbures planétaires | Glaces et carburants cosmiques |
+| Plomb | Plomb astéroïdal | Minerais stellaires |
+| Riz | Bioprotéines orbitales | Bioressources orbitales |
+| Solaire | Rayonnement stellaire | Énergies cosmiques |
+| Sucre | Biosucres orbitaux | Bioressources orbitales |
+| Thé | Aromates hydroponiques | Bioressources orbitales |
+| Tourisme | Corridors interstellaires | Exploration galactique |
+| Uranium | Isotopes fissiles cosmiques | Énergies cosmiques |
 
 Les familles servent uniquement à organiser l’interface. Elles ne possèdent aucun indice fluctuant, ne changent pas les prix et ne produisent aucun droit collectif.
+
+La nomenclature suit trois règles de lisibilité : chaque famille nomme une activité ou une matière identifiable, chaque ressource contient un marqueur qui suggère sa famille, et l’ensemble reste explicitement ancré dans l’exploitation spatiale, orbitale, stellaire ou galactique. Les identifiants techniques restent stables afin que ce renommage n’altère aucune règle économique.
 
 ## Règles fondamentales conservées
 
@@ -182,7 +184,7 @@ Les familles servent uniquement à organiser l’interface. Elles ne possèdent 
 Une case classique continue d’associer deux informations indépendantes :
 
 ```text
-Mars · Hélium-3
+Mars · Hélium-3 stellaire
   │        │
   │        └── ressource utilisée pour calculer les droits
   └── catalogue dans lequel acheter jusqu’à six concessions
@@ -211,10 +213,10 @@ Les pourcentages se cumulent exclusivement par ressource, sans tenir compte de l
 
 Exemple :
 
-- 15 % d’Hélium-3 sur la Lune ;
-- 10 % d’Hélium-3 sur Titan ;
-- 25 % d’Hélium-3 sur Proxima Centauri b ;
-- total : **50 % d’Hélium-3**.
+- 15 % d’Hélium-3 stellaire sur la Lune ;
+- 10 % d’Hélium-3 stellaire sur Titan ;
+- 25 % d’Hélium-3 stellaire sur Proxima Centauri b ;
+- total : **50 % d’Hélium-3 stellaire**.
 
 La planète, le système et le secteur restent des informations de collection et de navigation. Ils n’altèrent pas le pourcentage total.
 

@@ -12,7 +12,7 @@ Le nom est un nom de travail : une recherche de disponibilité et une revue juri
 - 14 Événements cosmiques, 13 Technologies, 2 dés et 12 équipages animaux ;
 - aucun indice fluctuant, aucune limite de rondes et aucune victoire au patrimoine.
 
-Les familles Minéraux, Biosphères, Énergies, Volatils et Réseaux organisent seulement l’interface. Elles ne modifient ni prix ni droits.
+Les familles Minerais stellaires, Bioressources orbitales, Énergies cosmiques, Glaces et carburants cosmiques et Exploration galactique organisent seulement l’interface. Elles ne modifient ni prix ni droits.
 
 ## Démarrage
 
