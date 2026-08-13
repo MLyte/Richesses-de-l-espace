@@ -12,13 +12,14 @@ describe("local solo welcome dialog", () => {
   it("does not force a timed reading delay", () => {
     expect(source).not.toContain("setInterval");
     expect(source).not.toContain(":disabled");
-    expect(source).toContain("Jouer contre Orion");
+    expect(source).toContain("Jouer contre le robot");
   });
 
   it("explains the playable solo mode", () => {
     expect(source).toContain("Votre identité, puis une vraie partie");
     expect(source).toContain("Choisissez votre pseudo, votre couleur et votre animal");
-    expect(source).toContain("Orion joue automatiquement");
+    expect(source).toContain("Le robot joue automatiquement");
+    expect(source).toContain("Son nom de constellation, sa couleur et son animal sont tirés au hasard");
     expect(source).toContain("Progression sauvegardée");
   });
 });

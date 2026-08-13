@@ -215,7 +215,7 @@ async function finishAsHost() {
             <span class="mobile-host-menu__label">Commandes de l’hôte</span>
             <button v-if="store.game?.phase === 'PAUSED'" type="button" @click="run(store.resumeGame)">Reprendre</button>
             <button v-else-if="store.game?.phase !== 'FINISHED'" type="button" @click="run(store.pause)">Mettre en pause</button>
-            <button v-if="store.game?.phase === 'FINISHED'" type="button" @click="run(store.restart)">{{ store.localGame ? 'Rejouer contre Orion' : 'Rejouer avec le groupe' }}</button>
+            <button v-if="store.game?.phase === 'FINISHED'" type="button" @click="run(store.restart)">{{ store.localGame ? 'Rejouer contre le robot' : 'Rejouer avec le groupe' }}</button>
             <button v-else type="button" class="danger" @click="finishAsHost">Terminer</button>
           </div>
         </details>

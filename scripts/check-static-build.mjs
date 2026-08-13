@@ -21,7 +21,7 @@ if (!scriptName || !styleName) throw new Error("Les fichiers JavaScript ou CSS c
 const script = await readFile(path.join(dist, "assets", scriptName), "utf8");
 const style = await readFile(path.join(dist, "assets", styleName), "utf8");
 if (!script.includes("Joueur contre ordinateur")) throw new Error("Le mode joueur contre ordinateur n’est pas présent dans le bundle.");
-if (!script.includes("Orion joue automatiquement")) throw new Error("La présentation du robot local est absente.");
+if (!script.includes("Le robot joue automatiquement")) throw new Error("La présentation du robot local est absente.");
 if (!script.includes("Votre pseudo")) throw new Error("Le formulaire d’identité du joueur est absent du bundle solo.");
 for (const obsoleteLabel of ["Démo UX", "Laboratoire UX statique", "Plusieurs situations sont disponibles"]) {
   if (script.includes(obsoleteLabel)) throw new Error(`L’ancien mode de démonstration est encore présent : ${obsoleteLabel}`);

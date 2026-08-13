@@ -25,7 +25,7 @@ async function createMobileGame(): Promise<void> {
   <main class="create-game">
     <div class="create-game__intro">
       <p class="eyebrow">{{ localGame ? 'Expédition solo' : 'Nouvelle expédition' }}</p>
-      <h1>{{ localGame ? 'Affrontez' : 'Préparez votre' }}<br /><em>{{ localGame ? 'Orion.' : 'expédition.' }}</em></h1>
+      <h1>{{ localGame ? 'Affrontez' : 'Préparez votre' }}<br /><em>{{ localGame ? 'le robot.' : 'expédition.' }}</em></h1>
       <p v-if="localGame">Jouez une partie complète contre un robot Équilibré. La partie est sauvegardée automatiquement dans ce navigateur.</p>
       <p v-else>Chaque consortium garde ses décisions sur son téléphone. Choisissez où projeter la carte et le journal de bord communs.</p>
     </div>
@@ -43,13 +43,13 @@ async function createMobileGame(): Promise<void> {
       <button type="button" class="mode-card mode-card--mobile" :disabled="store.pending" @click="createMobileGame">
         <span class="mode-card__icon"><Smartphone :size="42" aria-hidden="true" /></span>
         <span class="mode-card__tag">{{ localGame ? 'Joueur contre ordinateur' : mobileDevice ? 'Recommandé sur cet appareil' : 'Sans écran partagé' }}</span>
-        <strong>{{ localGame ? 'Duel contre Orion' : 'Flotte mobile' }}</strong>
+        <strong>{{ localGame ? 'Duel contre le robot' : 'Flotte mobile' }}</strong>
         <span>{{ localGame ? 'Choisissez votre pseudo, votre couleur et votre pion, puis développez vos concessions face au robot.' : 'Chaque téléphone affiche les actions, la carte et les positions. Le créateur partage le code et garde les commandes de bord.' }}</span>
         <b>{{ store.pending ? 'Chargement…' : localGame ? 'Jouer la partie' : 'Lancer depuis ce terminal' }}</b>
       </button>
     </div>
 
-    <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ localGame ? 'Votre consortium affronte Orion, qui joue automatiquement, sans tricher et sans serveur.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
+    <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ localGame ? 'Votre consortium affronte un robot à l’identité aléatoire, qui joue automatiquement, sans tricher et sans serveur.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
     <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>

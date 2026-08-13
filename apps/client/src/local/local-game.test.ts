@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LOCAL_BOT_ID, LOCAL_HUMAN_ID, getLocalBotTurn, loadLocalGame, resumeLocalGame, runLocalBotTurn, runLocalGameCommand, startLocalGame } from "./local-game";
+import { PLAYER_COLORS, PLAYER_SYMBOLS } from "@richesses-espace/protocol";
+import { LOCAL_BOT_ID, LOCAL_BOT_NAMES, LOCAL_HUMAN_ID, getLocalBotTurn, loadLocalGame, resumeLocalGame, runLocalBotTurn, runLocalGameCommand, startLocalGame } from "./local-game";
 
 const playerSetup = { name: "Mathieu", color: "#3784a6", symbol: "cat" };
 
@@ -12,6 +13,7 @@ function finishHumanTurn(): void {
 
 describe("local player versus computer game", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.stubGlobal("window", {
       localStorage: { getItem: vi.fn(() => null), setItem: vi.fn() },
       location: { origin: "https://example.test" }
@@ -19,20 +21,32 @@ describe("local player versus computer game", () => {
     startLocalGame(playerSetup);
   });
 
-  it("starts the chosen human identity against balanced Orion", () => {
+  it("starts the chosen human identity against a randomly identified balanced robot", () => {
     const initial = loadLocalGame();
+    const bot = initial.game.players.find((player) => player.id === LOCAL_BOT_ID)!;
     expect(initial.game.phase).toBe("WAITING_FOR_ROLL");
     expect(initial.game.activePlayerId).toBe(LOCAL_HUMAN_ID);
     expect(initial.player?.allowedActions).toContain("ROLL_DICE");
     expect(initial.game.players[0]).toMatchObject({ id: LOCAL_HUMAN_ID, name: "Mathieu", color: "#3784a6", symbol: "cat", isBot: false });
-    expect(initial.game.players.find((player) => player.id === LOCAL_BOT_ID)).toMatchObject({ isBot: true, botProfile: "BALANCED", connected: true, ready: true });
-    expect(initial.game.players.find((player) => player.id === LOCAL_BOT_ID)?.color).not.toBe(playerSetup.color);
-    expect(initial.game.players.find((player) => player.id === LOCAL_BOT_ID)?.symbol).not.toBe(playerSetup.symbol);
+    expect(bot).toMatchObject({ isBot: true, botProfile: "BALANCED", connected: true, ready: true });
+    expect(LOCAL_BOT_NAMES).toContain(bot.name);
+    expect(PLAYER_COLORS).toContain(bot.color);
+    expect(PLAYER_SYMBOLS.map((symbol) => symbol.id)).toContain(bot.symbol);
+    expect(bot.name).not.toBe(playerSetup.name);
+    expect(bot.color).not.toBe(playerSetup.color);
+    expect(bot.symbol).not.toBe(playerSetup.symbol);
   });
 
-  it("requires a valid chosen identity and reserves Orion for the computer", () => {
+  it("offers exactly 20 French constellation names and avoids the human name", () => {
+    expect(LOCAL_BOT_NAMES).toHaveLength(20);
+    expect(new Set(LOCAL_BOT_NAMES).size).toBe(20);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const initial = startLocalGame({ ...playerSetup, name: LOCAL_BOT_NAMES[0] });
+    expect(initial.game.players.find((player) => player.id === LOCAL_BOT_ID)?.name).not.toBe(LOCAL_BOT_NAMES[0]);
+  });
+
+  it("requires a valid chosen identity", () => {
     expect(() => startLocalGame({ ...playerSetup, name: "  " })).toThrow("pseudo de 1 à 20 caractères");
-    expect(() => startLocalGame({ ...playerSetup, name: "Orion" })).toThrow("nom réservé");
   });
 
   it("invalidates the previous forced-identity storage format", () => {
@@ -46,7 +60,7 @@ describe("local player versus computer game", () => {
     expect(result.snapshot.events.map((event) => event.type)).toEqual(expect.arrayContaining(["dice_rolled", "pawn_moved"]));
   });
 
-  it("lets Orion take over automatically", () => {
+  it("lets the robot take over automatically", () => {
     finishHumanTurn();
     const turn = getLocalBotTurn();
     expect(turn).toMatchObject({ playerId: LOCAL_BOT_ID, decision: { type: "ROLL" } });
@@ -60,10 +74,18 @@ describe("local player versus computer game", () => {
   });
 
   it("starts a fresh duel immediately after a finished game", () => {
+    vi.spyOn(Math, "random").mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0);
+    startLocalGame(playerSetup);
+    const previousBot = loadLocalGame().game.players.find((player) => player.id === LOCAL_BOT_ID)!;
     runLocalGameCommand("admin:end");
+    vi.mocked(Math.random).mockReturnValueOnce(.99).mockReturnValueOnce(.99).mockReturnValueOnce(.99);
     const restarted = runLocalGameCommand("admin:restart").snapshot;
+    const nextBot = restarted.game.players.find((player) => player.id === LOCAL_BOT_ID)!;
     expect(restarted.game.phase).toBe("WAITING_FOR_ROLL");
     expect(restarted.game.players.every((player) => player.ready && player.capital === 100)).toBe(true);
+    expect(nextBot.name).not.toBe(previousBot.name);
+    expect(nextBot.color).not.toBe(previousBot.color);
+    expect(nextBot.symbol).not.toBe(previousBot.symbol);
   });
 
   it("runs a prolonged deterministic duel without a blocked phase", () => {

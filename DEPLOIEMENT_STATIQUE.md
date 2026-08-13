@@ -1,6 +1,6 @@
 # Déployer la partie solo statique
 
-Cette version permet de jouer une partie complète sans serveur Node.js, Socket.IO ni PostgreSQL. Le joueur choisit son pseudo, sa couleur et son pion avant d’affronter Orion, un robot Équilibré piloté par le même moteur de décision que les robots serveur. La progression est sauvegardée automatiquement dans le navigateur.
+Cette version permet de jouer une partie complète sans serveur Node.js, Socket.IO ni PostgreSQL. Le joueur choisit son pseudo, sa couleur et son pion avant d’affronter un robot Équilibré piloté par le même moteur de décision que les robots serveur. Son nom de constellation, sa couleur et son animal sont tirés au hasard. La progression est sauvegardée automatiquement dans le navigateur.
 
 ## Générer le dossier d’upload
 
@@ -23,17 +23,18 @@ Le résultat se trouve dans `apps/client/dist-static`.
 
 L’application utilise une navigation avec `#` après l’ouverture d’un écran, par exemple `https://mathieuluyten.be/richesses-espace/#/play/SOLO`. C’est volontaire : cette forme fonctionne sur un hébergement statique sans règle Apache ou Nginx supplémentaire.
 
-## Jouer contre Orion
+## Jouer contre le robot
 
-Depuis l’accueil, choisir **Duel contre Orion**. La partie commence immédiatement :
+Depuis l’accueil, choisir **Duel contre le robot**. La partie commence immédiatement :
 
 - le formulaire d’embarquement existant recueille le pseudo, la couleur et le pion du joueur humain ;
 - le joueur humain est placé en premier et commence la partie avec 100 crédits ;
-- Orion est un robot Équilibré, connecté et prêt ;
+- le robot reçoit un nom parmi 20 constellations françaises, une couleur et un animal aléatoires, sans reprendre ceux du joueur ;
+- il est Équilibré, connecté et prêt ;
 - chaque décision passe par le moteur de règles complet ;
-- Orion joue automatiquement après un délai lisible ;
+- le robot joue automatiquement après un délai lisible ;
 - la révision de partie empêche une ancienne décision différée de s’exécuter après une pause ou une fin de partie ;
-- **Rejouer contre Orion** démarre une nouvelle partie après la fin.
+- **Rejouer contre le robot** démarre une nouvelle partie après la fin et renouvelle son identité.
 
 Le **Pont d’observation** conserve l’écran TV validé. Dans une seconde fenêtre du même navigateur et du même profil, il suit la sauvegarde locale et rejoue les événements de la partie. Des appareils ou navigateurs distincts restent indépendants.
 

@@ -38,6 +38,28 @@ export const LOCAL_GAME_STORAGE_KEY = "richesses-espace:local-game:v2";
 export const LOCAL_GAME_CODE = "SOLO";
 export const LOCAL_HUMAN_ID = "human";
 export const LOCAL_BOT_ID = "orion";
+export const LOCAL_BOT_NAMES = [
+  "Aigle",
+  "Andromède",
+  "Baleine",
+  "Bélier",
+  "Bouvier",
+  "Cancer",
+  "Capricorne",
+  "Cassiopée",
+  "Cygne",
+  "Dragon",
+  "Gémeaux",
+  "Grande Ourse",
+  "Hydre",
+  "Lion",
+  "Lyre",
+  "Orion",
+  "Pégase",
+  "Persée",
+  "Poissons",
+  "Verseau"
+] as const;
 
 export interface LocalPlayerSetup {
   name: string;
@@ -88,19 +110,32 @@ function restore(force = false): boolean {
 function validateSetup(setup: LocalPlayerSetup): LocalPlayerSetup {
   const name = setup.name.trim();
   if (!name || name.length > 20) throw new RuleError("INVALID_NAME", "Choisissez un pseudo de 1 à 20 caractères.");
-  if (name.localeCompare("Orion", "fr", { sensitivity: "base" }) === 0) throw new RuleError("NAME_TAKEN", "Orion est le nom réservé à votre adversaire.");
   if (!(PLAYER_COLORS as readonly string[]).includes(setup.color)) throw new RuleError("INVALID_COLOR", "Choisissez une couleur proposée.");
   if (!PLAYER_SYMBOLS.some((item) => item.id === setup.symbol)) throw new RuleError("INVALID_SYMBOL", "Choisissez un animal proposé.");
   return { name, color: setup.color, symbol: setup.symbol };
 }
 
+function randomItem<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)]!;
+}
+
+function randomBotIdentity(human: LocalPlayerSetup): LocalPlayerSetup {
+  const availableNames = LOCAL_BOT_NAMES.filter((name) => name.localeCompare(human.name, "fr", { sensitivity: "base" }) !== 0);
+  const availableColors = PLAYER_COLORS.filter((color) => color !== human.color);
+  const availableSymbols = PLAYER_SYMBOLS.filter((symbol) => symbol.id !== human.symbol);
+  return {
+    name: randomItem(availableNames),
+    color: randomItem(availableColors),
+    symbol: randomItem(availableSymbols).id
+  };
+}
+
 function createLocalGame(setup: LocalPlayerSetup): GameState {
   const human = validateSetup(setup);
-  const botColor = PLAYER_COLORS.find((color) => color !== human.color)!;
-  const botSymbol = PLAYER_SYMBOLS.find((symbol) => symbol.id !== human.symbol)!.id;
+  const bot = randomBotIdentity(human);
   let next = createGame("local-solo", LOCAL_GAME_CODE, 20_260_813);
   next = addPlayer(next, { id: LOCAL_HUMAN_ID, ...human });
-  next = addPlayer(next, { id: LOCAL_BOT_ID, name: "Orion", color: botColor, symbol: botSymbol });
+  next = addPlayer(next, { id: LOCAL_BOT_ID, ...bot });
   next = setPlayerReady(next, LOCAL_HUMAN_ID, true);
   next = setPlayerReady(next, LOCAL_BOT_ID, true);
   return startGame(next);
@@ -267,6 +302,9 @@ function applyCommand(event: string, playerId: string, payload?: unknown): void 
     case "admin:end": state = finishGame(current); break;
     case "admin:restart": {
       let restarted = restartGame(current);
+      const human = restarted.players.find((player) => player.id === LOCAL_HUMAN_ID)!;
+      const bot = randomBotIdentity(human);
+      restarted = { ...restarted, players: restarted.players.map((player) => player.id === LOCAL_BOT_ID ? { ...player, ...bot } : player) };
       restarted = setPlayerReady(restarted, LOCAL_HUMAN_ID, true);
       restarted = setPlayerReady(restarted, LOCAL_BOT_ID, true);
       state = startGame(restarted);
