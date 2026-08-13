@@ -34,14 +34,14 @@ describe("mobile-only map-first experience", () => {
     expect(playerView).toContain('<span>Ressources</span><b>{{ myAssets.length }}</b>');
     expect(playerView).toContain("{{ me.capital }}&nbsp;crédits");
     expect(theme).toMatch(/\.phone-resource-button\s*\{[^}]*min-height:\s*44px[^}]*background:\s*#124a68/s);
-    expect(theme).toMatch(/\.mobile-map-panel\s*\{[^}]*bottom:\s*env\(safe-area-inset-bottom\)/s);
+    expect(theme).toMatch(/\.mobile-map-panel\s*\{[^}]*position:\s*relative[^}]*min-height:\s*calc\(var\(--app-viewport-height\)/s);
   });
 
   it("keeps the player's credits floating above the main map", () => {
     expect(playerView).toContain('class="player-credit-float" role="status" aria-live="polite"');
     expect(playerView).toContain('`Capital disponible : ${me.capital} crédits`');
     expect(playerView).toContain('<strong>{{ me.capital }}</strong>');
-    expect(theme).toMatch(/\.player-credit-float\s*\{[^}]*position:\s*fixed[^}]*z-index:\s*95[^}]*pointer-events:\s*none/s);
+    expect(theme).toMatch(/\.player-credit-float\s*\{[^}]*position:\s*absolute[^}]*z-index:\s*var\(--layer-floating\)[^}]*pointer-events:\s*none/s);
     expect(theme).toMatch(/\.mobile-map-panel--route\s*\{[^}]*padding-top:\s*4\.25rem/s);
     expect(theme).toContain(':not(.dice-animation-phone):not(.player-credit-float)');
   });
@@ -49,8 +49,9 @@ describe("mobile-only map-first experience", () => {
   it("renders roll and end-turn as contextual bottom actions", () => {
     expect(playerView).toContain('action-card--roll mobile-map-overlay');
     expect(playerView).toContain('end-turn-action mobile-map-overlay');
-    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*fixed[^}]*bottom:\s*calc\(\.75rem/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*sticky[^}]*inset:\s*auto auto var\(--safe-bottom\)/s);
     expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll > :not\(\.dice-button\)[\s\S]*display:\s*none/s);
+    expect(theme).toMatch(/\.controller-screen--map:has\(> \.mobile-map-overlay:not\(\.action-card--roll\):not\(\.end-turn-action\)\) > \.mobile-map-panel\s*\{[^}]*display:\s*none/s);
   });
 
   it("queues readable turn and event notifications without slowing game animations", () => {
@@ -61,11 +62,11 @@ describe("mobile-only map-first experience", () => {
     expect(mobileToasts).toContain("+{{ state.pendingCount }}");
     expect(mobileToasts).toContain("@click=\"queue.dismiss\"");
     expect(mobileToasts).toMatch(/\.mobile-live-toast button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
-    expect(theme).toMatch(/\.phone-shell:has\(\.player-credit-float\) > \.mobile-live-toast\s*\{[^}]*top:\s*calc\(132px/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.player-credit-float\) > \.mobile-live-toast\s*\{[^}]*top:\s*calc\(var\(--phone-header-height\)/s);
   });
 
   it("keeps errors visible without reserving a removed navigation dock", () => {
-    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*z-index:\s*90/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*z-index:\s*var\(--layer-toast\)/s);
     expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) > \.error-toast\s*\{[^}]*bottom:\s*calc\(1rem/s);
   });
 

@@ -209,6 +209,7 @@ async function finishAsHost() {
         <button v-if="mobileOnly && store.game?.phase !== 'LOBBY' && me" type="button" class="phone-resource-button" @click="openPortfolio">
           <PackageOpen :size="19" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b>
         </button>
+        <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
         <details v-if="isPhoneHost && store.game?.phase !== 'LOBBY'" class="mobile-host-menu">
           <summary aria-label="Commandes de l’hôte"><Menu :size="18" aria-hidden="true" /></summary>
           <div>
@@ -219,7 +220,6 @@ async function finishAsHost() {
             <button v-else type="button" class="danger" @click="finishAsHost">Terminer</button>
           </div>
         </details>
-        <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
       </div>
     </header>
     <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. Tour de {{ store.activePlayer?.name }}. {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
@@ -384,10 +384,10 @@ async function finishAsHost() {
 </template>
 
 <style scoped>
-.mobile-host-menu { position: relative; }
+.mobile-host-menu { position: relative; z-index: var(--layer-menu); }
 .mobile-host-menu summary { display: grid; place-items: center; width: 36px; height: 36px; color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .5); border-radius: 50%; background: rgba(16, 42, 67, .96); cursor: pointer; list-style: none; }
 .mobile-host-menu summary::-webkit-details-marker { display: none; }
-.mobile-host-menu > div { position: absolute; z-index: 80; top: calc(100% + .55rem); right: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; width: min(248px, calc(100vw - 2rem)); padding: .7rem; color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .48); border-radius: 14px; background: #102a43; box-shadow: 0 16px 38px rgba(0, 0, 0, .34); }
+.mobile-host-menu > div { position: absolute; z-index: var(--layer-menu); top: calc(100% + .55rem); right: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; width: min(248px, calc(100vw - 2rem)); max-height: calc(var(--app-viewport-height) - var(--phone-header-height) - var(--safe-top) - 1rem); padding: .7rem; overflow-x: hidden; overflow-y: auto; color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .48); border-radius: 14px; background: #102a43; box-shadow: 0 16px 38px rgba(0, 0, 0, .34); }
 .mobile-host-menu__label { grid-column: 1 / -1; color: #9ec2d8; font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .mobile-host-menu button { min-height: 44px; padding: .55rem; color: #f3f8fc; border: 1px solid rgba(169, 189, 208, .4); border-radius: 10px; background: #15344d; font: inherit; font-size: .75rem; font-weight: 800; }
 .mobile-host-menu button.danger { color: #fff; border-color: rgba(242, 103, 74, .75); background: #9d3e35; }

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { MonitorUp, Smartphone, UsersRound } from "@lucide/vue";
+import { Download, MonitorUp, Smartphone, UsersRound } from "@lucide/vue";
 import ErrorToast from "../components/ErrorToast.vue";
+import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useGameStore } from "../stores/game";
 
 const router = useRouter();
@@ -10,6 +11,7 @@ const store = useGameStore();
 const localGame = import.meta.env.VITE_LOCAL_GAME === "true";
 const mobileDevice = computed(() => window.matchMedia("(max-width: 760px), (pointer: coarse)").matches);
 const canOpenTv = computed(() => !localGame || store.hasSavedLocalGame());
+const { canInstall, showInstallHint, install } = useInstallPrompt();
 
 function createTvGame(): void {
   void router.push("/display");
@@ -50,12 +52,17 @@ async function createMobileGame(): Promise<void> {
     </div>
 
     <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ localGame ? 'Votre consortium affronte un robot à l’identité aléatoire, qui joue automatiquement, sans tricher et sans serveur.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
+    <aside v-if="showInstallHint" class="install-mode" aria-label="Mode plein écran">
+      <Download :size="20" aria-hidden="true" />
+      <div><strong>Mode plein écran</strong><span>{{ canInstall ? 'Installez le jeu pour masquer les barres du navigateur.' : 'Ajoutez cette page à l’écran d’accueil depuis le menu de votre navigateur.' }}</span></div>
+      <button v-if="canInstall" type="button" @click="install">Installer</button>
+    </aside>
     <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>
 
 <style scoped>
-.create-game { min-width: 0; min-height: 100dvh; overflow-x: hidden; display: grid; place-content: center; gap: clamp(2rem, 5vh, 4.5rem); padding: clamp(1.25rem, 5vw, 6rem); color: #f3f8fc; background: linear-gradient(145deg, rgba(3, 14, 27, .76), rgba(5, 24, 42, .84)), url("/space-background.jpg") center / cover fixed no-repeat #06111f; }
+.create-game { min-width: 0; min-height: var(--app-viewport-height); overflow-x: hidden; display: grid; place-content: center; gap: clamp(2rem, 5vh, 4.5rem); padding: clamp(1.25rem, 5vw, 6rem); color: #f3f8fc; background: linear-gradient(145deg, rgba(3, 14, 27, .76), rgba(5, 24, 42, .84)), url("/space-background.jpg") center / cover fixed no-repeat #06111f; }
 .create-game__intro { max-width: 820px; }
 .create-game__intro h1 { margin: .35rem 0 1rem; font: 800 clamp(2.35rem, 3.8vw, 4.65rem)/1 Manrope, sans-serif; letter-spacing: -.055em; }
 .create-game__intro em { color: #f2674a; font-family: Fraunces, Georgia, serif; font-weight: 700; }
@@ -73,10 +80,15 @@ async function createMobileGame(): Promise<void> {
 .mode-card--mobile b { background: #f2674a; }
 .mode-card__mobile-note { display: none; }
 .create-game__note { display: flex; align-items: center; gap: .65rem; margin: 0; font-size: 1rem; }
+.install-mode { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; width: min(100%, 720px); padding: .8rem 1rem; color: #d9edf5; border: 1px solid rgba(114, 169, 194, .45); border-radius: 12px; background: rgba(11, 36, 58, .92); }
+.install-mode div, .install-mode strong, .install-mode span { display: block; min-width: 0; }
+.install-mode strong { color: #fff; font-size: .85rem; }
+.install-mode span { margin-top: .12rem; color: #b9d8e5; font-size: .75rem; line-height: 1.35; }
+.install-mode button { min-height: 44px; padding: 0 .85rem; color: #06111f; border: 0; border-radius: 9px; background: #35d0e2; font: inherit; font-size: .78rem; font-weight: 800; }
 @media (max-width: 1100px) and (min-width: 761px) { .create-game { place-content: start center; padding: clamp(2rem, 5vw, 4rem); } .create-game__choices { grid-template-columns: minmax(0, 560px); } }
 @media (max-width: 760px) {
   .create-game { width: 100%; max-width: 100vw; place-content: start stretch; gap: 1.7rem; padding: 1.2rem; }
-  .create-game__intro, .create-game__choices, .create-game__note { width: 100%; max-width: calc(100vw - 2.4rem); min-width: 0; }
+  .create-game__intro, .create-game__choices, .create-game__note, .install-mode { width: 100%; max-width: calc(100vw - 2.4rem); min-width: 0; }
   .create-game__intro h1 { max-width: 100%; overflow-wrap: anywhere; font-size: clamp(2.1rem, 10.5vw, 3rem); }
   .create-game__choices { grid-template-columns: minmax(0, 1fr); gap: .8rem; }
   .mode-card { width: 100%; max-width: calc(100vw - 2.4rem); grid-template-columns: 58px minmax(0, calc(100% - 78px)); min-height: 245px; padding: 1.25rem; }
@@ -98,5 +110,7 @@ async function createMobileGame(): Promise<void> {
   .mode-card--tv > span:nth-of-type(3) { display: none; }
   .mode-card--tv .mode-card__mobile-note { display: block; grid-column: 2 / -1; grid-row: 3; color: #c9e8f4; font-size: .75rem; line-height: 1.4; }
   .mode-card--tv b { grid-column: 1 / -1; grid-row: 4; min-height: 44px; display: grid; place-items: center; padding: .65rem .75rem; color: #c9e8f4; border: 1px solid #72a9c2; border-radius: 10px; background: #0b243a; font-size: .8rem; }
+  .install-mode { grid-template-columns: auto minmax(0, 1fr); }
+  .install-mode button { grid-column: 1 / -1; width: 100%; }
 }
 </style>

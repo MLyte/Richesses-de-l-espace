@@ -94,8 +94,8 @@ h1 em { font-family: "Fraunces Variable", "Manrope", sans-serif; font-weight: 70
 .asset-card p { margin: 0 0 .35rem; color: rgba(255,255,255,.7); text-transform: uppercase; letter-spacing: .15em; font-size: .58rem; }.asset-card h2 { margin: 0; max-width: 95%; font-size: clamp(1.05rem, 2vw, 1.55rem); line-height: 1.06; letter-spacing: -.035em; }.asset-card footer { display: flex; justify-content: space-between; align-items: end; padding-top: .8rem; border-top: 1px solid rgba(255,255,255,.35); font-size: .65rem; }.asset-card footer b { font: 500 1rem "IBM Plex Mono"; }.asset-card__owner { text-transform: uppercase; letter-spacing: .1em; }
 
 /* Téléphone */
-.phone-shell { width: min(100%, 520px); min-height: 100vh; margin: auto; padding: env(safe-area-inset-top) 1.25rem calc(1.5rem + env(safe-area-inset-bottom)); background: radial-gradient(circle at 90% 0, #fff 0, transparent 34%), var(--paper); }
-.phone-header { height: 70px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }.connection-dot { width: 8px; height: 8px; border-radius: 50%; background: #b35444; }.connection-dot.online { background: #738654; }
+.phone-shell { isolation: isolate; width: min(100%, 520px); min-height: var(--app-viewport-height); margin: auto; padding: var(--safe-top) 1.25rem calc(1.5rem + var(--safe-bottom)); background: radial-gradient(circle at 90% 0, #fff 0, transparent 34%), var(--paper); }
+.phone-header { position: sticky; z-index: var(--layer-header); top: var(--safe-top); display: flex; align-items: center; justify-content: space-between; height: var(--phone-header-height); overflow: visible; border-bottom: 1px solid var(--line); background: var(--paper); }.connection-dot { width: 8px; height: 8px; border-radius: 50%; background: #b35444; }.connection-dot.online { background: #738654; }
 .join-screen, .phone-lobby { padding-top: clamp(3rem, 12vh, 6rem); }.phone-shell h1 { font-size: clamp(2.8rem, 13vw, 4.2rem); }.join-form { display: grid; gap: 1.4rem; margin-top: 3rem; }.join-form label, .join-form legend { display: grid; gap: .6rem; color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .12em; }.join-form input { width: 100%; padding: 1rem 0; border: 0; border-bottom: 1px solid var(--ink); outline: 0; background: transparent; color: var(--ink); font-size: 1.1rem; text-transform: none; }.join-form fieldset { margin: 0; padding: 0; border: 0; }.color-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: .6rem; }.color-picker button { aspect-ratio: 1; border: 5px solid var(--paper); outline: 1px solid transparent; border-radius: 50%; background: var(--choice); }.color-picker button.selected { outline-color: var(--ink); }
 .identity-card { display: flex; gap: 1rem; align-items: center; margin: 2.5rem 0 1rem; padding: 1.2rem; border: 1px solid var(--line); }.identity-card i { width: 42px; height: 42px; border-radius: 50%; }.identity-card span,.identity-card b { display: block; }.identity-card span { color: var(--muted); font-size: .65rem; }.identity-card b { margin-top: .25rem; font: 500 1.05rem "IBM Plex Mono"; }.phone-lobby > .primary-button { width: 100%; }.mini-roster { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; margin-top: 2rem; }.mini-roster span { display: flex; align-items: center; gap: .35rem; color: var(--muted); font-size: .65rem; }.mini-roster i { width: 6px; height: 6px; border-radius: 50%; }
 .controller-meta { display: flex; justify-content: space-between; align-items: end; padding: 1.2rem 0; border-bottom: 1px solid var(--line); }.controller-meta span,.controller-meta b { display: block; }.controller-meta span { color: var(--muted); font-size: .62rem; text-transform: uppercase; letter-spacing: .1em; }.controller-meta b { margin-top: .25rem; }.controller-meta .capital { text-align: right; }.controller-meta .capital b { font: 500 1.5rem "IBM Plex Mono"; }
@@ -189,7 +189,7 @@ h1 em { font-family: "Fraunces Variable", "Manrope", sans-serif; font-weight: 70
 .lever-hand { margin-top: 1.2rem; border-top: 1px solid var(--line); padding-top: 1rem; }.lever-hand article { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .8rem; padding: .8rem 0; border-bottom: 1px solid var(--line); }.lever-hand strong { font-size: .78rem; }.lever-hand p { margin: .2rem 0 0; color: var(--muted); font-size: .65rem; }.lever-hand button { padding: .55rem .7rem; border: 1px solid var(--copper); background: transparent; color: var(--copper); font-size: .68rem; }
 .drawn-card { margin-top: 1rem; padding: 1rem; border-left: 4px solid var(--sun); background: rgba(230,172,54,.1); }.drawn-card h3 { margin: 0; }.drawn-card > p:last-child { color: var(--muted); font-size: .75rem; line-height: 1.5; }
 .liquidation-list { display: grid; gap: .5rem; margin-top: .8rem; }.liquidation-list button { min-height: 48px; text-align: left; font-size: .72rem; }.bankruptcy-button { width: 100%; min-height: 52px; margin-top: .8rem; border: 0; background: #9e493b; color: white; font-weight: 700; }.bankruptcy-state { color: #8e4b43; }
-.trade-backdrop { position: fixed; z-index: 90; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(18,31,30,.68); backdrop-filter: blur(8px); }.trade-form { position: relative; width: min(100%, 500px); max-height: calc(100dvh - 2rem); overflow: auto; padding: 1.4rem; background: var(--paper); }.trade-form h2 { margin: 0 0 1.2rem; }.trade-form > label { margin-bottom: 1rem; }.trade-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem; }.trade-form fieldset { display: grid; gap: .8rem; margin: 0; padding: .8rem; border: 1px solid var(--line); }.trade-form legend { padding: 0 .35rem; font-size: .72rem; font-weight: 700; }.trade-form .wide-button { margin-top: 1rem; }
+.trade-backdrop { position: fixed; z-index: var(--layer-modal); inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(18,31,30,.68); backdrop-filter: blur(8px); }.trade-form { position: relative; width: min(100%, 500px); max-height: calc(var(--app-viewport-height) - 2rem); overflow: auto; padding: 1.4rem; background: var(--paper); }.trade-form h2 { margin: 0 0 1.2rem; }.trade-form > label { margin-bottom: 1rem; }.trade-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem; }.trade-form fieldset { display: grid; gap: .8rem; margin: 0; padding: .8rem; border: 1px solid var(--line); }.trade-form legend { padding: 0 .35rem; font-size: .72rem; font-weight: 700; }.trade-form .wide-button { margin-top: 1rem; }
 .final-phone h2 { color: var(--copper); font-size: 2rem; }
 .lever-purchase-action { padding: 1.2rem 0; }.joker-card { display: grid; min-height: 300px; align-content: center; padding: 1.5rem; border: 1px solid rgba(150,102,180,.35); background: radial-gradient(circle at 85% 10%, rgba(230,172,54,.28), transparent 35%), linear-gradient(145deg, #eee5f7, #fff6d9); box-shadow: 0 18px 48px rgba(79,54,93,.14); }.joker-card > span { color: #9666b4; font-size: .68rem; font-weight: 700; letter-spacing: .2em; }.joker-card h2 { margin: .8rem 0; font-size: 2rem; }.joker-card p { color: var(--muted); line-height: 1.55; }.joker-card b { margin-top: 1rem; font: 500 1.25rem "IBM Plex Mono"; color: #9666b4; }
 .auction-selection { display: grid; gap: .55rem; }.auction-selection label { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: .55rem; padding: .7rem; border: 1px solid var(--line); background: rgba(255,255,255,.48); }.auction-selection label.selected { border-color: var(--copper); background: rgba(220,104,68,.08); }.auction-selection input { width: 18px; height: 18px; accent-color: var(--copper); }.auction-selection span { font-size: .72rem; }.auction-selection b { font: 500 .68rem "IBM Plex Mono"; }.auction-selection > p, .bid-controls > p, .auction-seller { color: var(--muted); font-size: .68rem; line-height: 1.5; }
@@ -406,8 +406,8 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
 .help-trigger, .fullscreen-trigger { display: inline-flex; align-items: center; justify-content: center; gap: .38rem; min-height: 38px; padding: 0 .72rem; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.58); color: var(--ink); font-size: .72rem; }
 .help-trigger:hover, .fullscreen-trigger:hover { border-color: var(--copper); color: var(--copper); }
 .help-trigger { font-weight: 700; }.help-trigger span, .fullscreen-trigger span { font-weight: 600; }
-.help-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(18,31,30,.68); backdrop-filter: blur(8px); }
-.help-dialog { position: relative; width: min(900px, 100%); max-height: calc(100dvh - 2rem); overflow: auto; padding: clamp(1.5rem, 4vw, 3.5rem); background: var(--paper); box-shadow: 0 28px 90px rgba(0,0,0,.28); }
+.help-backdrop { position: fixed; z-index: var(--layer-modal); inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(18,31,30,.68); backdrop-filter: blur(8px); }
+.help-dialog { position: relative; width: min(900px, 100%); max-height: calc(var(--app-viewport-height) - 2rem); overflow: auto; padding: clamp(1.5rem, 4vw, 3.5rem); background: var(--paper); box-shadow: 0 28px 90px rgba(0,0,0,.28); }
 .help-dialog h2 { max-width: 680px; margin: 0 0 2rem; font-size: clamp(2rem, 4vw, 3.6rem); line-height: 1; letter-spacing: -.05em; }
 .help-close { position: absolute; top: 1rem; right: 1rem; width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--ink); font-size: 1.5rem; }
 .help-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .85rem; }
@@ -520,7 +520,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
 .dice-cast > strong { display: flex; align-items: baseline; gap: .55rem; margin-top: .65rem; font: 500 1.8rem "IBM Plex Mono"; color: var(--copper); animation: dice-result-in .28s ease-out; }
 .dice-cast > strong small { color: var(--muted); font: 700 .62rem Manrope; text-transform: uppercase; letter-spacing: .13em; }
 .dice-animation-tv { position: absolute; z-index: 9; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-.dice-animation-phone { position: fixed; z-index: 80; inset: 50% auto auto 50%; width: min(calc(100% - 2rem), 430px); transform: translate(-50%, -50%); }
+.dice-animation-phone { position: fixed; z-index: var(--layer-floating); inset: 50% auto auto 50%; width: min(calc(100% - 2rem), 430px); transform: translate(-50%, -50%); }
 .dice-animation-phone::before { content: ""; position: fixed; z-index: -1; inset: -100vh -100vw; background: rgba(248,241,223,.72); backdrop-filter: blur(5px); }
 .dice-cast.compact .dice-cast__die { width: 68px; height: 68px; font-size: 3.75rem; }
 .tile-pawn { pointer-events: none; animation: pawn-step .21s cubic-bezier(.2,.8,.2,1); transform-box: fill-box; transform-origin: center; }
@@ -616,8 +616,8 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
 /* Modal des loyers par seuil */
 .resource-score__rent-button { justify-self: start; min-height: 34px; margin-top: .25rem; padding: .4rem .65rem; border: 1px solid color-mix(in srgb, var(--resource-color) 45%, var(--line)); background: transparent; color: var(--resource-color); font-size: .6rem; font-weight: 700; }
 .resource-score.compact .resource-score__rent-button { min-height: 27px; margin-top: .1rem; padding: .25rem .4rem; font-size: .48rem; }
-.resource-rent-backdrop { position: fixed; z-index: 150; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(18,31,30,.7); backdrop-filter: blur(8px); }
-.resource-rent-dialog { position: relative; width: min(560px, 100%); max-height: calc(100dvh - 2rem); overflow: auto; padding: clamp(1.35rem, 4vw, 2.4rem); background: var(--paper); box-shadow: 0 28px 90px rgba(0,0,0,.3); }
+.resource-rent-backdrop { position: fixed; z-index: var(--layer-critical-modal); inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(18,31,30,.7); backdrop-filter: blur(8px); }
+.resource-rent-dialog { position: relative; width: min(560px, 100%); max-height: calc(var(--app-viewport-height) - 2rem); overflow: auto; padding: clamp(1.35rem, 4vw, 2.4rem); background: var(--paper); box-shadow: 0 28px 90px rgba(0,0,0,.3); }
 .resource-rent-dialog__close { position: absolute; top: .8rem; right: .8rem; width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--ink); font-size: 1.5rem; }
 .resource-rent-dialog h2 { margin: 0 0 1rem; font-size: clamp(2rem, 7vw, 3.4rem); line-height: 1; letter-spacing: -.05em; }
 .resource-rent-dialog > p:not(.eyebrow) { color: var(--muted); font-size: .82rem; line-height: 1.55; }
@@ -692,21 +692,19 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
   .context-panel .history-panel li { font-size: .78rem; }
 }
 
-/* Dock d'actions mobile : toutes les décisions principales restent sous le pouce. */
+/* Actions mobiles : intégrées au flux pour laisser le navigateur gérer son viewport. */
 @media (max-width: 600px) {
-  .phone-shell { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom)); }
-  .controller-screen { padding-bottom: 6.5rem; }
+  .phone-shell { padding-bottom: var(--safe-bottom); }
+  .controller-screen { padding-bottom: var(--safe-bottom); }
 
   .controller-screen .action-row,
   .controller-screen .liquidation-list {
-    position: fixed;
-    z-index: 70;
-    left: 50%;
-    bottom: 0;
-    width: min(100%, 520px);
-    margin: 0;
-    padding: .75rem 1.25rem calc(.75rem + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
+    position: sticky;
+    z-index: var(--layer-action);
+    bottom: var(--safe-bottom);
+    width: 100%;
+    margin: .8rem 0 0;
+    padding: .75rem;
     background: rgba(248,241,223,.97);
     border-top: 1px solid var(--line);
     box-shadow: 0 -14px 36px rgba(29,43,42,.16);
@@ -723,15 +721,15 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
   .controller-screen .trade-response > .wide-button,
   .phone-lobby > .primary-button,
   .join-form > .primary-button {
-    position: fixed;
-    z-index: 70;
-    right: 1.25rem;
-    left: 1.25rem;
-    bottom: calc(.75rem + env(safe-area-inset-bottom));
-    width: auto;
-    max-width: 470px;
+    position: sticky;
+    z-index: var(--layer-action);
+    right: auto;
+    left: auto;
+    bottom: var(--safe-bottom);
+    width: 100%;
+    max-width: none;
     min-height: 64px;
-    margin: 0 auto;
+    margin: .8rem 0 0;
     transform: none;
     box-shadow: 0 10px 34px rgba(29,43,42,.24), 0 0 0 .75rem rgba(248,241,223,.96);
   }
@@ -748,13 +746,13 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
   }
   .controller-screen .liquidation-list button { min-height: 56px; background: #fffdf7; }
 
-  .controller-screen .primary-action { min-height: calc(100dvh - 180px); justify-content: flex-start; padding-top: clamp(3rem, 13vh, 7rem); }
+  .controller-screen .primary-action { min-height: calc(var(--app-viewport-height) - var(--phone-header-height) - 7rem); justify-content: flex-start; padding-top: clamp(3rem, 13vh, 7rem); }
   .controller-screen .purchase-action,
   .controller-screen .lever-purchase-action,
   .controller-screen .payment-action,
   .controller-screen .auction-phone,
   .controller-screen .trade-response,
-  .controller-screen .end-turn-action { padding-bottom: 7rem; }
+  .controller-screen .end-turn-action { padding-bottom: 1rem; }
 
   .trade-form > .wide-button {
     position: sticky;
@@ -766,7 +764,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .section-title b { color: #
   }
 
   .phone-lobby,
-  .join-screen { padding-bottom: 7rem; }
+  .join-screen { padding-bottom: calc(1.5rem + var(--safe-bottom)); }
 }
 
 /* La piste occupe exactement les quatre bords ; les panneaux restent dans son aire intérieure. */
@@ -1219,25 +1217,25 @@ h1 em {
 }
 
 @media (max-width: 600px) {
-  .controller-screen { padding-bottom: calc(12rem + env(safe-area-inset-bottom)); }
+  .controller-screen { padding-bottom: var(--safe-bottom); }
   .controller-screen .title-actions {
-    position: fixed;
-    z-index: 69;
-    right: .75rem;
-    bottom: calc(.75rem + env(safe-area-inset-bottom));
-    left: .75rem;
-    width: auto;
-    max-width: 500px;
-    margin: 0 auto;
+    position: sticky;
+    z-index: var(--layer-action);
+    right: auto;
+    bottom: var(--safe-bottom);
+    left: auto;
+    width: 100%;
+    max-width: none;
+    margin: .75rem 0 0;
     padding: .55rem;
     box-shadow: 0 -8px 28px rgba(24, 50, 74, .16);
   }
-  .controller-screen .title-actions--with-primary { bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
+  .controller-screen .title-actions--with-primary { bottom: var(--safe-bottom); }
   .controller-screen .title-actions > p { font-size: .7rem; }
   .controller-screen .title-actions button { min-height: 54px; font-size: .75rem; }
   .controller-screen .primary-action,
   .controller-screen .end-turn-action,
-  .controller-screen .spectator-state { padding-bottom: 11.5rem; }
+  .controller-screen .spectator-state { padding-bottom: 1rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1406,9 +1404,10 @@ h1 em {
   .phone-shell { padding-inline: 1rem; }
   .phone-header {
     position: sticky;
-    z-index: 40;
-    top: 0;
-    height: 58px;
+    z-index: var(--layer-header);
+    top: var(--safe-top);
+    height: var(--phone-header-height);
+    overflow: visible;
     background: color-mix(in srgb, var(--paper) 93%, transparent);
     backdrop-filter: blur(12px);
   }
@@ -1747,11 +1746,11 @@ body {
   box-shadow: 0 10px 26px rgba(0, 0, 0, .3), 0 0 0 2px rgba(53, 208, 226, .12);
 }
 /* Contrôleur mobile : le plateau d'action reste fixe ; le portefeuille s'ouvre à la demande. */
-.portfolio-fab { position: fixed; z-index: 71; left: max(1rem, env(safe-area-inset-left)); bottom: calc(6.15rem + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: .42rem; min-height: 48px; padding: 0 .8rem; color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .66); border-radius: 999px; background: linear-gradient(145deg, rgba(20, 76, 104, .98), rgba(9, 36, 56, .98)); box-shadow: 0 10px 24px rgba(0, 0, 0, .32); font: inherit; font-size: .75rem; font-weight: 800; }
+.portfolio-fab { position: fixed; z-index: var(--layer-floating); left: max(1rem, var(--safe-left)); bottom: calc(6.15rem + var(--safe-bottom)); display: inline-flex; align-items: center; gap: .42rem; min-height: 48px; padding: 0 .8rem; color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .66); border-radius: 999px; background: linear-gradient(145deg, rgba(20, 76, 104, .98), rgba(9, 36, 56, .98)); box-shadow: 0 10px 24px rgba(0, 0, 0, .32); font: inherit; font-size: .75rem; font-weight: 800; }
 .portfolio-fab b { display: grid; place-items: center; min-width: 20px; height: 20px; border-radius: 50%; color: #06111f; background: #35d0e2; font: 700 .67rem "IBM Plex Mono", monospace; }
 .portfolio-fab--with-trades.portfolio-fab--with-primary { bottom: calc(12.4rem + env(safe-area-inset-bottom)); }
-.portfolio-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .72); backdrop-filter: blur(8px); }
-.portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .85rem; width: min(100%, 520px); max-height: min(82dvh, 660px); min-height: min(58dvh, 480px); margin: 0 auto; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom)); color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .62); border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .42); overflow: hidden; }
+.portfolio-backdrop { position: fixed; z-index: var(--layer-modal); inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .72); backdrop-filter: blur(8px); }
+.portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .85rem; width: min(100%, 520px); max-height: min(calc(var(--app-viewport-height) * .82), 660px); min-height: min(calc(var(--app-viewport-height) * .58), 480px); margin: 0 auto; padding: 1rem 1rem calc(1rem + var(--safe-bottom)); color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .62); border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .42); overflow: hidden; }
 .portfolio-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .portfolio-drawer .section-title { color: #a9d3e3; }
 .portfolio-drawer .section-title b { color: #fff; }
@@ -1765,14 +1764,7 @@ body {
 .portfolio-pager button:last-child { background: #1d718d; }
 .portfolio-pager button:disabled { opacity: .38; }
 
-@media (max-width: 600px) {
-  body:has(.phone-shell .controller-screen),
-  #app:has(.phone-shell .controller-screen) { height: 100dvh; overflow: hidden; }
-  .phone-shell:has(.controller-screen) { height: 100dvh; min-height: 0; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); }
-  .phone-shell:has(.controller-screen) .controller-screen { min-height: 0; overflow: hidden; }
-  .phone-shell:has(.controller-screen) .portfolio-section { display: none; }
-  .resource-score-list--drawer { grid-template-columns: 1fr; }
-}
+@media (max-width: 600px) { .resource-score-list--drawer { grid-template-columns: 1fr; } }
 /* Plateau : tuiles spatiales sobres, alignées sur les panneaux de l'application. */
 .world-board--tabletop .board-mat { fill: #06111f; stroke: rgba(77, 190, 218, .4); stroke-width: .2; }
 .world-board--tabletop .board-ocean { stroke: rgba(83, 203, 228, .38); stroke-width: .15; filter: none; }
@@ -1960,7 +1952,7 @@ body {
   font-size: .76rem;
 }
 @media (max-height: 660px) {
-  .portfolio-drawer { min-height: 0; max-height: calc(100dvh - .5rem); }
+  .portfolio-drawer { min-height: 0; max-height: calc(var(--app-viewport-height) - .5rem); }
   .portfolio-drawer .resource-score { padding: .65rem .75rem; }
   .portfolio-drawer .resource-score header > span { font-size: .88rem; }
   .portfolio-drawer .resource-score header > strong { font-size: 1.25rem; }

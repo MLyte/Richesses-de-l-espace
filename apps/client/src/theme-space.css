@@ -18,7 +18,22 @@
   --line: rgba(114, 169, 194, .58);
   --panel: rgba(11, 36, 58, .96);
   --piece-shadow: 0 8px 0 rgba(0, 0, 0, .25), 0 24px 60px rgba(0, 0, 0, .28);
+  --app-viewport-height: 100svh;
+  --phone-header-height: 70px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --layer-map: 10;
+  --layer-action: 20;
+  --layer-floating: 50;
+  --layer-toast: 60;
+  --layer-header: 70;
+  --layer-menu: 80;
+  --layer-modal: 100;
+  --layer-critical-modal: 110;
 }
+@supports (height: 100dvh) { :root { --app-viewport-height: 100dvh; } }
 
 * { scrollbar-color: #39768f #071827; }
 html, body, #app { max-width: 100%; overflow-x: hidden; }
@@ -322,7 +337,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 
 /* Mobile : commandes accessibles au pouce et portefeuille sans défilement. */
 .phone-shell { color: #f3f8fc; background: radial-gradient(circle at 94% 0, rgba(53, 208, 226, .14), transparent 30%), #06111f; }
-.phone-header { background: rgba(6, 17, 31, .94); }
+.phone-header { background: #06111f; }
 .phone-tools .help-trigger, .phone-tools .sound-toggle, .phone-tools .mobile-host-menu > summary {
   display: grid; flex: 0 0 40px; place-items: center; width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; aspect-ratio: 1; border-radius: 50%;
 }
@@ -353,10 +368,10 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   font: 800 .7rem "IBM Plex Mono", monospace;
 }
 .player-credit-float {
-  position: fixed;
-  z-index: 95;
-  top: calc(78px + env(safe-area-inset-top));
-  right: max(.75rem, calc((100vw - 520px) / 2 + .75rem));
+  position: absolute;
+  z-index: var(--layer-floating);
+  top: .75rem;
+  right: .75rem;
   display: inline-flex;
   align-items: center;
   gap: .38rem;
@@ -373,7 +388,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .player-credit-float span { color: #b8d3df; font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .player-credit-float strong { font: 800 1rem "IBM Plex Mono", monospace; }
 .player-credit-float small { color: #b8d3df; font-size: .65rem; font-weight: 700; }
-.phone-shell:has(.player-credit-float) > .mobile-live-toast { top: calc(132px + env(safe-area-inset-top)); }
+.phone-shell:has(.player-credit-float) > .mobile-live-toast { top: calc(var(--phone-header-height) + var(--safe-top) + 4rem); }
 .title-actions button { opacity: 1; color: #f3f8fc; border-color: #72a9c2; background: #0b243a; }
 .symbol-picker button { opacity: 1; color: #f3f8fc; border-color: #72a9c2; background: #0b243a; }
 .title-actions button:disabled { color: #b9d8e5; border-color: #6b899c; background: #132b3d; }
@@ -381,13 +396,13 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .symbol-picker button.selected { color: #06111f; border-color: #f2674a; background: #f2674a; }
 .pause-phone { margin-top: 1.6rem; padding-top: .5rem; }
 
-.portfolio-fab { position: fixed; z-index: 71; left: max(1rem, env(safe-area-inset-left)); bottom: calc(6.15rem + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: .45rem; min-height: 50px; padding: 0 .85rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #124a68; box-shadow: 0 10px 26px rgba(0, 0, 0, .36); font-weight: 800; }
+.portfolio-fab { position: fixed; z-index: var(--layer-floating); left: max(1rem, var(--safe-left)); bottom: calc(6.15rem + var(--safe-bottom)); display: inline-flex; align-items: center; gap: .45rem; min-height: 50px; padding: 0 .85rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #124a68; box-shadow: 0 10px 26px rgba(0, 0, 0, .36); font-weight: 800; }
 .portfolio-fab b { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; color: #06111f; background: #35d0e2; font: 700 .7rem "IBM Plex Mono"; }
 .portfolio-fab--with-trades.portfolio-fab--with-primary { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
 
 /* Le téléphone devient l'écran commun uniquement dans le mode MOBILE_ONLY. */
 .phone-shell:has(.controller-screen--mobile-only) > .error-toast {
-  z-index: 90;
+  z-index: var(--layer-toast);
   right: auto;
   bottom: calc(1rem + env(safe-area-inset-bottom));
   left: 50%;
@@ -398,7 +413,7 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, .38);
 }
-.controller-screen--mobile-only { padding-bottom: env(safe-area-inset-bottom); }
+.controller-screen--mobile-only { padding-bottom: var(--safe-bottom); }
 .controller-screen--mobile-only .spectator-map-button { display: inline-flex; align-items: center; gap: .45rem; min-height: 48px; margin-top: 1.2rem; padding: 0 1rem; }
 .controller-screen--mobile-only .dice-button,
 .controller-screen--mobile-only .payment-button,
@@ -406,13 +421,13 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .controller-screen--mobile-only .end-turn-action .primary-button,
 .controller-screen--mobile-only .lever-purchase-action .primary-button,
 .controller-screen--mobile-only .trade-response > .wide-button {
-  bottom: calc(5.4rem + env(safe-area-inset-bottom));
+  bottom: var(--safe-bottom);
   box-shadow: 0 10px 34px rgba(0, 0, 0, .34), 0 0 0 .75rem rgba(5, 22, 38, .98);
 }
 .controller-screen--mobile-only .action-row,
-.controller-screen--mobile-only .liquidation-list { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
-.controller-screen--mobile-only .title-actions { bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
-.controller-screen--mobile-only .title-actions--with-primary { bottom: calc(10.65rem + env(safe-area-inset-bottom)); }
+.controller-screen--mobile-only .liquidation-list,
+.controller-screen--mobile-only .title-actions,
+.controller-screen--mobile-only .title-actions--with-primary { bottom: var(--safe-bottom); }
 
 @media (max-width: 600px) {
   .controller-screen .action-row {
@@ -423,17 +438,18 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 }
 
 .mobile-map-panel {
-  position: fixed;
-  z-index: 75;
-  top: calc(70px + env(safe-area-inset-top));
-  bottom: env(safe-area-inset-bottom);
-  left: 50%;
+  position: relative;
+  z-index: var(--layer-map);
+  top: auto;
+  bottom: auto;
+  left: auto;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: .65rem;
   width: min(100%, 520px);
+  min-height: calc(var(--app-viewport-height) - var(--phone-header-height) - var(--safe-top) - var(--safe-bottom));
   padding: .75rem .75rem .65rem;
-  transform: translateX(-50%);
+  transform: none;
   color: #f3f8fc;
   background: radial-gradient(circle at 50% 34%, rgba(28, 86, 113, .32), transparent 50%), #06111f;
 }
@@ -461,12 +477,10 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .mobile-map-roster b em { margin-left: .3rem; color: #f6c64d; font-size: .48rem; font-style: normal; text-transform: uppercase; }
 .mobile-map-roster small { max-width: 120px; margin-top: .1rem; overflow: hidden; color: #9fc3d3; font-size: .54rem; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 600px) {
-  .mobile-map-panel { top: calc(58px + env(safe-area-inset-top)); }
-  .player-credit-float { top: calc(66px + env(safe-area-inset-top)); }
-  .phone-shell:has(.player-credit-float) > .mobile-live-toast { top: calc(120px + env(safe-area-inset-top)); }
+  :root { --phone-header-height: 58px; }
 }
-.portfolio-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .76); backdrop-filter: blur(8px); }
-.portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, auto) auto auto; gap: .8rem; width: min(100%, 520px); height: auto; max-height: calc(100dvh - .35rem); margin: 0 auto; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom)); color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow-x: hidden; overflow-y: auto; }
+.portfolio-backdrop { position: fixed; z-index: var(--layer-modal); inset: 0; display: grid; align-items: end; background: rgba(2, 10, 18, .76); backdrop-filter: blur(8px); }
+.portfolio-drawer { display: grid; grid-template-rows: auto minmax(0, auto) auto auto; gap: .8rem; width: min(100%, 520px); height: auto; max-height: calc(var(--app-viewport-height) - .35rem); margin: 0 auto; padding: 1rem 1rem calc(1rem + var(--safe-bottom)); color: #f3f8fc; border: 1px solid #72a9c2; border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(160deg, #153f5d, #071c30); box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); overflow-x: hidden; overflow-y: auto; }
 .portfolio-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
 .portfolio-close { display: inline-flex; align-items: center; justify-content: center; justify-self: end; gap: .35rem; min-width: 112px; min-height: 46px; padding: 0 .8rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 999px; background: #102a43; font-weight: 800; }
 .portfolio-drawer .section-title--portfolio { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: .2rem .55rem; }
@@ -501,12 +515,12 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   .controller-screen .end-turn-action { grid-template-columns: 1fr; align-items: start; gap: .8rem; }
   .controller-screen .end-turn-action .landing-notice { width: min(100%, 250px); margin: 0 auto; }
   .controller-screen .end-turn-action > div { width: 100%; }
-  .controller-screen .end-turn-action .primary-button { position: fixed; }
+  .controller-screen .end-turn-action .primary-button { position: static; }
   .resource-rent-dialog { color: #f3f8fc; background: #0b243a; }
 }
 
 @media (max-height: 660px) and (max-width: 600px) {
-  .portfolio-drawer { height: auto; max-height: calc(100dvh - .35rem); gap: .55rem; padding-top: .7rem; }
+  .portfolio-drawer { height: auto; max-height: calc(var(--app-viewport-height) - .35rem); gap: .55rem; padding-top: .7rem; }
   .resource-score-list--drawer { gap: .42rem; }
   .resource-score-list--drawer .resource-score { padding: .48rem .62rem; }
   .portfolio-drawer .resource-score header > span { font-size: .82rem; }
@@ -842,24 +856,26 @@ button:disabled {
 .scan-card :is(span, b, a) { color: #06111f; }
 .world-board--tabletop .pawn-symbol.player-token-icon { color: #06111f; }
 
-@media (max-width: 760px) {
+@media (max-width: 760px), (max-height: 500px) {
+  html:has(.phone-shell .controller-screen),
   body:has(.phone-shell .controller-screen),
   #app:has(.phone-shell .controller-screen) {
-    height: auto !important;
-    min-height: 100dvh;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    height: auto;
+    min-height: var(--app-viewport-height);
+    overflow-x: clip;
+    overflow-y: visible;
   }
   .phone-shell:has(.controller-screen) {
-    height: auto !important;
-    min-height: 100dvh !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
-    overflow: visible !important;
+    height: auto;
+    min-height: var(--app-viewport-height);
+    padding-bottom: var(--safe-bottom);
+    overflow: visible;
   }
   .phone-shell:has(.controller-screen) .controller-screen {
-    height: auto !important;
-    min-height: calc(100dvh - 58px - env(safe-area-inset-top)) !important;
-    overflow: visible !important;
+    position: relative;
+    height: auto;
+    min-height: calc(var(--app-viewport-height) - var(--phone-header-height) - var(--safe-top));
+    overflow: visible;
   }
   .controller-screen--mobile-only {
     display: flex;
@@ -869,28 +885,27 @@ button:disabled {
     flex: 0 0 auto;
   }
   .controller-screen--map > :not(.mobile-map-panel):not(.mobile-map-overlay):not(.dice-animation-phone):not(.player-credit-float) {
-    visibility: hidden;
-    pointer-events: none;
+    display: none;
   }
   .controller-screen--map > .mobile-map-overlay {
     visibility: visible;
     pointer-events: auto;
   }
+  .controller-screen--map > .mobile-map-panel { order: 1; }
+  .controller-screen--map:has(> .mobile-map-overlay:not(.action-card--roll):not(.end-turn-action)) > .mobile-map-panel { display: none; }
   .controller-screen--map > .mobile-map-overlay:not(.action-card--roll):not(.end-turn-action) {
-    position: fixed;
-    z-index: 86;
-    top: calc(58px + env(safe-area-inset-top));
-    right: auto;
-    bottom: 0;
-    left: 50%;
-    width: min(100%, 520px);
+    position: relative;
+    z-index: var(--layer-action);
+    inset: auto;
+    order: 2;
+    width: 100%;
     max-width: none;
     min-height: 0;
-    margin: 0;
-    padding: 4.25rem 1rem calc(1rem + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
+    margin: .75rem 0 0;
+    padding: 1rem 1rem calc(1rem + var(--safe-bottom));
+    transform: none;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: visible;
     color: #f3f8fc;
     background: linear-gradient(180deg, rgba(7, 28, 48, .97), #06111f 38%);
   }
@@ -906,16 +921,15 @@ button:disabled {
   }
   .controller-screen--map > .action-card--roll,
   .controller-screen--map > .end-turn-action {
-    position: fixed;
-    z-index: 88;
-    right: auto;
-    bottom: calc(.75rem + env(safe-area-inset-bottom));
-    left: 50%;
-    width: min(calc(100% - 1.5rem), 500px);
+    position: sticky;
+    z-index: var(--layer-action);
+    inset: auto auto var(--safe-bottom);
+    order: 3;
+    width: calc(100% - 1.5rem);
     min-height: 0;
-    margin: 0;
+    margin: .75rem auto;
     padding: 0;
-    transform: translateX(-50%);
+    transform: none;
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -936,9 +950,9 @@ button:disabled {
     box-shadow: 0 12px 34px rgba(0, 0, 0, .46), 0 0 0 1px rgba(255, 255, 255, .12);
   }
   .controller-screen--map:has(> .action-card--roll, > .end-turn-action) .mobile-map-panel {
-    bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-bottom: calc(5.5rem + var(--safe-bottom));
   }
-  .phone-shell:has(.controller-screen) { scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+  .phone-shell:has(.controller-screen) { scroll-padding-bottom: calc(6rem + var(--safe-bottom)); }
   .phone-tools .help-trigger,
   .phone-tools .sound-toggle,
   .phone-tools .mobile-host-menu > summary {

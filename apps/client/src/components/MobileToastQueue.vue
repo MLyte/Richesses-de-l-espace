@@ -36,8 +36,8 @@ onBeforeUnmount(queue.dispose);
 <style scoped>
 .mobile-live-toast {
   position: fixed;
-  z-index: 96;
-  top: calc(66px + env(safe-area-inset-top));
+  z-index: var(--layer-toast);
+  top: calc(var(--phone-header-height) + var(--safe-top) + .5rem);
   left: 50%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

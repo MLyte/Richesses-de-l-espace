@@ -88,20 +88,20 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
   });
 
   it("restores document scrolling for mobile zoom and low landscape viewports", () => {
-    expect(theme).toMatch(/body:has\(\.phone-shell \.controller-screen\),[\s\S]*overflow-y:\s*auto !important/s);
-    expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay:not\([\s\S]*overflow-y:\s*auto/s);
+    expect(theme).toMatch(/body:has\(\.phone-shell \.controller-screen\),[\s\S]*overflow-y:\s*visible/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay:not\([\s\S]*overflow-y:\s*visible/s);
   });
 
   it("does not add a second viewport or legacy bottom padding below controller pages", () => {
-    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\)\s*\{[^}]*min-height:\s*100dvh !important[^}]*padding-bottom:\s*env\(safe-area-inset-bottom\) !important/s);
-    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\) \.controller-screen\s*\{[^}]*min-height:\s*calc\(100dvh - 58px - env\(safe-area-inset-top\)\) !important/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\)\s*\{[^}]*min-height:\s*var\(--app-viewport-height\)[^}]*padding-bottom:\s*var\(--safe-bottom\)/s);
+    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen\) \.controller-screen\s*\{[^}]*min-height:\s*calc\(var\(--app-viewport-height\) - var\(--phone-header-height\) - var\(--safe-top\)\)/s);
   });
 
-  it("anchors contextual actions over the permanent mobile map", () => {
+  it("keeps contextual actions sticky without removing the map from document flow", () => {
     expect(theme).toMatch(/\.controller-screen--mobile-only\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
-    expect(theme).toMatch(/\.controller-screen--map > :not\(\.mobile-map-panel\):not\(\.mobile-map-overlay\)[^}]*visibility:\s*hidden/s);
-    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*fixed/s);
-    expect(theme).toMatch(/\.controller-screen--map:has\(> \.action-card--roll, > \.end-turn-action\) \.mobile-map-panel\s*\{[^}]*bottom:\s*calc\(96px/s);
+    expect(theme).toMatch(/\.controller-screen--map > :not\(\.mobile-map-panel\):not\(\.mobile-map-overlay\)[^}]*display:\s*none/s);
+    expect(theme).toMatch(/\.mobile-map-panel\s*\{[^}]*position:\s*relative[^}]*z-index:\s*var\(--layer-map\)/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll,[\s\S]*\.controller-screen--map > \.end-turn-action\s*\{[^}]*position:\s*sticky[^}]*z-index:\s*var\(--layer-action\)/s);
   });
 
   it("keeps TV overlays centered and mobile landscape actions in normal flow", () => {
@@ -115,7 +115,7 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
   });
 
   it("keeps narrow headers, short states and supporting pages readable", () => {
-    expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay:not\([\s\S]*top:\s*calc\(58px[^}]*overflow-y:\s*auto/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay:not\([\s\S]*position:\s*relative[^}]*overflow-y:\s*visible/s);
     expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) \.phone-resource-button\s*\{[^}]*margin-right:\s*auto/s);
     expect(theme).toMatch(/@media \(max-width: 340px\)[\s\S]*\.phone-header \.brand > span:last-child\s*\{[^}]*display:\s*none/s);
     expect(theme).toMatch(/\.credits-shell \.back-link,[\s\S]*\.credits-grid a\s*\{[^}]*min-height:\s*44px[^}]*font-size:\s*\.875rem/s);
