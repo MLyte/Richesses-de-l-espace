@@ -63,15 +63,15 @@ npm start               # production, après le build
 npm run smoke           # vérification HTTP du build
 ```
 
-### Laboratoire UX statique
+### Partie solo statique
 
-Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/` pour tester l’interface sur de vrais appareils :
+Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/`. Elle permet de jouer une partie complète en incarnant Lyra contre Orion, un robot de profil Équilibré :
 
 ```powershell
 npm run prepare:static
 ```
 
-Le dossier à envoyer est exclusivement `apps/client/dist-static`. Le dossier `apps/client/dist` appartient au serveur Node.js et contient volontairement des chemins incompatibles avec un hébergement sous `/richesses-espace/`. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure d’upload et les limites du test.
+Le duel utilise le vrai moteur de règles et sauvegarde sa progression dans le navigateur. Le dossier à envoyer est exclusivement `apps/client/dist-static`. Le dossier `apps/client/dist` appartient au serveur Node.js et contient volontairement des chemins incompatibles avec un hébergement sous `/richesses-espace/`. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure d’upload et les limites du mode local.
 
 Le build de production est servi sur `http://localhost:3000/display` et écoute sur `0.0.0.0`.
 

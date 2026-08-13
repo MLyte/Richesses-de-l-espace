@@ -5,14 +5,14 @@ import type { GameEvent } from "@richesses-espace/game";
 import { playEventSound, playMoveStep, setActionReminder } from "../services/audio";
 import { playErrorHaptic, playEventHaptic } from "../services/haptics";
 import {
-  loadStaticDemo,
-  resetStaticDemo,
-  runStaticDemoCommand,
-  selectStaticDemoPlayer,
-  type StaticDemoPlayerId,
-  type StaticDemoScenarioId,
-  type StaticDemoSnapshot
-} from "../demo/static-game";
+  LOCAL_GAME_CODE,
+  LOCAL_GAME_STORAGE_KEY,
+  getLocalBotTurn,
+  loadLocalGame,
+  runLocalBotTurn,
+  runLocalGameCommand,
+  type LocalGameSnapshot
+} from "../local/local-game";
 
 type Role = "admin" | "player" | null;
 type DiceAnimationState = { eventId: number; playerId: string; dice: [number, number]; total: number; rolling: boolean };
@@ -20,7 +20,9 @@ type PersistentNotification = { key: string; event: GameEvent };
 const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
 const silentNotificationTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"]);
 const mandatoryActionNames = new Set(["ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "END_TURN"]);
-const staticDemoBuild = import.meta.env.VITE_STATIC_DEMO === "true";
+const localGameBuild = import.meta.env.VITE_LOCAL_GAME === "true";
+let localBotTimer = 0;
+let localStorageListenerBound = false;
 
 export const useGameStore = defineStore("game", {
   state: () => ({
@@ -39,16 +41,14 @@ export const useGameStore = defineStore("game", {
     diceAnimation: null as DiceAnimationState | null,
     visualPlayerPositions: {} as Record<string, number>,
     movingPlayerId: null as string | null,
-    staticDemo: staticDemoBuild,
-    demoScenario: "turn" as StaticDemoScenarioId,
-    demoPlayerId: "lyra" as StaticDemoPlayerId
+    localGame: localGameBuild
   }),
   getters: {
     me(state) { return state.game?.players.find((player) => player.id === state.player?.playerId) ?? null; },
     activePlayer(state) { return state.game?.players.find((player) => player.id === state.game?.activePlayerId) ?? null; }
   },
   actions: {
-    applyStaticDemoSnapshot(snapshot: StaticDemoSnapshot) {
+    applyLocalGameSnapshot(snapshot: LocalGameSnapshot) {
       const previous = this.game;
       for (const player of snapshot.game.players) {
         const previousPlayer = previous?.players.find((item) => item.id === player.id);
@@ -62,35 +62,42 @@ export const useGameStore = defineStore("game", {
       this.sessionToken = null;
       this.connected = true;
       this.error = "";
-      this.demoScenario = snapshot.scenario;
-      this.demoPlayerId = snapshot.playerId;
       setActionReminder(Boolean(snapshot.player?.allowedActions.some((action) => mandatoryActionNames.has(action))));
       for (const event of snapshot.events) this.enqueueEvent(event);
     },
-    setStaticDemoScenario(scenario: StaticDemoScenarioId) {
-      this.eventQueue = [];
-      this.notifications = [];
-      this.animatedEvent = null;
-      this.diceAnimation = null;
-      this.movingPlayerId = null;
-      const mode = this.game?.displayMode ?? "MOBILE_ONLY";
-      this.applyStaticDemoSnapshot(resetStaticDemo(scenario, mode, this.role !== "admin"));
+    bindLocalGameSync() {
+      if (!this.localGame || localStorageListenerBound) return;
+      localStorageListenerBound = true;
+      window.addEventListener("storage", (event) => {
+        if (event.key !== LOCAL_GAME_STORAGE_KEY) return;
+        const mode = this.game?.displayMode ?? "MOBILE_ONLY";
+        const previousRevision = this.game?.revision ?? 0;
+        const next = loadLocalGame(mode, this.role !== "admin", true);
+        next.events = next.game.recentEvents.filter((item) => item.id > previousRevision);
+        this.applyLocalGameSnapshot(next);
+        this.scheduleLocalBot();
+      });
     },
-    switchStaticDemoPlayer(playerId: StaticDemoPlayerId) {
-      this.applyStaticDemoSnapshot(selectStaticDemoPlayer(playerId));
-    },
-    restartStaticDemo() {
-      this.eventQueue = [];
-      this.notifications = [];
-      this.animatedEvent = null;
-      this.diceAnimation = null;
-      this.movingPlayerId = null;
-      const mode = this.game?.displayMode ?? "MOBILE_ONLY";
-      this.applyStaticDemoSnapshot(resetStaticDemo(this.demoScenario, mode, this.role !== "admin"));
+    scheduleLocalBot() {
+      if (!this.localGame) return;
+      window.clearTimeout(localBotTimer);
+      const turn = this.role === "player" ? getLocalBotTurn() : null;
+      if (!turn) {
+        if (this.game?.botThinkingPlayerId) this.game = { ...this.game, botThinkingPlayerId: null };
+        return;
+      }
+      if (this.game) this.game = { ...this.game, botThinkingPlayerId: turn.playerId };
+      localBotTimer = window.setTimeout(() => {
+        const next = runLocalBotTurn(turn.expectedRevision);
+        if (next) this.applyLocalGameSnapshot(next);
+        this.scheduleLocalBot();
+      }, turn.delay);
     },
     connect() {
-      if (this.staticDemo) {
-        this.applyStaticDemoSnapshot(loadStaticDemo("MOBILE_ONLY"));
+      if (this.localGame) {
+        this.bindLocalGameSync();
+        this.applyLocalGameSnapshot(loadLocalGame("MOBILE_ONLY"));
+        this.scheduleLocalBot();
         return;
       }
       if (this.socket) return;
@@ -214,9 +221,10 @@ export const useGameStore = defineStore("game", {
       this.pending = true;
       this.error = "";
       try {
-        if (this.staticDemo) {
-          const result = runStaticDemoCommand(event, payload);
-          this.applyStaticDemoSnapshot(result.snapshot);
+        if (this.localGame) {
+          const result = runLocalGameCommand(event, payload);
+          this.applyLocalGameSnapshot(result.snapshot);
+          this.scheduleLocalBot();
           return result.data as T | undefined;
         }
         this.connect();
@@ -233,8 +241,9 @@ export const useGameStore = defineStore("game", {
       } finally { this.pending = false; }
     },
     async createDisplaySession() {
-      if (this.staticDemo) {
-        this.applyStaticDemoSnapshot(loadStaticDemo("TV", false));
+      if (this.localGame) {
+        this.bindLocalGameSync();
+        this.applyLocalGameSnapshot(loadLocalGame("TV", false));
         return;
       }
       this.connect();
@@ -249,9 +258,11 @@ export const useGameStore = defineStore("game", {
       }
     },
     async createMobileSession(): Promise<string | undefined> {
-      if (this.staticDemo) {
-        this.applyStaticDemoSnapshot(loadStaticDemo("MOBILE_ONLY"));
-        return "DEMO";
+      if (this.localGame) {
+        this.bindLocalGameSync();
+        this.applyLocalGameSnapshot(loadLocalGame("MOBILE_ONLY"));
+        this.scheduleLocalBot();
+        return LOCAL_GAME_CODE;
       }
       this.connect();
       const session = await this.command<SessionResult>("room:create", { displayMode: "MOBILE_ONLY" });
@@ -268,6 +279,10 @@ export const useGameStore = defineStore("game", {
       if (session.role === "player") localStorage.setItem(`richesses-espace:player:${session.code}`, token);
     },
     async resumePlayer(code: string) {
+      if (this.localGame) {
+        this.connect();
+        return;
+      }
       this.connect();
       const token = localStorage.getItem(`richesses-espace:player:${code.toUpperCase()}`);
       if (!token) return;

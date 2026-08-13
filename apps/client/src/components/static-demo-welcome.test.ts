@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./StaticDemoWelcomeDialog.vue", import.meta.url), "utf8");
 
-describe("static demo welcome dialog", () => {
+describe("local solo welcome dialog", () => {
   it("appears once per browser session", () => {
     expect(source).toContain("window.sessionStorage.getItem(SESSION_KEY)");
     expect(source).toContain("window.sessionStorage.setItem(SESSION_KEY, \"1\")");
@@ -12,12 +12,12 @@ describe("static demo welcome dialog", () => {
   it("does not force a timed reading delay", () => {
     expect(source).not.toContain("setInterval");
     expect(source).not.toContain(":disabled");
-    expect(source).toContain("Accéder à la démo");
+    expect(source).toContain("Jouer contre Orion");
   });
 
-  it("explains the limitations of the static beta", () => {
-    expect(source).toContain("Aucun appareil n’est synchronisé");
-    expect(source).toContain("Le QR code et le multijoueur en temps réel ne sont pas encore actifs");
-    expect(source).toContain("Démo UX");
+  it("explains the playable solo mode", () => {
+    expect(source).toContain("Une vraie partie, du premier lancer à la victoire");
+    expect(source).toContain("Orion joue automatiquement");
+    expect(source).toContain("Progression sauvegardée");
   });
 });

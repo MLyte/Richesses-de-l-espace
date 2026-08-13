@@ -3,17 +3,20 @@ import vue from "@vitejs/plugin-vue";
 
 export default defineConfig(() => {
   const buildId = process.env.VITE_BUILD_ID || new Date().toISOString().replace(/[:.]/g, "-");
-  const staticDemo = process.env.VITE_STATIC_DEMO === "true";
+  const localGame = process.env.VITE_LOCAL_GAME === "true";
 
   return {
     base: process.env.VITE_APP_BASE || "/",
-    build: { outDir: staticDemo ? "dist-static" : "dist" },
+    build: { outDir: localGame ? "dist-static" : "dist" },
     plugins: [
       vue(),
       {
         name: "richesses-build-id",
         transformIndexHtml(html: string) {
-          return html.replace("</head>", `    <meta name="richesses-build" content="${buildId}" />\n  </head>`);
+          const contextualized = localGame
+            ? html.replace("aventure économique spatiale multijoueur", "aventure économique spatiale en solo contre ordinateur")
+            : html;
+          return contextualized.replace("</head>", `    <meta name="richesses-build" content="${buildId}" />\n  </head>`);
         }
       }
     ],

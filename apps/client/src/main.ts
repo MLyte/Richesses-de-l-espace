@@ -10,7 +10,7 @@ import "./styles.css";
 import "./theme-space.css";
 
 const router = createRouter({
-  history: import.meta.env.VITE_STATIC_DEMO === "true" ? createWebHashHistory(import.meta.env.BASE_URL) : createWebHistory(import.meta.env.BASE_URL),
+  history: import.meta.env.VITE_LOCAL_GAME === "true" ? createWebHashHistory(import.meta.env.BASE_URL) : createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: "/", component: CreateGameView },
     { path: "/display", component: DisplayView },

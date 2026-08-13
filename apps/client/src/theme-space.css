@@ -966,22 +966,6 @@ button:disabled {
     aspect-ratio: auto;
   }
 
-  body:has(.static-demo-controls) .controller-screen--mobile-only:not(.controller-screen--map) :is(
-      .dice-button,
-      .payment-button,
-      .bankruptcy-button,
-      .end-turn-action .primary-button,
-      .lever-purchase-action .primary-button,
-      .trade-response > .wide-button
-    ) {
-    right: 4.5rem;
-  }
-  body:has(.static-demo-controls) .controller-screen--mobile-only:not(.controller-screen--map) :is(.action-row, .liquidation-list) {
-    padding-right: 4.5rem;
-  }
-  body:has(.create-game, .controller-screen--map, .portfolio-backdrop) .static-demo-controls {
-    display: none;
-  }
 }
 
 @media (max-width: 340px) {

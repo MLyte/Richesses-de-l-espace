@@ -1,6 +1,6 @@
-# Déployer le laboratoire UX statique
+# Déployer la partie solo statique
 
-Cette version permet de tester l’interface avec des données de jeu réalistes sans serveur Node.js, Socket.IO ni PostgreSQL. Chaque navigateur exécute sa propre simulation locale : deux téléphones ouverts en même temps ne sont pas synchronisés.
+Cette version permet de jouer une partie complète sans serveur Node.js, Socket.IO ni PostgreSQL. Le joueur incarne Lyra face à Orion, un robot Équilibré piloté par le même moteur de décision que les robots serveur. La progression est sauvegardée automatiquement dans le navigateur.
 
 ## Générer le dossier d’upload
 
@@ -21,18 +21,20 @@ Le résultat se trouve dans `apps/client/dist-static`.
 3. Ouvrir `https://mathieuluyten.be/richesses-espace/` dans une fenêtre privée.
 4. Tester l’accueil, le parcours mobile et l’interface TV.
 
-Le prototype utilise une navigation avec `#` après l’ouverture d’un écran, par exemple `https://mathieuluyten.be/richesses-espace/#/play/DEMO`. C’est volontaire : cette forme fonctionne sur un hébergement statique sans règle Apache ou Nginx supplémentaire.
+L’application utilise une navigation avec `#` après l’ouverture d’un écran, par exemple `https://mathieuluyten.be/richesses-espace/#/play/SOLO`. C’est volontaire : cette forme fonctionne sur un hébergement statique sans règle Apache ou Nginx supplémentaire.
 
-## Utiliser le laboratoire
+## Jouer contre Orion
 
-Le bouton discret **Démo UX** ouvre les commandes de test :
+Depuis l’accueil, choisir **Duel contre Orion**. La partie commence immédiatement :
 
-- choisir une situation de jeu ;
-- observer Orion ou Lyra ;
-- réinitialiser les données ;
-- revenir à l’accueil.
+- Lyra est le joueur humain et commence la partie avec 100 crédits ;
+- Orion est un robot Équilibré, connecté et prêt ;
+- chaque décision passe par le moteur de règles complet ;
+- Orion joue automatiquement après un délai lisible ;
+- la révision de partie empêche une ancienne décision différée de s’exécuter après une pause ou une fin de partie ;
+- **Rejouer contre Orion** démarre une nouvelle partie après la fin.
 
-Les situations disponibles couvrent un tour libre, un achat, un paiement, une enchère, un échange, une pause et une fin de partie. La progression courante est enregistrée dans le stockage local du navigateur.
+Le **Pont d’observation** conserve l’écran TV validé. Dans une seconde fenêtre du même navigateur et du même profil, il suit la sauvegarde locale et rejoue les événements de la partie. Des appareils ou navigateurs distincts restent indépendants.
 
 ## Mettre à jour la version publiée
 
@@ -40,10 +42,10 @@ Relancer `npm.cmd run prepare:static`, puis remplacer le contenu publié par cel
 
 ## Ce que cette version ne valide pas
 
-- la synchronisation entre appareils ;
+- la synchronisation entre appareils ou profils de navigateur distincts ;
 - les reconnexions réseau ;
 - la persistance d’une partie sur serveur ;
 - l’autorité des commandes côté serveur ;
 - le QR code multijoueur réel.
 
-Ces fonctions resteront couvertes par la future version VPS. Le laboratoire statique sert à valider la compréhension, la lisibilité, le tactile, le responsive et l’enchaînement perçu des actions.
+Ces fonctions restent réservées à la version serveur. Le build statique fournit en revanche une vraie partie locale jouable de bout en bout contre l’ordinateur.

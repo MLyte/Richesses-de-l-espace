@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import StaticDemoControls from "./components/StaticDemoControls.vue";
 import StaticDemoWelcomeDialog from "./components/StaticDemoWelcomeDialog.vue";
 
-const staticDemo = import.meta.env.VITE_STATIC_DEMO === "true";
+const localGame = import.meta.env.VITE_LOCAL_GAME === "true";
 </script>
 
-<template><RouterView /><StaticDemoControls v-if="staticDemo" /><StaticDemoWelcomeDialog v-if="staticDemo" /></template>
+<template><RouterView /><StaticDemoWelcomeDialog v-if="localGame" /></template>

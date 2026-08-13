@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from "vue";
-import { FlaskConical, MousePointerClick, WifiOff } from "@lucide/vue";
+import { Bot, Gamepad2, Save } from "@lucide/vue";
 
-const SESSION_KEY = "richesses-espace:static-demo-welcome-seen";
+const SESSION_KEY = "richesses-espace:solo-welcome-seen";
 const dialog = ref<HTMLDialogElement | null>(null);
 
 function wasSeen(): boolean {
@@ -31,18 +31,18 @@ onMounted(async () => {
 
 <template>
   <dialog ref="dialog" class="static-welcome" aria-labelledby="static-welcome-title" aria-describedby="static-welcome-description" @cancel.prevent>
-    <div class="static-welcome__icon"><FlaskConical :size="28" aria-hidden="true" /></div>
-    <p class="eyebrow">Bêta publique · laboratoire UX</p>
-    <h1 id="static-welcome-title">Bienvenue dans la démo de<br /><em>Richesses de l’espace.</em></h1>
-    <p id="static-welcome-description" class="static-welcome__intro">Cette version sert à tester la compréhension, la lisibilité et le confort des interfaces avant l’ouverture du véritable jeu multijoueur.</p>
+    <div class="static-welcome__icon"><Bot :size="28" aria-hidden="true" /></div>
+    <p class="eyebrow">Partie solo · joueur contre ordinateur</p>
+    <h1 id="static-welcome-title">Bienvenue à bord de<br /><em>Richesses de l’espace.</em></h1>
+    <p id="static-welcome-description" class="static-welcome__intro">Vous incarnez Lyra dans une partie complète contre Orion, un robot Équilibré qui joue avec les mêmes informations et les mêmes règles que vous.</p>
 
     <div class="static-welcome__facts">
-      <article><MousePointerClick :size="21" aria-hidden="true" /><div><strong>Une partie simulée, mais interactive</strong><p>Orion et Lyra utilisent les vraies données et les vraies règles. Lancez les dés, achetez et explorez librement.</p></div></article>
-      <article><WifiOff :size="21" aria-hidden="true" /><div><strong>Aucun appareil n’est synchronisé</strong><p>Tout se déroule localement dans votre navigateur. Le QR code et le multijoueur en temps réel ne sont pas encore actifs.</p></div></article>
-      <article><FlaskConical :size="21" aria-hidden="true" /><div><strong>Plusieurs situations sont disponibles</strong><p>Ouvrez la languette « Démo UX » pour tester un achat, un paiement, une enchère, un échange, une pause ou une fin de partie.</p></div></article>
+      <article><Gamepad2 :size="21" aria-hidden="true" /><div><strong>Une vraie partie, du premier lancer à la victoire</strong><p>Lancez les dés, achetez des concessions, payez les droits et négociez avec Orion.</p></div></article>
+      <article><Bot :size="21" aria-hidden="true" /><div><strong>Orion joue automatiquement</strong><p>Le robot réfléchit après vos actions, respecte une réserve de capital et ne connaît pas vos informations privées.</p></div></article>
+      <article><Save :size="21" aria-hidden="true" /><div><strong>Progression sauvegardée</strong><p>La partie reste sur cet appareil et reprend automatiquement là où vous l’avez laissée.</p></div></article>
     </div>
 
-    <button type="button" class="static-welcome__close" @click="close">Accéder à la démo</button>
+    <button type="button" class="static-welcome__close" @click="close">Jouer contre Orion</button>
     <small>Ce message ne sera affiché qu’une fois pendant cette session.</small>
   </dialog>
 </template>
