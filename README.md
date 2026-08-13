@@ -68,11 +68,10 @@ npm run smoke           # vérification HTTP du build
 Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/` pour tester l’interface sur de vrais appareils :
 
 ```powershell
-npm run build:static
-npm run check:static
+npm run prepare:static
 ```
 
-Le dossier à envoyer est `apps/client/dist`. Il contient une simulation locale interactive avec Orion et Lyra et plusieurs situations de jeu. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure d’upload et les limites du test.
+Le dossier à envoyer est exclusivement `apps/client/dist-static`. Le dossier `apps/client/dist` appartient au serveur Node.js et contient volontairement des chemins incompatibles avec un hébergement sous `/richesses-espace/`. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure d’upload et les limites du test.
 
 Le build de production est servi sur `http://localhost:3000/display` et écoute sur `0.0.0.0`.
 

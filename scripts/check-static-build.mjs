@@ -1,13 +1,14 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
-const dist = path.resolve("apps/client/dist");
+const dist = path.resolve("apps/client/dist-static");
 const indexPath = path.join(dist, "index.html");
 const index = await readFile(indexPath, "utf8");
 
 if (!index.includes('href="/richesses-espace/favicon.svg"')) throw new Error("Le favicon n’utilise pas la base /richesses-espace/.");
 if (!index.includes('src="/richesses-espace/assets/')) throw new Error("Le script principal n’utilise pas la base /richesses-espace/.");
 if (!index.includes('href="/richesses-espace/assets/')) throw new Error("La feuille de style n’utilise pas la base /richesses-espace/.");
+if (/(?:src|href)="\/assets\//.test(index)) throw new Error("Le build statique contient encore une ressource pointant vers /assets/ à la racine du domaine.");
 const buildId = index.match(/<meta name="richesses-build" content="([^"]+)"/i)?.[1];
 if (!buildId) throw new Error("L’identifiant de build est absent de index.html.");
 

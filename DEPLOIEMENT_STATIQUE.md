@@ -7,16 +7,17 @@ Cette version permet de tester l’interface avec des données de jeu réalistes
 Depuis la racine du projet :
 
 ```powershell
-npm.cmd run build:static
-npm.cmd run check:static
+npm.cmd run prepare:static
 ```
 
-Le résultat se trouve dans `apps/client/dist`.
+Le résultat se trouve dans `apps/client/dist-static`.
+
+> Ne publiez jamais `apps/client/dist` sur `mathieuluyten.be/richesses-espace`. Ce dossier est le build du serveur Node.js et ses ressources commencent par `/assets/`, ce qui provoque des erreurs 404 sur un sous-dossier. Les deux sorties sont volontairement séparées pour éviter qu’un build serveur écrase l’artefact statique.
 
 ## Envoyer les fichiers
 
 1. Dans la racine web de `mathieuluyten.be`, créer le dossier `richesses-espace`.
-2. Envoyer **le contenu** de `apps/client/dist` dans ce dossier. Le fichier `index.html` doit donc se trouver directement à l’emplacement `richesses-espace/index.html`.
+2. Envoyer **le contenu** de `apps/client/dist-static` dans ce dossier. Le fichier `index.html` doit donc se trouver directement à l’emplacement `richesses-espace/index.html`.
 3. Ouvrir `https://mathieuluyten.be/richesses-espace/` dans une fenêtre privée.
 4. Tester l’accueil, le parcours mobile et l’interface TV.
 
@@ -35,7 +36,7 @@ Les situations disponibles couvrent un tour libre, un achat, un paiement, une en
 
 ## Mettre à jour la version publiée
 
-Relancer le build, puis remplacer le contenu publié par celui du nouveau dossier `dist`. Les fichiers JavaScript et CSS portent un nom versionné : il faut toujours envoyer le nouvel `index.html` avec les nouveaux fichiers du dossier `assets`.
+Relancer `npm.cmd run prepare:static`, puis remplacer le contenu publié par celui du nouveau dossier `dist-static`. Les fichiers JavaScript et CSS portent un nom versionné : il faut toujours envoyer le nouvel `index.html` avec les nouveaux fichiers du dossier `assets`.
 
 ## Ce que cette version ne valide pas
 

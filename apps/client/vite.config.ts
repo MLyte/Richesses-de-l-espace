@@ -3,9 +3,11 @@ import vue from "@vitejs/plugin-vue";
 
 export default defineConfig(() => {
   const buildId = process.env.VITE_BUILD_ID || new Date().toISOString().replace(/[:.]/g, "-");
+  const staticDemo = process.env.VITE_STATIC_DEMO === "true";
 
   return {
     base: process.env.VITE_APP_BASE || "/",
+    build: { outDir: staticDemo ? "dist-static" : "dist" },
     plugins: [
       vue(),
       {
