@@ -4,6 +4,7 @@ import { ASSETS, RESOURCES, SECTORS, type BoardSpace } from "@richesses-espace/g
 import type { PublicPlayerView } from "@richesses-espace/protocol";
 import { ChevronLeft, ChevronRight, LocateFixed, MapPin, Orbit } from "@lucide/vue";
 import PlayerTokenIcon from "./PlayerTokenIcon.vue";
+import { getResourceRightsHolders } from "./resource-rights";
 
 const props = defineProps<{
   board: readonly BoardSpace[];
@@ -55,28 +56,33 @@ function routeEntry(index: number) {
     const sector = SECTORS.find((item) => item.id === asset?.sectorId);
     const ownerId = props.ownership[space.assetId];
     const owner = props.players.find((player) => player.id === ownerId);
+    const rightsHolders = getResourceRightsHolders(props.players, space.resourceId);
+    const rightsDetail = rightsHolders.length ? `Droits : ${rightsHolders.map((holder) => `${holder.name} ${holder.share} %`).join(" · ")}` : "Aucun droit à payer";
     return {
       index: normalizedIndex,
       title: asset?.name ?? "Concession spatiale",
       label: resource?.name ?? "Concession",
-      detail: owner ? `Contrôlée par ${owner.name}` : `${asset?.share ?? 0} % disponibles · ${asset?.basePrice ?? 0} crédits`,
+      detail: `${owner ? `Contrôlée par ${owner.name}` : `${asset?.share ?? 0} % disponibles · ${asset?.basePrice ?? 0} crédits`} · ${rightsDetail}`,
       color: sector?.color ?? "#35d0e2",
       owner,
+      rightsHolders,
       players: playersAt(normalizedIndex)
     };
   }
   if (space.type === "hub") {
-    return { index: normalizedIndex, title: space.name, label: "Point de départ", detail: "Le centre logistique de toutes les expéditions", color: "#35d0e2", owner: null, players: playersAt(normalizedIndex) };
+    return { index: normalizedIndex, title: space.name, label: "Point de départ", detail: "Le centre logistique de toutes les expéditions", color: "#35d0e2", owner: null, rightsHolders: [], players: playersAt(normalizedIndex) };
   }
   const resource = space.kind === "dividend" ? RESOURCES.find((item) => item.id === space.resourceId) : null;
   const sector = resource ? SECTORS.find((item) => item.id === resource.sectorId) : null;
+  const rightsHolders = getResourceRightsHolders(props.players, resource?.id ?? null);
   return {
     index: normalizedIndex,
     title: space.name,
     label: specialLabels[space.kind] ?? "Étape spéciale",
-    detail: resource ? `Ressource concernée : ${resource.name}` : "Une règle spéciale s’applique sur cette étape",
+    detail: resource ? `Ressource concernée : ${resource.name}${rightsHolders.length ? ` · Droits : ${rightsHolders.map((holder) => `${holder.name} ${holder.share} %`).join(" · ")}` : " · Aucun droit à payer"}` : "Une règle spéciale s’applique sur cette étape",
     color: sector?.color ?? "#9666b4",
     owner: null,
+    rightsHolders,
     players: playersAt(normalizedIndex)
   };
 }
@@ -90,8 +96,11 @@ const progress = computed(() => props.board.length ? ((focusedIndex.value + 1) /
 async function scrollToIndex(index: number, behavior: ScrollBehavior): Promise<void> {
   focusedIndex.value = wrap(index);
   await nextTick();
-  const target = routeWindow.value?.querySelector<HTMLElement>(`[data-board-index="${focusedIndex.value}"]`);
-  target?.scrollIntoView({ block: "center", behavior: reducedMotion.matches ? "auto" : behavior });
+  const viewport = routeWindow.value;
+  const target = viewport?.querySelector<HTMLElement>(`[data-board-index="${focusedIndex.value}"]`);
+  if (!viewport || !target) return;
+  const top = target.offsetTop - (viewport.clientHeight - target.offsetHeight) / 2;
+  viewport.scrollTo({ top, behavior: reducedMotion.matches ? "auto" : behavior });
 }
 
 function moveFocus(delta: number): void {
@@ -167,12 +176,16 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
         :key="entry.index"
         type="button"
         class="route-stop"
-        :class="{ focused: entry.index === focusedIndex, owned: entry.owner }"
+        :class="{ focused: entry.index === focusedIndex, 'has-rights': entry.rightsHolders.length }"
         :data-board-index="entry.index"
         :data-owner-id="entry.owner?.id"
-        :style="{ '--stop-color': entry.color, '--owner-color': entry.owner?.color }"
+        :data-rights-holder-ids="entry.rightsHolders.map(holder => holder.id).join(',')"
+        :style="{ '--stop-color': entry.color }"
         @click="followsActivePlayer = false; scrollToIndex(entry.index, 'smooth')"
       >
+        <span v-if="entry.rightsHolders.length" class="route-stop__rights" aria-hidden="true">
+          <i v-for="(holder, rightsIndex) in entry.rightsHolders" :key="holder.id" :style="{ '--rights-inset': `${2 + rightsIndex * 4}px`, '--rights-radius': `${Math.max(5, 10 - rightsIndex)}px`, '--rights-color': holder.color }" />
+        </span>
         <span class="route-stop__number">{{ entry.index + 1 }}</span>
         <span class="route-stop__marker"><MapPin v-if="entry.index === focusedIndex" :size="19" aria-hidden="true" /><Orbit v-else :size="14" aria-hidden="true" /></span>
         <span class="route-stop__copy">
@@ -210,12 +223,13 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
 .route-navigation b span { color: #8fb6ca; font-weight: 600; }
 .route-navigation i { display: block; height: 5px; margin-top: .4rem; overflow: hidden; border-radius: 999px; background: #102a43; }
 .route-navigation i span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2c7998, #35d0e2); transition: width .18s ease; }
-.route-window { position: relative; display: grid; align-content: start; gap: .35rem; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: calc(50% - 44px) .08rem; scroll-behavior: smooth; scroll-snap-type: y proximity; scrollbar-color: #2c7998 transparent; scrollbar-width: thin; }
+.route-window { position: relative; display: grid; align-content: start; gap: .35rem; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 0 .08rem; scroll-behavior: smooth; scroll-snap-type: y proximity; scrollbar-color: #2c7998 transparent; scrollbar-width: thin; }
 .route-window::before { position: absolute; z-index: 0; top: 0; bottom: 0; left: 36px; width: 2px; background: #2c7998; content: ""; }
 .route-stop { position: relative; z-index: 1; display: grid; grid-template-columns: 25px 30px minmax(0, 1fr) auto; align-items: center; gap: .45rem; min-height: 52px; padding: .4rem .55rem; color: #c4dbe6; border: 1px solid rgba(114, 169, 194, .2); border-radius: 12px; background: rgba(7, 28, 48, .94); scroll-snap-align: center; text-align: left; transition: min-height .16s ease, background .16s ease, border-color .16s ease; }
-.route-stop.owned { box-shadow: inset 0 0 0 2px var(--owner-color), inset 5px 0 16px color-mix(in srgb, var(--owner-color) 20%, transparent); }
 .route-stop.focused { min-height: 96px; color: #f3f8fc; border-color: color-mix(in srgb, var(--stop-color) 72%, #ffffff 28%); background: linear-gradient(105deg, color-mix(in srgb, var(--stop-color) 18%, #071c30 82%), #0b2840); box-shadow: 0 10px 30px rgba(0, 0, 0, .24), inset 3px 0 0 var(--stop-color); }
-.route-stop.owned.focused { box-shadow: 0 10px 30px rgba(0, 0, 0, .24), inset 0 0 0 2px var(--owner-color), inset 5px 0 16px color-mix(in srgb, var(--owner-color) 22%, transparent); }
+.route-stop__rights { position: absolute; z-index: 0; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.route-stop__rights i { position: absolute; inset: var(--rights-inset); border: 2px solid var(--rights-color); border-radius: var(--rights-radius); box-shadow: inset 4px 0 12px color-mix(in srgb, var(--rights-color) 16%, transparent); }
+.route-stop.has-rights > :not(.route-stop__rights) { position: relative; z-index: 1; }
 .route-stop__number { color: #8fb6ca; font: 700 .75rem "IBM Plex Mono", monospace; text-align: right; }
 .route-stop__marker { display: grid; place-items: center; width: 30px; height: 30px; color: var(--stop-color); border: 2px solid var(--stop-color); border-radius: 50%; background: #06111f; }
 .focused .route-stop__marker { color: #06111f; background: var(--stop-color); box-shadow: 0 0 0 4px color-mix(in srgb, var(--stop-color) 20%, transparent); }

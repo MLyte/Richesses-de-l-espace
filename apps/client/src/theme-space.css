@@ -162,13 +162,12 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .world-board--tabletop .tile-country, .world-board--tabletop .tile-resource { stroke: none; shape-rendering: geometricPrecision; }
 .world-board--tabletop .tile-country { opacity: .82; }
 .world-board--tabletop .tile-resource { opacity: .98; }
-.world-board--tabletop .tile-owner-glow,
-.world-board--tabletop .tile-owner-marker {
+.world-board--tabletop .tile-rights-marker {
   fill: none;
   pointer-events: none;
+  opacity: .98;
+  stroke-width: .28;
 }
-.world-board--tabletop .tile-owner-glow { opacity: .18; stroke-width: .8; }
-.world-board--tabletop .tile-owner-marker { opacity: .98; stroke-width: .38; }
 .world-board--tabletop .tile-country__code,
 .world-board--tabletop .tile-resource__code {
   fill: #fff !important;
@@ -453,7 +452,14 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
   color: #f3f8fc;
   background: radial-gradient(circle at 50% 34%, rgba(28, 86, 113, .32), transparent 50%), #06111f;
 }
-.mobile-map-panel--route { display: block; padding-top: 4.25rem; }
+.mobile-map-panel--route {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: calc(var(--app-viewport-height) - var(--phone-header-height) - var(--safe-top) - var(--safe-bottom));
+  min-height: 0;
+  padding-top: 4.25rem;
+  overflow: hidden;
+}
 .mobile-map-context { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .mobile-map-context > div:first-child { min-width: 0; }
 .mobile-map-context span, .mobile-map-context strong, .mobile-map-context small { display: block; }

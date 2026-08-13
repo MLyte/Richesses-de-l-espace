@@ -6,22 +6,22 @@ const board = readFileSync(fileURLToPath(new URL("./WorldBoard.vue", import.meta
 const display = readFileSync(fileURLToPath(new URL("../views/DisplayView.vue", import.meta.url)), "utf8");
 const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.meta.url)), "utf8");
 
-describe("world board ownership markers", () => {
-  it("passes live ownership to the shared TV board", () => {
+describe("world board resource rights markers", () => {
+  it("passes live holdings and ownership to the shared TV board", () => {
     expect(display).toContain(':ownership="store.game.ownership"');
     expect(board).toContain("ownership: Record<string, string>;");
     expect(board).toContain("props.ownership[space.assetId]");
   });
 
-  it("renders ownership entirely inside an owned concession", () => {
-    expect(board).toContain('v-if="tile.owner" class="tile-owner-marker" x=".28" y=".28"');
-    expect(board).toContain('v-if="tile.owner" class="tile-owner-glow" x=".65" y=".65"');
-    expect(theme).toMatch(/\.tile-owner-marker\s*\{[^}]*stroke-width:\s*\.38/s);
-    expect(theme).toMatch(/\.tile-owner-glow\s*\{[^}]*opacity:\s*\.18/s);
+  it("renders one nested inner marker per eligible rights holder", () => {
+    expect(board).toContain("rightsHolders: getResourceRightsHolders(props.players, space.resourceId)");
+    expect(board).toContain('v-for="(holder, rightsIndex) in tile.rightsHolders"');
+    expect(board).toContain(':x=".2 + rightsIndex * .28"');
+    expect(theme).toMatch(/\.tile-rights-marker\s*\{[^}]*stroke-width:\s*\.28/s);
   });
 
-  it("keeps unowned and special spaces free of ownership decoration", () => {
-    expect(board).toContain("owner: null");
-    expect(board).toContain('v-if="tile.owner" class="tile-owner-marker"');
+  it("marks dividend spaces but leaves unrelated special spaces unmarked", () => {
+    expect(board).toContain('space.type === "special" && space.kind === "dividend" ? space.resourceId : null');
+    expect(board).toContain("getResourceRightsHolders(props.players, resourceId)");
   });
 });

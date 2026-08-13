@@ -54,6 +54,13 @@ describe("mobile-only map-first experience", () => {
     expect(theme).toMatch(/\.controller-screen--map:has\(> \.mobile-map-overlay:not\(\.action-card--roll\):not\(\.end-turn-action\)\) > \.mobile-map-panel\s*\{[^}]*display:\s*none/s);
   });
 
+  it("offers a new game directly from the host's final screen", () => {
+    expect(playerView).toContain('v-else-if="store.game.phase === \'FINISHED\'" class="state-message final-phone mobile-map-overlay"');
+    expect(playerView).toContain('v-if="isPhoneHost" type="button" class="primary-button final-phone__restart"');
+    expect(playerView).toContain('@click="run(store.restart)"');
+    expect(playerView).toContain("L’hôte peut préparer une nouvelle partie avec le même groupe.");
+  });
+
   it("queues readable turn and event notifications without slowing game animations", () => {
     expect(playerView).toContain('<MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />');
     expect(playerView).toContain('const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"])');
@@ -88,5 +95,14 @@ describe("mobile-only map-first experience", () => {
     expect(mobileRoute).toContain('v-for="player in players"');
     expect(mobileRoute).toContain('v-for="player in entry.players"');
     expect(mobileRoute).not.toContain("WorldBoard");
+  });
+
+  it("keeps the focused route stop centered without width-based vertical padding", () => {
+    expect(theme).toMatch(/\.mobile-map-panel--route\s*\{[^}]*display:\s*grid[^}]*grid-template-rows:\s*minmax\(0, 1fr\)[^}]*height:\s*calc\(var\(--app-viewport-height\)[^}]*overflow:\s*hidden/s);
+    expect(mobileRoute).toContain("target.offsetTop - (viewport.clientHeight - target.offsetHeight) / 2");
+    expect(mobileRoute).toContain("viewport.scrollTo({ top");
+    expect(mobileRoute).toMatch(/\.route-window\s*\{[^}]*padding:\s*0 \.08rem/s);
+    expect(mobileRoute).not.toContain("padding: calc(50% - 44px)");
+    expect(mobileRoute).not.toContain("scrollIntoView");
   });
 });

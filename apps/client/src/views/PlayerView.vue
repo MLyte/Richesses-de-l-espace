@@ -17,7 +17,7 @@ import GameIcon from "../components/GameIcon.vue";
 import MobileRouteMap from "../components/MobileRouteMap.vue";
 import MobileToastQueue from "../components/MobileToastQueue.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
-import { ArrowLeftRight, Bot, Dices, HandCoins, Menu, PackageOpen, Pause, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
+import { ArrowLeftRight, Bot, Dices, HandCoins, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
 const route = useRoute();
 const store = useGameStore();
@@ -285,7 +285,16 @@ async function finishAsHost() {
           <MobileRouteMap :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :current-player-id="me.id" :turn-number="store.game.turnNumber" :ownership="store.game.ownership" :visual-positions="store.visualPlayerPositions" />
         </section>
         <div v-if="store.game.phase === 'PAUSED'" class="state-message pause-phone mobile-map-overlay"><span class="pause-phone__icon" aria-label="Partie en pause"><Pause :size="25" aria-hidden="true" /></span><h2>{{ store.game.pauseReason === 'PLAYER_DISCONNECTED' ? (pausedPlayer?.connected ? 'Connexion rétablie' : 'Connexion interrompue') : 'Pause de l’hôte' }}</h2><p v-if="pausedPlayer && !pausedPlayer.connected"><strong>{{ pausedPlayer.name }}</strong> a perdu la connexion. La partie est gelée jusqu’à son retour, sans modifier les soldes ni le tour.</p><p v-else-if="pausedPlayer"><strong>{{ pausedPlayer.name }}</strong> est revenu·e. L’hôte peut maintenant reprendre la partie depuis son téléphone.</p><p v-else>L’hôte a suspendu la partie. Gardez cette page ouverte : la reprise apparaîtra automatiquement.</p></div>
-        <div v-else-if="store.game.phase === 'FINISHED'" class="state-message final-phone mobile-map-overlay"><p class="eyebrow">Partie terminée</p><h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2><p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p></div>
+        <div v-else-if="store.game.phase === 'FINISHED'" class="state-message final-phone mobile-map-overlay">
+          <p class="eyebrow">Partie terminée</p>
+          <h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2>
+          <p>Votre flotte termine avec {{ me.capital }} crédits stellaires et {{ me.assetIds.length }} concession(s).</p>
+          <button v-if="isPhoneHost" type="button" class="primary-button final-phone__restart" :disabled="store.pending" @click="run(store.restart)">
+            <RotateCcw :size="19" aria-hidden="true" />
+            <span>{{ store.localGame ? 'Rejouer contre le robot' : 'Rejouer avec le groupe' }}</span>
+          </button>
+          <p v-else class="final-phone__waiting">L’hôte peut préparer une nouvelle partie avec le même groupe.</p>
+        </div>
         <div v-else-if="me.bankrupt" class="state-message bankruptcy-state mobile-map-overlay"><p class="eyebrow">Faillite déclarée</p><h2>Vous quittez la partie.</h2><p>Vous restez spectateur jusqu’au classement final.</p></div>
         <div v-else-if="currentTrade" class="trade-response mobile-map-overlay">
           <p class="eyebrow">{{ currentTrade.kind === 'alliance' ? 'Consortium conjoint proposé' : 'Transaction entre joueurs' }}</p><h2>{{ tradeProposer?.name }} propose un accord à {{ tradeTargetPlayer?.name }}.</h2>

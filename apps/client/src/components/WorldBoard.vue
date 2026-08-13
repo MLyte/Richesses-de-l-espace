@@ -4,6 +4,7 @@ import { ASSETS, COUNTRIES, RESOURCES, SECTORS, type BoardSpace } from "@richess
 import type { PublicPlayerView } from "@richesses-espace/protocol";
 import PlayerTokenIcon from "./PlayerTokenIcon.vue";
 import GameIcon from "./GameIcon.vue";
+import { getResourceRightsHolders } from "./resource-rights";
 
 const props = defineProps<{
   board: readonly BoardSpace[];
@@ -90,13 +91,16 @@ function specialMeta(space: BoardSpace) {
 
 const tiles = computed(() => props.board.map((space, index) => {
   const position = gridPosition(index);
-  if (space.type !== "asset") return { space, index, ...position, special: specialMeta(space), title: null, country: null, resource: null, sector: null, owner: null };
+  if (space.type !== "asset") {
+    const resourceId = space.type === "special" && space.kind === "dividend" ? space.resourceId : null;
+    return { space, index, ...position, special: specialMeta(space), title: null, country: null, resource: null, sector: null, owner: null, rightsHolders: getResourceRightsHolders(props.players, resourceId) };
+  }
   const title = ASSETS.find((asset) => asset.id === space.assetId)!;
   const country = COUNTRIES.find((item) => item.id === title.countryId)!;
   const resource = RESOURCES.find((item) => item.id === title.resourceId)!;
   const sector = SECTORS.find((item) => item.id === title.sectorId)!;
   const owner = props.players.find((player) => player.id === props.ownership[space.assetId]) ?? null;
-  return { space, index, ...position, special: null, title, country, resource, sector, owner };
+  return { space, index, ...position, special: null, title, country, resource, sector, owner, rightsHolders: getResourceRightsHolders(props.players, space.resourceId) };
 }));
 </script>
 
@@ -111,15 +115,13 @@ const tiles = computed(() => props.board.map((space, index) => {
       <rect class="board-mat" :width="viewWidth" :height="VIEW_HEIGHT" />
       <rect class="board-ocean" :x="tileWidth" :y="tileHeight" :width="Math.max(0, viewWidth - tileWidth * 2)" :height="VIEW_HEIGHT - tileHeight * 2" rx="1" fill="url(#deep-space)" />
 
-      <g v-for="tile in tiles" :key="tile.space.id" class="board-tile" :class="{ 'board-tile--owned': tile.owner, 'board-tile--occupied': playersAt(tile.index).length, 'board-tile--active': playersAt(tile.index).some(player => player.id === activePlayerId) }" :data-owner-id="tile.owner?.id" :transform="`translate(${tile.x} ${tile.y})`">
-        <title v-if="tile.title">{{ tile.country?.continent }} · {{ tile.country?.name }} · {{ tile.resource?.name }}{{ tile.owner ? ` · Propriété de ${tile.owner.name}` : ' · Libre' }}</title>
-        <title v-else>{{ tile.space.name }}</title>
+      <g v-for="tile in tiles" :key="tile.space.id" class="board-tile" :class="{ 'board-tile--has-rights': tile.rightsHolders.length, 'board-tile--occupied': playersAt(tile.index).length, 'board-tile--active': playersAt(tile.index).some(player => player.id === activePlayerId) }" :data-owner-id="tile.owner?.id" :data-rights-holder-ids="tile.rightsHolders.map(holder => holder.id).join(',')" :transform="`translate(${tile.x} ${tile.y})`">
+        <title v-if="tile.title">{{ tile.country?.continent }} · {{ tile.country?.name }} · {{ tile.resource?.name }}{{ tile.owner ? ` · Propriété de ${tile.owner.name}` : ' · Libre' }}{{ tile.rightsHolders.length ? ` · Droits : ${tile.rightsHolders.map(holder => `${holder.name} ${holder.share} %`).join(' · ')}` : ' · Aucun droit à payer' }}</title>
+        <title v-else>{{ tile.space.name }}{{ tile.rightsHolders.length ? ` · Droits : ${tile.rightsHolders.map(holder => `${holder.name} ${holder.share} %`).join(' · ')}` : '' }}</title>
         <template v-if="tile.title && tile.country && tile.resource && tile.sector">
           <rect class="tile-frame" :width="tileWidth" :height="tileHeight" rx=".08" />
           <rect class="tile-country" x=".06" y=".06" :width="Math.max(0, tileWidth - .12)" :height="tileHeight * .40" :fill="continentColors[tile.country.continent]" />
           <rect class="tile-resource" x=".06" :y="tileHeight * .46" :width="Math.max(0, tileWidth - .12)" :height="tileHeight * .48" :fill="tile.sector.color" />
-          <rect v-if="tile.owner" class="tile-owner-glow" x=".65" y=".65" :width="Math.max(0, tileWidth - 1.3)" :height="Math.max(0, tileHeight - 1.3)" rx=".2" :stroke="tile.owner.color" />
-          <rect v-if="tile.owner" class="tile-owner-marker" x=".28" y=".28" :width="Math.max(0, tileWidth - .56)" :height="Math.max(0, tileHeight - .56)" rx=".16" :stroke="tile.owner.color" />
           <text class="tile-country__code" :x="tileWidth / 2" :y="tileHeight * .20" text-anchor="middle">{{ compactLabel(tile.country.name, 6) }}</text>
           <text class="tile-resource__code" :x="tileWidth / 2" :y="tileHeight * .88" text-anchor="middle">{{ compactLabel(tile.resource.name, 6) }}</text>
         </template>
@@ -129,6 +131,8 @@ const tiles = computed(() => props.board.map((space, index) => {
 
           <text class="tile-special__code" :x="tileWidth / 2" :y="tileHeight * .8" text-anchor="middle">{{ tile.special.code }}</text>
         </template>
+
+        <rect v-for="(holder, rightsIndex) in tile.rightsHolders" :key="holder.id" class="tile-rights-marker" :x=".2 + rightsIndex * .28" :y=".2 + rightsIndex * .28" :width="Math.max(0, tileWidth - .4 - rightsIndex * .56)" :height="Math.max(0, tileHeight - .4 - rightsIndex * .56)" :rx=".14 + rightsIndex * .03" :stroke="holder.color" />
 
         <g v-for="(player, offset) in playersAt(tile.index)" :key="player.id" class="tile-pawn" :data-player-id="player.id" :transform="`translate(${pawnPosition(tile.index, offset, playersAt(tile.index).length).x} ${pawnPosition(tile.index, offset, playersAt(tile.index).length).y})`">
           <circle class="pawn-glow" :class="{ active: player.id === activePlayerId }" r="1.72" :fill="player.color" />

@@ -4,16 +4,23 @@ import { describe, expect, it } from "vitest";
 
 const route = readFileSync(fileURLToPath(new URL("./MobileRouteMap.vue", import.meta.url)), "utf8");
 
-describe("mobile route ownership markers", () => {
-  it("carries the owner and their color onto every owned concession", () => {
-    expect(route).toContain("owner,");
-    expect(route).toContain("owner: null");
-    expect(route).toContain("owned: entry.owner");
-    expect(route).toContain("'--owner-color': entry.owner?.color");
+describe("mobile route resource rights markers", () => {
+  it("marks every resource case carrying payable rights", () => {
+    expect(route).toContain("getResourceRightsHolders(props.players, space.resourceId)");
+    expect(route).toContain("'has-rights': entry.rightsHolders.length");
+    expect(route).toContain(":data-rights-holder-ids");
+    expect(route).toContain('class="route-stop__rights"');
   });
 
-  it("keeps the ownership ring visible when the case is focused", () => {
-    expect(route).toMatch(/\.route-stop\.owned\s*\{[^}]*inset 0 0 0 2px var\(--owner-color\)/s);
-    expect(route).toMatch(/\.route-stop\.owned\.focused\s*\{[^}]*inset 0 0 0 2px var\(--owner-color\)/s);
+  it("renders one permanent inner ring per eligible rights holder", () => {
+    expect(route).toContain('v-for="(holder, rightsIndex) in entry.rightsHolders"');
+    expect(route).toContain("'--rights-inset': `${2 + rightsIndex * 4}px`");
+    expect(route).toMatch(/\.route-stop__rights i\s*\{[^}]*inset:\s*var\(--rights-inset\)[^}]*border:\s*2px solid var\(--rights-color\)/s);
+    expect(route).not.toContain(".route-stop.owned.focused");
+  });
+
+  it("also marks resource dividend spaces because they trigger royalties", () => {
+    expect(route).toContain("getResourceRightsHolders(props.players, resource?.id ?? null)");
+    expect(route).toContain("Ressource concernée");
   });
 });
