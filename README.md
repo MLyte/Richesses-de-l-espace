@@ -59,6 +59,7 @@ npm run dev             # serveur et client en développement
 npm run typecheck       # vérification TypeScript/Vue
 npm test                # référentiel, moteur, médias et Socket.IO
 npm run build           # client et serveur de production
+npm.cmd run prepare:static  # build solo statique vérifié, prêt à envoyer
 npm start               # production, après le build
 npm run smoke           # vérification HTTP du build
 ```
@@ -68,10 +69,16 @@ npm run smoke           # vérification HTTP du build
 Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/`. Le joueur choisit son pseudo, sa couleur et son pion avant de disputer une partie complète contre un robot de profil Équilibré. À chaque partie, son nom est tiré parmi 20 constellations françaises, ainsi que sa couleur et son animal :
 
 ```powershell
-npm run prepare:static
+npm.cmd run prepare:static
 ```
 
-Le duel utilise le vrai moteur de règles et sauvegarde sa progression dans le navigateur. Le dossier à envoyer est exclusivement `apps/client/dist-static`. Le dossier `apps/client/dist` appartient au serveur Node.js et contient volontairement des chemins incompatibles avec un hébergement sous `/richesses-espace/`. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure d’upload et les limites du mode local.
+Cette commande génère le build solo puis vérifie automatiquement ses chemins, ses médias et les fonctions attendues. Pour mettre à jour le site statique :
+
+1. exécutez `npm.cmd run prepare:static` depuis la racine du projet ;
+2. envoyez **tout le contenu** de `apps/client/dist-static` dans le dossier distant `/richesses-espace/` ;
+3. vérifiez que `index.html` se trouve directement dans `/richesses-espace/`, et non dans un sous-dossier `dist-static`.
+
+Le duel utilise le vrai moteur de règles et sauvegarde sa progression dans le navigateur. N’utilisez pas `npm run build` pour cet upload : cette commande prépare la version client-serveur multijoueur dans `apps/client/dist` et `apps/server/dist`. Le dossier `apps/client/dist` contient volontairement des chemins incompatibles avec un hébergement statique sous `/richesses-espace/`. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure complète et les limites du mode local.
 
 Le build de production est servi sur `http://localhost:3000/display` et écoute sur `0.0.0.0`.
 
