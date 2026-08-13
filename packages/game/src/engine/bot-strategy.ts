@@ -1,7 +1,7 @@
 import { ASSETS } from "../data/assets";
 import { LEVER_CARDS } from "../data/levers";
 import { RESOURCES } from "../data/resources";
-import type { AuctionState, BotProfile, GameState, PaymentDecision, PlayerState, PurchaseDecision, TradeOffer } from "../types";
+import type { AuctionState, BotProfile, GameState, PaymentDecision, PlayerState, PurchaseDecision, RaceShipId, TradeOffer } from "../types";
 import { STARTING_CAPITAL } from "./game-engine";
 
 type ObservedPlayer = Omit<PlayerState, "leverIds"> & { leverCount: number };
@@ -20,6 +20,7 @@ export interface BotObservation {
 }
 
 export type BotDecision =
+  | { type: "SELECT_STARTING_SHIP"; shipId: RaceShipId; reason: string }
   | { type: "ROLL"; reason: string }
   | { type: "BUY_ASSETS"; assetIds: string[]; reason: string }
   | { type: "PASS_ASSETS"; reason: string }

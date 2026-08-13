@@ -17,6 +17,7 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .42; }
 a { color: inherit; }
 .display-shell { min-height: 100vh; padding: 0 3.2vw 2.5rem; }
+.starting-race-stage { height: calc(100dvh - 72px); min-height: 0; overflow: hidden; }
 .display-header { height: 88px; display: flex; align-items: center; gap: 2rem; border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; align-items: center; gap: .8rem; text-decoration: none; letter-spacing: .18em; font-size: .93rem; font-weight: 700; }
 .brand small { display: block; margin-top: .25rem; letter-spacing: .06em; color: var(--muted); font-size: .56rem; font-weight: 400; text-transform: uppercase; }

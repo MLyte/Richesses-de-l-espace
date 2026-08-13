@@ -5,10 +5,11 @@ import { LEVER_CARDS, type LeverCard } from "../data/levers";
 import { RESOURCES, type Resource } from "../data/resources";
 import { SECTORS } from "../data/sectors";
 import { TREND_CARDS, type TrendCard } from "../data/trends";
-import type { Asset, AuctionState, GameEvent, GameState, PlayerState, SectorId, TradeOffer } from "../types";
+import type { Asset, AuctionState, GameEvent, GameState, PlayerState, RaceShipId, SectorId, TradeOffer } from "../types";
 import { nextRandom, rollDie } from "./rng";
 
 export const STARTING_CAPITAL: Record<number, number> = { 2: 100, 3: 66, 4: 50, 5: 40, 6: 33 };
+export const STARTING_RACE_SHIPS = ["inner-system", "red-belt", "giant-realms", "solar-frontier", "orion-neighborhood", "exoplanet-corridor", "stellar-farlands"] as const satisfies readonly RaceShipId[];
 
 export class RuleError extends Error {
   constructor(public readonly code: string, message: string) { super(message); }
@@ -57,7 +58,7 @@ function bankEventData(direction: BankDirection, amount: number): Record<string,
 export function createGame(id: string, code: string, seed: number): GameState {
   return {
     id, code, revision: 0, status: "LOBBY", phase: "LOBBY", previousPhase: null, pauseReason: null, pausePlayerId: null,
-    players: [], activePlayerId: null, turnNumber: 0, roundNumber: 1, ownership: {},
+    players: [], activePlayerId: null, turnNumber: 0, roundNumber: 1, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null }, ownership: {},
     lastRoll: null, pendingAction: null, pendingLever: null, pendingPayment: null, paymentQueue: [], auction: null, tradeOffer: null,
     trendDeck: TREND_CARDS.map((card) => card.id), leverDeck: LEVER_CARDS.map((card) => card.id), lastCard: null,
     landedSpaceId: null, landedAssetId: null, recentEvents: [], rngState: seed >>> 0, winnerId: null, finishReason: null
@@ -100,9 +101,50 @@ export function startGame(state: GameState): GameState {
   if (!state.players.every((player) => player.ready && player.connected)) throw new RuleError("PLAYERS_NOT_READY", "Tous les joueurs doivent être prêts et connectés.");
   const capital = STARTING_CAPITAL[state.players.length]!;
   const players = state.players.map((player) => ({ ...player, capital }));
-  const first = players[0]!;
-  return commit({ ...state, players, status: "PLAYING", phase: "WAITING_FOR_ROLL", activePlayerId: first.id }, [
-    makeEvent(state, { type: "game_started", message: "La partie commence. Elle continue jusqu’au dernier joueur solvable ou à l’arrêt volontaire de l’hôte.", data: { startingCapital: capital, bankDirection: "bank_to_player" } }),
+  return commit({ ...state, players, status: "PLAYING", phase: "SHIP_SELECTION", activePlayerId: null, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null } }, [
+    makeEvent(state, { type: "game_started", message: "Choisissez chacun un vaisseau régional. La course déterminera qui ouvrira la trajectoire.", data: { startingCapital: capital, bankDirection: "bank_to_player" } })
+  ]);
+}
+
+function shuffledRaceShips(rngState: number): { order: RaceShipId[]; rngState: number } {
+  const order = [...STARTING_RACE_SHIPS];
+  let nextState = rngState;
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const [value, seed] = nextRandom(nextState);
+    nextState = seed;
+    const target = Math.floor(value * (index + 1));
+    [order[index], order[target]] = [order[target]!, order[index]!];
+  }
+  return { order, rngState: nextState };
+}
+
+export function selectStartingShip(state: GameState, playerId: string, shipId: RaceShipId, now = Date.now()): GameState {
+  if (state.phase !== "SHIP_SELECTION") throw new RuleError("INVALID_PHASE", "La sélection des vaisseaux est terminée.");
+  const player = requirePlayer(state, playerId);
+  if (!STARTING_RACE_SHIPS.includes(shipId)) throw new RuleError("INVALID_SHIP", "Ce vaisseau n’existe pas.");
+  if (state.startingRace.selections[playerId]) throw new RuleError("SHIP_ALREADY_SELECTED", "Votre vaisseau est déjà confirmé.");
+  if (Object.values(state.startingRace.selections).includes(shipId)) throw new RuleError("SHIP_TAKEN", "Ce vaisseau vient d’être choisi.");
+  const selections = { ...state.startingRace.selections, [playerId]: shipId };
+  const selectionEvent = makeEvent(state, { type: "ship_selected", playerId, message: `${player.name} a verrouillé son vaisseau.`, data: { shipId } });
+  if (Object.keys(selections).length < state.players.length) {
+    return commit({ ...state, startingRace: { ...state.startingRace, selections } }, [selectionEvent]);
+  }
+  const race = shuffledRaceShips(state.rngState);
+  const playerByShip = new Map(Object.entries(selections).map(([id, selectedShip]) => [selectedShip, id]));
+  const winnerShipId = race.order.find((id) => playerByShip.has(id))!;
+  const winnerPlayerId = playerByShip.get(winnerShipId)!;
+  return commit({ ...state, phase: "SHIP_RACE", rngState: race.rngState, startingRace: { selections, finishOrder: race.order, winnerPlayerId, raceEndsAt: now + 7_000 } }, [
+    selectionEvent,
+    makeEvent(state, { type: "ship_race_started", message: "Les sept vaisseaux s’élancent vers la balise de départ." })
+  ]);
+}
+
+export function finishStartingRace(state: GameState): GameState {
+  if (state.phase !== "SHIP_RACE" || !state.startingRace.winnerPlayerId) throw new RuleError("INVALID_PHASE", "Aucune course n’attend sa conclusion.");
+  const first = requirePlayer(state, state.startingRace.winnerPlayerId);
+  const winnerShipId = state.startingRace.selections[first.id]!;
+  return commit({ ...state, phase: "WAITING_FOR_ROLL", activePlayerId: first.id }, [
+    makeEvent(state, { type: "ship_race_finished", playerId: first.id, message: `${first.name} possède le vaisseau choisi le mieux classé et ouvrira la trajectoire.`, data: { winnerShipId } }),
     makeEvent(state, { type: "turn_started", playerId: first.id, message: `Tour de ${first.name}.` })
   ]);
 }
@@ -722,6 +764,6 @@ export function restartGame(state: GameState): GameState {
     ...fresh,
     revision: state.revision + 1,
     players,
-    recentEvents: [makeEvent(state, { type: "game_restarted", message: "Une nouvelle partie est prête. Chaque joueur doit confirmer sa présence." })]
+    startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null }, recentEvents: [makeEvent(state, { type: "game_restarted", message: "Une nouvelle partie est prête. Chaque joueur doit confirmer sa présence." })]
   };
 }

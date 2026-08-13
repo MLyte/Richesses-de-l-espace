@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const playerView = readFileSync(fileURLToPath(new URL("./PlayerView.vue", import.meta.url)), "utf8");
+const createGameView = readFileSync(fileURLToPath(new URL("./CreateGameView.vue", import.meta.url)), "utf8");
 const displayView = readFileSync(fileURLToPath(new URL("./DisplayView.vue", import.meta.url)), "utf8");
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 
@@ -15,6 +16,15 @@ describe("robot lobby and status UI", () => {
     expect(playerView).toContain("store.game.players.length >= 6");
     expect(playerView).toContain(":aria-label=\"`Profil de ${player.name}`\"");
     expect(playerView).toContain(":aria-label=\"`Retirer ${player.name}`\"");
+  });
+
+  it("lets a local player choose one to five robots before launch", () => {
+    expect(playerView).toContain("Nombre de robots");
+    expect(playerView).toContain('v-for="count in 5"');
+    expect(playerView).toContain("store.join(code, name.value, color.value, symbol.value, botCount.value)");
+    expect(playerView).toContain('route.query.new === "1"');
+    expect(createGameView).toContain("Nouvelle expédition · choisir les robots");
+    expect(createGameView).toContain("createMobileGame(true)");
   });
 
   it("identifies robots and exposes their thinking state on phone and TV", () => {

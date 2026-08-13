@@ -94,6 +94,10 @@ describe("mobile-only map-first experience", () => {
     expect(mobileRoute).toContain('@click="focusPlayer(player)"');
     expect(mobileRoute).toContain('v-for="player in players"');
     expect(mobileRoute).toContain('v-for="player in entry.players"');
+    expect(mobileRoute).toContain('<span aria-hidden="true">₵</span>');
+    expect(mobileRoute).toContain('{{ player.capital }}');
+    expect(mobileRoute).toContain('<MapPin :size="12" aria-hidden="true" />');
+    expect(mobileRoute).not.toContain('small>Case {{ positionOf(player) + 1 }}');
     expect(mobileRoute).not.toContain("WorldBoard");
   });
 

@@ -4,6 +4,7 @@ export type SectorId = ResourceFamilyId;
 export type AssetId = string;
 export type PlayerId = string;
 export type BotProfile = "CAUTIOUS" | "BALANCED" | "AMBITIOUS";
+export type RaceShipId = "inner-system" | "red-belt" | "giant-realms" | "solar-frontier" | "orion-neighborhood" | "exoplanet-corridor" | "stellar-farlands";
 
 export interface ResourceFamily { id: ResourceFamilyId; name: string; shortName: string; color: string; icon: string }
 export type Sector = ResourceFamily;
@@ -24,7 +25,14 @@ export type BoardSpace =
   | (BoardCoordinates & { type: "special"; kind: "regional_choice"; regionName: string; sectorIds: string[]; continents: string[] })
   | (BoardCoordinates & { type: "special"; kind: Exclude<SpecialSpaceKind, "dividend" | "regional_choice"> });
 
-export type GamePhase = "LOBBY" | "WAITING_FOR_ROLL" | "WAITING_FOR_PURCHASE" | "WAITING_FOR_LEVER_PURCHASE" | "WAITING_FOR_PAYMENT" | "AUCTION" | "WAITING_FOR_TRADE" | "WAITING_FOR_END_TURN" | "PAUSED" | "FINISHED";
+export type GamePhase = "LOBBY" | "SHIP_SELECTION" | "SHIP_RACE" | "WAITING_FOR_ROLL" | "WAITING_FOR_PURCHASE" | "WAITING_FOR_LEVER_PURCHASE" | "WAITING_FOR_PAYMENT" | "AUCTION" | "WAITING_FOR_TRADE" | "WAITING_FOR_END_TURN" | "PAUSED" | "FINISHED";
+
+export interface StartingRaceState {
+  selections: Partial<Record<PlayerId, RaceShipId>>;
+  finishOrder: RaceShipId[];
+  winnerPlayerId: PlayerId | null;
+  raceEndsAt: number | null;
+}
 
 export interface PlayerState {
   id: PlayerId; name: string; color: string; symbol: string; connected: boolean; ready: boolean;
@@ -59,7 +67,7 @@ export interface TradeOffer {
 
 export type FinishReason = "ADMIN" | "LAST_SOLVENT";
 
-export type GameEventType = "player_joined" | "player_left" | "player_ready" | "game_started" | "game_restarted" | "dice_rolled" | "double_tax_paid" | "pawn_moved" | "space_landed" | "purchase_offered" | "asset_visited" | "payment_due" | "payment_completed" | "asset_purchased" | "purchase_passed" | "trend_drawn" | "lever_offered" | "lever_drawn" | "lever_passed" | "lever_used" | "auction_started" | "auction_bid" | "auction_passed" | "auction_won" | "trade_proposed" | "trade_accepted" | "trade_rejected" | "player_bankrupt" | "dividend_received" | "customs_applied" | "turn_skipped" | "turn_started" | "game_paused" | "game_resumed" | "game_finished";
+export type GameEventType = "player_joined" | "player_left" | "player_ready" | "game_started" | "ship_selected" | "ship_race_started" | "ship_race_finished" | "game_restarted" | "dice_rolled" | "double_tax_paid" | "pawn_moved" | "space_landed" | "purchase_offered" | "asset_visited" | "payment_due" | "payment_completed" | "asset_purchased" | "purchase_passed" | "trend_drawn" | "lever_offered" | "lever_drawn" | "lever_passed" | "lever_used" | "auction_started" | "auction_bid" | "auction_passed" | "auction_won" | "trade_proposed" | "trade_accepted" | "trade_rejected" | "player_bankrupt" | "dividend_received" | "customs_applied" | "turn_skipped" | "turn_started" | "game_paused" | "game_resumed" | "game_finished";
 
 export type PauseReason = "ADMIN" | "PLAYER_DISCONNECTED";
 
@@ -72,6 +80,7 @@ export interface GameState {
   id: string; code: string; revision: number; status: "LOBBY" | "PLAYING" | "FINISHED";
   phase: GamePhase; previousPhase: GamePhase | null; pauseReason: PauseReason | null; pausePlayerId: PlayerId | null; players: PlayerState[];
   activePlayerId: PlayerId | null; turnNumber: number; roundNumber: number;
+  startingRace: StartingRaceState;
   ownership: Record<AssetId, PlayerId>;
   lastRoll: { dice: [number, number]; total: number } | null;
   pendingAction: PurchaseDecision | null; pendingLever: LeverPurchaseDecision | null; pendingPayment: PaymentDecision | null; paymentQueue: PaymentDecision[];

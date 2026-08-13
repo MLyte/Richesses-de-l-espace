@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS } from "@richesses-espace/game";
+import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
 import ErrorToast from "../components/ErrorToast.vue";
 import { useAccessibleModal } from "../composables/useAccessibleModal";
@@ -16,7 +16,9 @@ import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
 import MobileRouteMap from "../components/MobileRouteMap.vue";
 import MobileToastQueue from "../components/MobileToastQueue.vue";
+import StartingShipRace from "../components/StartingShipRace.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
+import { pickSpacefarerFirstName } from "./player-name-placeholder";
 import { ArrowLeftRight, Bot, Dices, HandCoins, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
 const route = useRoute();
@@ -26,6 +28,7 @@ const searchParams = new URLSearchParams(window.location.search);
 const mobilePreview = import.meta.env.DEV && searchParams.get("preview") === "mobile";
 const previewPlayerId = searchParams.get("player") === "orion" ? "orion" : "lyra";
 const name = ref("");
+const namePlaceholder = pickSpacefarerFirstName();
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
 const botCount = ref(1);
@@ -71,6 +74,7 @@ onMounted(async () => {
     store.visualPlayerPositions = Object.fromEntries(store.game.players.map((player) => [player.id, player.position]));
     return;
   }
+  if (store.localGame && route.query.new === "1") return;
   void store.resumePlayer(code);
 });
 const me = computed(() => store.me);
@@ -188,6 +192,7 @@ async function submitTrade() {
   if (!store.error) tradeOpen.value = false;
 }
 function placeCurrentBid() { return store.bid(Math.max(auctionMinimum.value, Number(bidAmount.value))); }
+function selectStartingShip(shipId: RaceShipId) { return run(() => store.selectStartingShip(shipId)); }
 async function shareInvitation() {
   const url = store.game?.joinUrls[0] ?? window.location.href;
   const data = { title: "Rejoindre Richesses de l’espace", text: `Rejoins l’expédition ${code}`, url };
@@ -223,14 +228,14 @@ async function finishAsHost() {
         </details>
       </div>
     </header>
-    <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. Tour de {{ store.activePlayer?.name }}. {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
+    <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. {{ store.game.phase === 'SHIP_SELECTION' ? 'Sélection des vaisseaux de départ.' : store.game.phase === 'SHIP_RACE' ? 'Course des sept vaisseaux en cours.' : `Tour de ${store.activePlayer?.name}.` }} {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
     <MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />
 
     <section v-if="!store.player" class="join-screen">
       <p class="eyebrow">Expédition {{ code }}</p>
       <h1>Embarquez pour<br><em>l’expédition.</em></h1>
       <form class="join-form" @submit.prevent="join">
-        <label>Votre pseudo<input v-model="name" maxlength="20" autocomplete="nickname" placeholder="Mathieu" required /></label>
+        <label>Votre pseudo<input v-model="name" maxlength="20" autocomplete="nickname" :placeholder="namePlaceholder" required /></label>
         <label v-if="store.localGame">Nombre de robots
           <select v-model.number="botCount">
             <option v-for="count in 5" :key="count" :value="count">{{ count }} robot{{ count > 1 ? 's' : '' }}</option>
@@ -274,6 +279,10 @@ async function finishAsHost() {
             </div>
           </article>
         </div>
+      </section>
+
+      <section v-else-if="store.game.phase === 'SHIP_SELECTION' || store.game.phase === 'SHIP_RACE'" class="phone-starting-race">
+        <StartingShipRace :game="store.game" :player-id="me.id" :interactive="allowed('SELECT_STARTING_SHIP')" :pending="store.pending" @select="selectStartingShip" />
       </section>
 
       <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly }">
@@ -399,6 +408,7 @@ async function finishAsHost() {
 </template>
 
 <style scoped>
+.phone-starting-race { min-height: calc(var(--app-viewport-height) - var(--phone-header-height) - var(--safe-top)); overflow-x: hidden; overflow-y: auto; background: radial-gradient(circle at 50% 15%, rgba(53, 208, 226, .12), transparent 42%); }
 .mobile-host-menu { position: relative; z-index: var(--layer-menu); }
 .mobile-host-menu summary { display: grid; place-items: center; width: 36px; height: 36px; color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .5); border-radius: 50%; background: rgba(16, 42, 67, .96); cursor: pointer; list-style: none; }
 .mobile-host-menu summary::-webkit-details-marker { display: none; }

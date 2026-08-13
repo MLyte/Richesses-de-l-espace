@@ -202,7 +202,13 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
     <footer class="route-roster" aria-label="Position des joueurs">
       <button v-for="player in players" :key="player.id" type="button" :class="{ active: player.id === activePlayerId }" @click="focusPlayer(player)">
         <i :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i>
-        <span><b>{{ player.name }}<em v-if="player.id === currentPlayerId">Vous</em></b><small>Case {{ positionOf(player) + 1 }}</small></span>
+        <span>
+          <b>{{ player.name }}<em v-if="player.id === currentPlayerId">Vous</em></b>
+          <small class="route-roster__meta">
+            <span class="route-roster__credits"><span aria-hidden="true">₵</span><span class="sr-only">Crédits : </span>{{ player.capital }}</span>
+            <span class="route-roster__position"><MapPin :size="12" aria-hidden="true" /><span class="sr-only">Case </span>{{ positionOf(player) + 1 }}</span>
+          </small>
+        </span>
       </button>
     </footer>
   </div>
@@ -251,6 +257,10 @@ onBeforeUnmount(() => cancelAnimationFrame(scrollFrame));
 .route-roster b { font-size: .8rem; }
 .route-roster b em { margin-left: .28rem; color: #f6c64d; font-size: .65rem; font-style: normal; text-transform: uppercase; }
 .route-roster small { margin-top: .12rem; color: #c9e8f4; font-size: .75rem; }
+.route-roster .route-roster__meta { display: flex; align-items: center; gap: .52rem; }
+.route-roster__meta > span { display: inline-flex; align-items: center; gap: .16rem; }
+.route-roster__credits > span[aria-hidden="true"] { color: #f6c64d; font-size: .9rem; font-weight: 900; line-height: 1; }
+.route-roster__position svg { width: 12px; height: 12px; stroke-width: 2.4; }
 @media (max-height: 710px) {
   .mobile-route-map { gap: .4rem; }
   .route-stop { min-height: 45px; }

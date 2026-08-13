@@ -15,6 +15,7 @@ import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import PaymentTransfer from "../components/PaymentTransfer.vue";
 import GameIcon from "../components/GameIcon.vue";
+import StartingShipRace from "../components/StartingShipRace.vue";
 import { Bot, HelpCircle, Maximize2, Menu, Pause } from "@lucide/vue";
 import { splitPlayerWings } from "./display-layout";
 
@@ -135,6 +136,10 @@ async function toggleFullscreen() {
           <li><b>4</b><div><strong>Atteignez les paliers</strong><span>À 30, 50, 70 puis 90 %, vos droits d’extraction augmentent. Le dernier consortium opérationnel gagne.</span></div></li>
         </ol>
       </section>
+    </section>
+
+    <section v-else-if="store.game.phase === 'SHIP_SELECTION' || store.game.phase === 'SHIP_RACE'" class="starting-race-stage">
+      <StartingShipRace :game="store.game" />
     </section>
 
     <template v-else>

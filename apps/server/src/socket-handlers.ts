@@ -1,9 +1,9 @@
 import type { Server, Socket } from "socket.io";
 import {
-  BOARD, LEVER_CARDS, SECTORS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame,
+  BOARD, LEVER_CARDS, SECTORS, STARTING_RACE_SHIPS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame, finishStartingRace,
   getNetWorth, getSectorInfluence, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
   pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, setPlayerConnected,
-  selectAuctionAssets, setPlayerReady, startGame, useLever, observeGameForBot,
+  selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever, observeGameForBot,
   type BotDecision, type BotProfile, type GameState
 } from "@richesses-espace/game";
 import type { CommandResult, DisplayMode, PlayerAction, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
@@ -40,7 +40,7 @@ function publicView(room: Room, publicPort: number, publicOrigin?: string): Publ
   return {
     code: state.code, displayMode: room.displayMode, revision: state.revision, status: state.status, phase: state.phase,
     players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, isBot: Boolean(room.bots[id]), botProfile: room.bots[id] ?? null, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: getNetWorth(state, id), sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(state, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number> })),
-    activePlayerId: state.activePlayerId, botThinkingPlayerId: room.botThinkingPlayerId, turnNumber: state.turnNumber, roundNumber: state.roundNumber,
+    activePlayerId: state.activePlayerId, botThinkingPlayerId: room.botThinkingPlayerId, startingRace: state.startingRace, turnNumber: state.turnNumber, roundNumber: state.roundNumber,
     ownership: state.ownership, lastRoll: state.lastRoll,
     pendingAssetId: state.pendingAction?.availableAssetIds[0] ?? null,
     pendingPrice: null,
@@ -56,6 +56,7 @@ function publicView(room: Room, publicPort: number, publicOrigin?: string): Publ
 
 function actionsFor(state: GameState, playerId: string): PlayerAction[] {
   if (state.phase === "LOBBY") return ["SET_READY"];
+  if (state.phase === "SHIP_SELECTION" && !state.startingRace.selections[playerId]) return ["SELECT_STARTING_SHIP"];
   if (state.phase === "AUCTION" && state.auction?.mode === "selection" && state.auction.sellerId === playerId) {
     const actions: PlayerAction[] = ["SELECT_AUCTION_ASSETS"];
     const player = state.players.find((item) => item.id === playerId);
@@ -94,6 +95,8 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
   const botDelayScale = Math.max(0, options.botDelayScale ?? 1);
   const auctionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const auctionPausedAt = new Map<string, number>();
+  const startingRaceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const startingRacePausedAt = new Map<string, number>();
   const botTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const roomQueues = new Map<string, Promise<void>>();
   function broadcast(room: Room): void {
@@ -122,6 +125,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
 
   function botMutation(state: GameState, botId: string, decision: BotDecision): GameState {
     switch (decision.type) {
+      case "SELECT_STARTING_SHIP": return selectStartingShip(state, botId, decision.shipId);
       case "ROLL": return rollDice(state, botId);
       case "BUY_ASSETS": return buyPendingAsset(state, botId, decision.assetIds);
       case "PASS_ASSETS": return passPendingAsset(state, botId);
@@ -142,6 +146,11 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     for (const player of room.state.players) {
       const profile = room.bots[player.id];
       if (!profile) continue;
+      if (room.state.phase === "SHIP_SELECTION" && !room.state.startingRace.selections[player.id]) {
+        const taken = new Set(Object.values(room.state.startingRace.selections));
+        const shipId = STARTING_RACE_SHIPS.find((id) => !taken.has(id))!;
+        return { playerId: player.id, profile, decision: { type: "SELECT_STARTING_SHIP", shipId, reason: "AUTOMATIC_STARTING_SHIP" } };
+      }
       const decision = decideBotAction(observeGameForBot(room.state, player.id), player.id, profile);
       if (decision) return { playerId: player.id, profile, decision };
     }
@@ -151,7 +160,8 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
   function botDelay(room: Room, decision: BotDecision): number {
     const rolledThisRevision = room.state.recentEvents.some((event) => event.id === room.state.revision && event.type === "dice_rolled");
     const duration = rolledThisRevision ? 2_800 + (room.state.lastRoll?.total ?? 0) * 210
-      : decision.type === "ROLL" ? 700
+      : decision.type === "SELECT_STARTING_SHIP" ? 650
+        : decision.type === "ROLL" ? 700
         : decision.type === "BID" || decision.type === "PASS_BID" ? 800
           : 900;
     return Math.round(duration * botDelayScale);
@@ -195,6 +205,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
         }
         publish(room);
         scheduleAuction(room);
+        scheduleStartingRace(room);
         scheduleBot(room);
       });
     }, botDelay(room, pending.decision));
@@ -217,6 +228,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       }
       publish(room);
       scheduleAuction(room);
+      scheduleStartingRace(room);
       scheduleBot(room);
     });
   }
@@ -238,6 +250,22 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     auctionTimers.set(room.state.code, timer);
   }
 
+  function scheduleStartingRace(room: Room): void {
+    const existing = startingRaceTimers.get(room.state.code);
+    if (existing) clearTimeout(existing);
+    startingRaceTimers.delete(room.state.code);
+    const deadline = room.state.startingRace.raceEndsAt;
+    if (room.state.phase === "PAUSED" && room.state.previousPhase === "SHIP_RACE" && deadline) {
+      if (!startingRacePausedAt.has(room.state.code)) startingRacePausedAt.set(room.state.code, Date.now());
+      return;
+    }
+    if (room.state.phase !== "SHIP_RACE" || !deadline) return;
+    const timer = setTimeout(() => {
+      void mutate(room, finishStartingRace).catch((error) => console.error("Impossible de conclure la course de départ", error));
+    }, Math.max(0, deadline - Date.now()) + 5);
+    startingRaceTimers.set(room.state.code, timer);
+  }
+
   async function resumeRoom(room: Room): Promise<void> {
     await changeRoom(room, () => {
       const pausedAt = auctionPausedAt.get(room.state.code);
@@ -245,7 +273,12 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       if (pausedAt && next.auction?.mode === "bidding" && next.auction.deadline) {
         next = { ...next, auction: { ...next.auction, deadline: next.auction.deadline + Date.now() - pausedAt } };
       }
+      const racePausedAt = startingRacePausedAt.get(room.state.code);
+      if (racePausedAt && next.startingRace.raceEndsAt) {
+        next = { ...next, startingRace: { ...next.startingRace, raceEndsAt: next.startingRace.raceEndsAt + Date.now() - racePausedAt } };
+      }
       auctionPausedAt.delete(room.state.code);
+      startingRacePausedAt.delete(room.state.code);
       room.state = next;
     });
   }
@@ -374,6 +407,11 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       return undefined;
     }));
     socket.on("game:start", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, startGame); return undefined; }));
+    socket.on("race:select-ship", (payload: { shipId?: string }, ack: Ack) => void safe(ack, async () => {
+      const { room, session } = requireRoom(socket, "player");
+      await mutate(room, (state) => selectStartingShip(state, session.playerId!, payload.shipId as never));
+      return undefined;
+    }));
     playerMutation("turn:roll", (state, playerId) => rollDice(state, playerId));
     socket.on("purchase:buy", (payload: { assetIds?: string[] }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => buyPendingAsset(state, session.playerId!, payload.assetIds)); return undefined; }));
     playerMutation("purchase:pass", (state, playerId) => passPendingAsset(state, playerId));

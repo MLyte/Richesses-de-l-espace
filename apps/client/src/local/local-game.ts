@@ -2,6 +2,7 @@ import {
   BOARD,
   RuleError,
   SECTORS,
+  STARTING_RACE_SHIPS,
   addPlayer,
   buyPendingAsset,
   buyPendingLever,
@@ -10,6 +11,7 @@ import {
   decideBotAction,
   endTurn,
   finishGame,
+  finishStartingRace,
   getNetWorth,
   getSectorInfluence,
   observeGameForBot,
@@ -25,6 +27,7 @@ import {
   resumeGame,
   rollDice,
   selectAuctionAssets,
+  selectStartingShip,
   setPlayerReady,
   startGame,
   useLever,
@@ -107,7 +110,7 @@ function restore(force = false): boolean {
     if (!stored || ![2, 3].includes(stored.version ?? 0) || !stored.state) return false;
     const ids = stored.state.players.map((player) => player.id);
     if (!ids.includes(LOCAL_HUMAN_ID) || !ids.some(isLocalBotId)) return false;
-    state = stored.state;
+    state = stored.state.startingRace ? stored.state : { ...stored.state, startingRace: { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null } };
     return true;
   } catch {
     return false;
@@ -165,6 +168,7 @@ function createLocalGame(setup: LocalPlayerSetup, requestedBotCount = 1): GameSt
 
 function actionsFor(current: GameState, playerId: string): PlayerAction[] {
   if (current.phase === "LOBBY") return ["SET_READY"];
+  if (current.phase === "SHIP_SELECTION" && !current.startingRace.selections[playerId]) return ["SELECT_STARTING_SHIP"];
   if (current.phase === "AUCTION" && current.auction?.mode === "selection" && current.auction.sellerId === playerId) return ["SELECT_AUCTION_ASSETS"];
   if (current.phase === "AUCTION" && current.auction?.mode === "bidding" && current.auction.eligiblePlayerIds.includes(playerId) && !current.auction.passedPlayerIds.includes(playerId) && current.auction.leaderId !== playerId) return ["BID", "PASS_BID"];
   if (current.phase === "WAITING_FOR_TRADE" && current.tradeOffer?.targetId === playerId) return ["ACCEPT_TRADE", "REJECT_TRADE"];
@@ -221,6 +225,7 @@ function publicView(current: GameState, botThinkingPlayerId: string | null = nul
     })),
     activePlayerId: current.activePlayerId,
     botThinkingPlayerId,
+    startingRace: current.startingRace,
     turnNumber: current.turnNumber,
     roundNumber: current.roundNumber,
     ownership: current.ownership,
@@ -304,6 +309,7 @@ function applyCommand(event: string, playerId: string, payload?: unknown): void 
   const current = requireLocalState();
   const input = (payload ?? {}) as Record<string, unknown>;
   switch (event) {
+    case "race:select-ship": state = selectStartingShip(current, playerId, input.shipId as never); break;
     case "turn:roll": state = rollDice(current, playerId); break;
     case "purchase:buy": state = buyPendingAsset(current, playerId, input.assetIds as string[] | undefined); break;
     case "purchase:pass": state = passPendingAsset(current, playerId); break;
@@ -350,6 +356,7 @@ export function runLocalGameCommand(event: string, payload?: unknown): { snapsho
 
 function botMutation(current: GameState, playerId: string, decision: BotDecision): GameState {
   switch (decision.type) {
+    case "SELECT_STARTING_SHIP": return selectStartingShip(current, playerId, decision.shipId);
     case "ROLL": return rollDice(current, playerId);
     case "BUY_ASSETS": return buyPendingAsset(current, playerId, decision.assetIds);
     case "PASS_ASSETS": return passPendingAsset(current, playerId);
@@ -369,6 +376,11 @@ function botMutation(current: GameState, playerId: string, decision: BotDecision
 function pendingBotTurn(current: GameState): { playerId: string; decision: BotDecision } | null {
   for (const player of current.players) {
     if (!isLocalBotId(player.id)) continue;
+    if (current.phase === "SHIP_SELECTION" && !current.startingRace.selections[player.id]) {
+      const taken = new Set(Object.values(current.startingRace.selections));
+      const shipId = STARTING_RACE_SHIPS.find((id) => !taken.has(id))!;
+      return { playerId: player.id, decision: { type: "SELECT_STARTING_SHIP", shipId, reason: "AUTOMATIC_STARTING_SHIP" } };
+    }
     const decision = decideBotAction(observeGameForBot(current, player.id), player.id, "BALANCED");
     if (decision) return { playerId: player.id, decision };
   }
@@ -383,7 +395,8 @@ export function getLocalBotTurn(): LocalBotTurn | null {
   const { playerId, decision } = pending;
   const rolledThisRevision = current.recentEvents.some((event) => event.id === current.revision && event.type === "dice_rolled");
   const delay = rolledThisRevision ? 2_800 + (current.lastRoll?.total ?? 0) * 210
-    : decision.type === "ROLL" ? 700
+    : decision.type === "SELECT_STARTING_SHIP" ? 650
+      : decision.type === "ROLL" ? 700
       : decision.type === "BID" || decision.type === "PASS_BID" ? 800
         : 900;
   return { playerId, decision, expectedRevision: current.revision, delay };
@@ -395,6 +408,21 @@ export function runLocalBotTurn(expectedRevision: number, expectedPlayerId?: str
   if (!pending || (expectedPlayerId && pending.playerId !== expectedPlayerId)) return null;
   const beforeRevision = state.revision;
   state = botMutation(state, pending.playerId, pending.decision);
+  const events = state.recentEvents.filter((item) => item.id > beforeRevision);
+  persist();
+  return snapshot(events);
+}
+
+export function getLocalRaceCompletion(): { expectedRevision: number; delay: number } | null {
+  const current = state ?? (restore() ? state : null);
+  if (!current || current.phase !== "SHIP_RACE" || !current.startingRace.raceEndsAt) return null;
+  return { expectedRevision: current.revision, delay: Math.max(0, current.startingRace.raceEndsAt - Date.now()) + 5 };
+}
+
+export function finishLocalRace(expectedRevision: number): LocalGameSnapshot | null {
+  if (!state || state.revision !== expectedRevision || state.phase !== "SHIP_RACE") return null;
+  const beforeRevision = state.revision;
+  state = finishStartingRace(state);
   const events = state.recentEvents.filter((item) => item.id > beforeRevision);
   persist();
   return snapshot(events);

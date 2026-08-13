@@ -32,6 +32,7 @@ export function createMobilePreviewGame(): PublicGameView {
     players,
     activePlayerId: "lyra",
     botThinkingPlayerId: null,
+    startingRace: { selections: { orion: "inner-system", lyra: "red-belt" }, finishOrder: ["red-belt", "inner-system", "giant-realms", "solar-frontier", "orion-neighborhood", "exoplanet-corridor", "stellar-farlands"], winnerPlayerId: "lyra", raceEndsAt: null },
     turnNumber: 8,
     roundNumber: 4,
     ownership: Object.fromEntries([...orionAssets.map((id) => [id, "orion"]), ...lyraAssets.map((id) => [id, "lyra"])]) as Record<AssetId, string>,

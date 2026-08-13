@@ -40,7 +40,7 @@ export function serializeRoom(room: Room): StoredRoom {
 export function hydrateRoom(stored: StoredRoom): Room {
   const bots = stored.bots ?? {};
   const players = stored.state.players.map((player) => ({ ...player, connected: Boolean(bots[player.id]) }));
-  let state: GameState = { ...stored.state, players };
+  let state: GameState = { ...stored.state, players, startingRace: stored.state.startingRace ?? { selections: {}, finishOrder: [], winnerPlayerId: null, raceEndsAt: null } };
   if (state.status === "PLAYING" && state.phase !== "PAUSED" && state.phase !== "FINISHED") {
     const offlineHuman = players.find((player) => !bots[player.id] && !player.bankrupt && !player.mergedIntoId);
     if (offlineHuman) state = pauseGame(state, "PLAYER_DISCONNECTED", offlineHuman.id);

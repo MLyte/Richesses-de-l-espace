@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ASSETS } from "../data/assets";
 import { LEVER_CARDS } from "../data/levers";
 import type { GameState } from "../types";
-import { addPlayer, buyPendingAsset, buyPendingLever, createGame, declareBankruptcy, endTurn, passAuction, passPendingAsset, passPendingLever, payPendingPayment, placeBid, respondToTrade, rollDice, selectAuctionAssets, setPlayerReady, startGame, useLever } from "./game-engine";
+import { addPlayer, buyPendingAsset, buyPendingLever, createGame, declareBankruptcy, endTurn, passAuction, passPendingAsset, passPendingLever, payPendingPayment, placeBid, respondToTrade, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
 import { decideBotAction, observeGameForBot, type BotDecision } from "./bot-strategy";
 
 function startedGame(): GameState {
@@ -20,6 +20,7 @@ function botTurn(state = startedGame()): GameState {
 
 function applyDecision(state: GameState, playerId: string, decision: BotDecision): GameState {
   switch (decision.type) {
+    case "SELECT_STARTING_SHIP": return selectStartingShip(state, playerId, decision.shipId);
     case "ROLL": return rollDice(state, playerId);
     case "BUY_ASSETS": return buyPendingAsset(state, playerId, decision.assetIds);
     case "PASS_ASSETS": return passPendingAsset(state, playerId);

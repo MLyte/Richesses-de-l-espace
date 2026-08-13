@@ -3,6 +3,20 @@ import { setPlayerReady, startGame } from "@richesses-espace/game";
 import { hydrateRoom, RoomStore, serializeRoom } from "./room-store";
 
 describe("robot room persistence", () => {
+  it("draws distinct available names for a full table of robots", () => {
+    const store = new RoomStore();
+    const { room } = store.create("MOBILE_ONLY");
+    store.join(room.state.code, "Aline", "#e05f42", "cat");
+
+    const botNames = Array.from({ length: 5 }, () => {
+      const botId = store.addBot(room, "BALANCED");
+      return room.state.players.find((player) => player.id === botId)!.name;
+    });
+
+    expect(new Set(botNames).size).toBe(5);
+    expect(botNames.every((name) => ["Nova", "Vega", "Orion", "Lyra", "Atlas", "Pulsar", "Sirius", "Kepler", "Astra", "Cosmos"].includes(name))).toBe(true);
+  });
+
   it("persists robot profiles without persisting transient thinking state", () => {
     const store = new RoomStore();
     const { room } = store.create("MOBILE_ONLY");

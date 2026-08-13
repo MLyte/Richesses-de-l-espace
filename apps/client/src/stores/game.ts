@@ -7,6 +7,8 @@ import { playErrorHaptic, playEventHaptic } from "../services/haptics";
 import {
   LOCAL_GAME_CODE,
   LOCAL_GAME_STORAGE_KEY,
+  finishLocalRace,
+  getLocalRaceCompletion,
   getLocalBotTurn,
   hasSavedLocalGame as hasSavedLocalGameState,
   resumeLocalGame,
@@ -21,9 +23,10 @@ type DiceAnimationState = { eventId: number; playerId: string; dice: [number, nu
 type PersistentNotification = { key: string; event: GameEvent };
 const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
 const silentNotificationTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"]);
-const mandatoryActionNames = new Set(["ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "END_TURN"]);
+const mandatoryActionNames = new Set(["SELECT_STARTING_SHIP", "ROLL_DICE", "BUY_ASSET", "PASS_ASSET", "BUY_LEVER", "PASS_LEVER", "PAY_RETURNS", "DECLARE_BANKRUPTCY", "SELECT_AUCTION_ASSETS", "BID", "PASS_BID", "ACCEPT_TRADE", "END_TURN"]);
 const localGameBuild = import.meta.env.VITE_LOCAL_GAME === "true";
 let localBotTimer = 0;
+let localRaceTimer = 0;
 let localStorageListenerBound = false;
 
 export const useGameStore = defineStore("game", {
@@ -89,6 +92,17 @@ export const useGameStore = defineStore("game", {
     scheduleLocalBot() {
       if (!this.localGame) return;
       window.clearTimeout(localBotTimer);
+      window.clearTimeout(localRaceTimer);
+      const race = this.role === "player" ? getLocalRaceCompletion() : null;
+      if (race) {
+        if (this.game?.botThinkingPlayerId) this.game = { ...this.game, botThinkingPlayerId: null };
+        localRaceTimer = window.setTimeout(() => {
+          const next = finishLocalRace(race.expectedRevision);
+          if (next) this.applyLocalGameSnapshot(next);
+          this.scheduleLocalBot();
+        }, race.delay);
+        return;
+      }
       const turn = this.role === "player" ? getLocalBotTurn() : null;
       if (!turn) {
         if (this.game?.botThinkingPlayerId) this.game = { ...this.game, botThinkingPlayerId: null };
@@ -282,9 +296,18 @@ export const useGameStore = defineStore("game", {
         sessionStorage.setItem("richesses-espace:admin", session.token);
       }
     },
-    async createMobileSession(): Promise<string | undefined> {
+    async createMobileSession(startFresh = false): Promise<string | undefined> {
       if (this.localGame) {
         this.bindLocalGameSync();
+        if (startFresh) {
+          window.clearTimeout(localBotTimer);
+          this.game = null;
+          this.player = null;
+          this.role = null;
+          this.error = "";
+          this.connected = true;
+          return LOCAL_GAME_CODE;
+        }
         const saved = resumeLocalGame("MOBILE_ONLY");
         if (saved) {
           this.applyLocalGameSnapshot(saved);
@@ -349,6 +372,7 @@ export const useGameStore = defineStore("game", {
     updateBot(playerId: string, profile: BotProfile) { return this.command("lobby:bot-update", { playerId, profile }); },
     removeBot(playerId: string) { return this.command("lobby:bot-remove", { playerId }); },
     startGame() { return this.command("game:start"); },
+    selectStartingShip(shipId: string) { return this.command("race:select-ship", { shipId }); },
     roll() { return this.command("turn:roll"); },
     buy(assetIds: string[]) { return this.command("purchase:buy", { assetIds }); },
     pass() { return this.command("purchase:pass"); },

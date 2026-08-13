@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { Download, MonitorUp, Smartphone, UsersRound } from "@lucide/vue";
+import { Download, MonitorUp, RotateCcw, Smartphone, UsersRound } from "@lucide/vue";
 import ErrorToast from "../components/ErrorToast.vue";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useGameStore } from "../stores/game";
@@ -10,16 +10,17 @@ const router = useRouter();
 const store = useGameStore();
 const localGame = import.meta.env.VITE_LOCAL_GAME === "true";
 const mobileDevice = computed(() => window.matchMedia("(max-width: 760px), (pointer: coarse)").matches);
-const canOpenTv = computed(() => !localGame || store.hasSavedLocalGame());
+const hasSavedLocalGame = computed(() => localGame && store.hasSavedLocalGame());
+const canOpenTv = computed(() => !localGame || hasSavedLocalGame.value);
 const { canInstall, showInstallHint, install } = useInstallPrompt();
 
 function createTvGame(): void {
   void router.push("/display");
 }
 
-async function createMobileGame(): Promise<void> {
-  const code = await store.createMobileSession();
-  if (code) await router.push(`/play/${code}`);
+async function createMobileGame(startFresh = false): Promise<void> {
+  const code = await store.createMobileSession(startFresh);
+  if (code) await router.push(startFresh ? { path: `/play/${code}`, query: { new: "1" } } : { path: `/play/${code}` });
 }
 </script>
 
@@ -42,14 +43,16 @@ async function createMobileGame(): Promise<void> {
         <b>{{ localGame ? canOpenTv ? 'Afficher la partie' : 'Disponible après votre embarquement' : 'Activer le pont de commandement' }}</b>
       </button>
 
-      <button type="button" class="mode-card mode-card--mobile" :disabled="store.pending" @click="createMobileGame">
+      <button type="button" class="mode-card mode-card--mobile" :disabled="store.pending" @click="createMobileGame(localGame && !hasSavedLocalGame)">
         <span class="mode-card__icon"><Smartphone :size="42" aria-hidden="true" /></span>
         <span class="mode-card__tag">{{ localGame ? 'Joueur contre ordinateur' : mobileDevice ? 'Recommandé sur cet appareil' : 'Sans écran partagé' }}</span>
         <strong>{{ localGame ? 'Partie contre les robots' : 'Flotte mobile' }}</strong>
         <span>{{ localGame ? 'Choisissez votre identité et de 1 à 5 adversaires, puis développez vos concessions face aux robots.' : 'Chaque téléphone affiche les actions, la carte et les positions. Le créateur partage le code et garde les commandes de bord.' }}</span>
-        <b>{{ store.pending ? 'Chargement…' : localGame ? 'Jouer la partie' : 'Lancer depuis ce terminal' }}</b>
+        <b>{{ store.pending ? 'Chargement…' : localGame ? hasSavedLocalGame ? 'Reprendre la partie' : 'Choisir les robots' : 'Lancer depuis ce terminal' }}</b>
       </button>
     </div>
+
+    <button v-if="hasSavedLocalGame" type="button" class="new-local-game" :disabled="store.pending" @click="createMobileGame(true)"><RotateCcw :size="18" aria-hidden="true" />Nouvelle expédition · choisir les robots</button>
 
     <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ localGame ? 'Votre consortium affronte jusqu’à cinq robots aux identités aléatoires, qui jouent automatiquement, sans tricher et sans serveur.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
     <aside v-if="showInstallHint" class="install-mode" aria-label="Mode plein écran">
@@ -80,6 +83,7 @@ async function createMobileGame(): Promise<void> {
 .mode-card--mobile b { background: #f2674a; }
 .mode-card__mobile-note { display: none; }
 .create-game__note { display: flex; align-items: center; gap: .65rem; margin: 0; font-size: 1rem; }
+.new-local-game { display: flex; align-items: center; justify-content: center; gap: .5rem; min-height: 46px; margin: -1.25rem auto 0; padding: .7rem 1rem; color: #f3f8fc; border: 1px solid rgba(114, 169, 194, .55); border-radius: 10px; background: rgba(16, 42, 67, .86); font: 800 .75rem Manrope; }
 .install-mode { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; width: min(100%, 720px); padding: .8rem 1rem; color: #d9edf5; border: 1px solid rgba(114, 169, 194, .45); border-radius: 12px; background: rgba(11, 36, 58, .92); }
 .install-mode div, .install-mode strong, .install-mode span { display: block; min-width: 0; }
 .install-mode strong { color: #fff; font-size: .85rem; }

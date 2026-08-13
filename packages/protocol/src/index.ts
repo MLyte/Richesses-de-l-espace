@@ -1,4 +1,4 @@
-import type { AssetId, AuctionState, BoardSpace, BotProfile, FinishReason, GameEvent, GamePhase, SectorId, TradeOffer } from "@richesses-espace/game";
+import type { AssetId, AuctionState, BoardSpace, BotProfile, FinishReason, GameEvent, GamePhase, RaceShipId, SectorId, StartingRaceState, TradeOffer } from "@richesses-espace/game";
 
 export type { BotProfile } from "@richesses-espace/game";
 
@@ -15,6 +15,7 @@ export interface PublicPlayerView {
 export interface PublicGameView {
   code: string; displayMode: DisplayMode; revision: number; status: "LOBBY" | "PLAYING" | "FINISHED";
   phase: GamePhase; players: PublicPlayerView[]; activePlayerId: string | null; botThinkingPlayerId: string | null;
+  startingRace: StartingRaceState;
   turnNumber: number; roundNumber: number; ownership: Record<AssetId, string>;
   lastRoll: { dice: [number, number]; total: number } | null;
   pendingAssetId: AssetId | null; pendingPrice: number | null;
@@ -29,7 +30,8 @@ export interface PublicGameView {
   winnerId: string | null; finishReason: FinishReason | null;
 }
 
-export type PlayerAction = "SET_READY" | "ROLL_DICE" | "BUY_ASSET" | "PASS_ASSET" | "BUY_LEVER" | "PASS_LEVER" | "PAY_RETURNS" | "USE_LEVER" | "DECLARE_BANKRUPTCY" | "SELECT_AUCTION_ASSETS" | "BID" | "PASS_BID" | "PROPOSE_TRADE" | "ACCEPT_TRADE" | "REJECT_TRADE" | "END_TURN";
+export type PlayerAction = "SET_READY" | "SELECT_STARTING_SHIP" | "ROLL_DICE" | "BUY_ASSET" | "PASS_ASSET" | "BUY_LEVER" | "PASS_LEVER" | "PAY_RETURNS" | "USE_LEVER" | "DECLARE_BANKRUPTCY" | "SELECT_AUCTION_ASSETS" | "BID" | "PASS_BID" | "PROPOSE_TRADE" | "ACCEPT_TRADE" | "REJECT_TRADE" | "END_TURN";
+export interface StartingShipPayload { shipId: RaceShipId }
 export interface PlayerGameView { playerId: string; token: string; isHost: boolean; allowedActions: PlayerAction[]; leverIds: string[]; pendingLever: { leverId: string; price: number } | null }
 export interface TradeProposalPayload { targetId: string; kind?: "trade" | "alliance"; offeredResourceId: string | null; requestedResourceId: string | null; offeredCredits: number; requestedCredits: number }
 export interface CommandResult<T = undefined> { ok: boolean; data?: T; error?: { code: string; message: string } }
