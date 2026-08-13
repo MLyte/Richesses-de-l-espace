@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { Pool } from "pg";
-import { addPlayer, createGame, pauseGame, type GameState } from "@richesses-espace/game";
+import { addPlayer, createGame, pauseGame, removeLobbyPlayer, type BotProfile, type GameState } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type DisplayMode } from "@richesses-espace/protocol";
 
 export interface Room {
@@ -9,11 +9,14 @@ export interface Room {
   adminTokenHash: string;
   hostPlayerId: string | null;
   playerTokens: Map<string, string>;
+  bots: Record<string, BotProfile>;
+  botThinkingPlayerId: string | null;
   updatedAt: number;
 }
 
-interface StoredRoom extends Omit<Room, "playerTokens"> {
+export interface StoredRoom extends Omit<Room, "playerTokens" | "botThinkingPlayerId" | "bots"> {
   playerTokens: [string, string][];
+  bots?: Record<string, BotProfile>;
 }
 
 export interface CreatedRoom { room: Room; adminToken: string }
@@ -22,6 +25,28 @@ const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const token = () => crypto.randomBytes(32).toString("base64url");
 const hashToken = (value: string) => crypto.createHash("sha256").update(value).digest("base64url");
 const roomTtlHours = Math.max(1, Number(process.env.ROOM_TTL_HOURS ?? 168));
+const BOT_NAMES = ["Nova", "Vega", "Orion", "Lyra", "Atlas", "Pulsar", "Sirius", "Kepler", "Astra", "Cosmos"] as const;
+const BOT_PROFILES = new Set<BotProfile>(["CAUTIOUS", "BALANCED", "AMBITIOUS"]);
+
+export function isBotProfile(value: unknown): value is BotProfile {
+  return typeof value === "string" && BOT_PROFILES.has(value as BotProfile);
+}
+
+export function serializeRoom(room: Room): StoredRoom {
+  const { botThinkingPlayerId: _botThinkingPlayerId, ...persistentRoom } = room;
+  return { ...persistentRoom, playerTokens: [...room.playerTokens.entries()] };
+}
+
+export function hydrateRoom(stored: StoredRoom): Room {
+  const bots = stored.bots ?? {};
+  const players = stored.state.players.map((player) => ({ ...player, connected: Boolean(bots[player.id]) }));
+  let state: GameState = { ...stored.state, players };
+  if (state.status === "PLAYING" && state.phase !== "PAUSED" && state.phase !== "FINISHED") {
+    const offlineHuman = players.find((player) => !bots[player.id] && !player.bankrupt && !player.mergedIntoId);
+    if (offlineHuman) state = pauseGame(state, "PLAYER_DISCONNECTED", offlineHuman.id);
+  }
+  return { ...stored, bots, state, playerTokens: new Map(stored.playerTokens), botThinkingPlayerId: null, updatedAt: Date.now() };
+}
 
 export class RoomStore {
   private readonly rooms = new Map<string, Room>();
@@ -52,7 +77,7 @@ export class RoomStore {
     `);
     const result = await this.pool.query<{ payload: StoredRoom }>("SELECT payload FROM game_rooms WHERE expires_at > NOW()");
     for (const row of result.rows) {
-      const room = this.hydrate(row.payload);
+      const room = hydrateRoom(row.payload);
       this.rooms.set(room.state.code, room);
       await this.save(room);
     }
@@ -72,6 +97,8 @@ export class RoomStore {
       adminTokenHash: hashToken(adminToken),
       hostPlayerId: null,
       playerTokens: new Map(),
+      bots: {},
+      botThinkingPlayerId: null,
       updatedAt: Date.now()
     };
     this.rooms.set(code, room);
@@ -94,6 +121,36 @@ export class RoomStore {
     return { room, playerId, playerToken, isHost };
   }
 
+  addBot(room: Room, profile: BotProfile): string {
+    if (!isBotProfile(profile)) throw new Error("INVALID_BOT_PROFILE");
+    if (room.state.phase !== "LOBBY") throw new Error("INVALID_PHASE");
+    const name = BOT_NAMES.find((candidate) => !room.state.players.some((player) => player.name.localeCompare(candidate, "fr", { sensitivity: "base" }) === 0))
+      ?? `Robot ${room.state.players.length + 1}`;
+    const color = PLAYER_COLORS.find((candidate) => !room.state.players.some((player) => player.color === candidate));
+    const symbol = PLAYER_SYMBOLS.find((candidate) => !room.state.players.some((player) => player.symbol === candidate.id))?.id;
+    if (!color || !symbol) throw new Error("ROOM_FULL");
+    const playerId = `bot-${crypto.randomUUID()}`;
+    const added = addPlayer(room.state, { id: playerId, name, color, symbol });
+    room.state = { ...added, players: added.players.map((player) => player.id === playerId ? { ...player, ready: true, connected: true } : player) };
+    room.bots[playerId] = profile;
+    return playerId;
+  }
+
+  updateBot(room: Room, playerId: string, profile: BotProfile): void {
+    if (room.state.phase !== "LOBBY") throw new Error("INVALID_PHASE");
+    if (!isBotProfile(profile)) throw new Error("INVALID_BOT_PROFILE");
+    if (!room.bots[playerId]) throw new Error("BOT_NOT_FOUND");
+    room.bots[playerId] = profile;
+  }
+
+  removeBot(room: Room, playerId: string): void {
+    if (room.state.phase !== "LOBBY") throw new Error("INVALID_PHASE");
+    if (!room.bots[playerId]) throw new Error("BOT_NOT_FOUND");
+    room.state = removeLobbyPlayer(room.state, playerId);
+    delete room.bots[playerId];
+    if (room.botThinkingPlayerId === playerId) room.botThinkingPlayerId = null;
+  }
+
   findByToken(value: string): { room: Room; role: "admin" | "player"; playerId?: string; isHost?: boolean } | undefined {
     const valueHash = hashToken(value);
     for (const room of this.rooms.values()) {
@@ -108,7 +165,7 @@ export class RoomStore {
     room.updatedAt = Date.now();
     this.rooms.set(room.state.code, room);
     if (!this.pool) return;
-    const stored: StoredRoom = { ...room, playerTokens: [...room.playerTokens.entries()] };
+    const stored = serializeRoom(room);
     await this.pool.query(
       `INSERT INTO game_rooms (code, payload, updated_at, expires_at)
        VALUES ($1, $2::jsonb, NOW(), NOW() + ($3 * INTERVAL '1 hour'))
@@ -121,14 +178,5 @@ export class RoomStore {
     const cutoff = now - roomTtlHours * 60 * 60 * 1000;
     for (const [code, room] of this.rooms) if (room.updatedAt < cutoff) this.rooms.delete(code);
     if (this.pool) await this.pool.query("DELETE FROM game_rooms WHERE expires_at <= NOW()");
-  }
-
-  private hydrate(stored: StoredRoom): Room {
-    const players = stored.state.players.map((player) => ({ ...player, connected: false }));
-    let state: GameState = { ...stored.state, players };
-    if (state.status === "PLAYING" && state.phase !== "PAUSED" && state.phase !== "FINISHED") {
-      state = pauseGame(state, "PLAYER_DISCONNECTED", state.activePlayerId);
-    }
-    return { ...stored, state, playerTokens: new Map(stored.playerTokens), updatedAt: Date.now() };
   }
 }

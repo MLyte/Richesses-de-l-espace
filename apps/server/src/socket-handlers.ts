@@ -1,14 +1,14 @@
 import type { Server, Socket } from "socket.io";
 import {
-  BOARD, LEVER_CARDS, SECTORS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, endTurn, finishGame,
+  BOARD, LEVER_CARDS, SECTORS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame,
   getNetWorth, getSectorInfluence, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
   pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, setPlayerConnected,
-  selectAuctionAssets, setPlayerReady, startGame, useLever,
-  type GameState
+  selectAuctionAssets, setPlayerReady, startGame, useLever, observeGameForBot,
+  type BotDecision, type BotProfile, type GameState
 } from "@richesses-espace/game";
 import type { CommandResult, DisplayMode, PlayerAction, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
 import { getJoinUrls } from "./network-addresses";
-import { RoomStore, type Room } from "./room-store";
+import { isBotProfile, RoomStore, type Room } from "./room-store";
 
 interface SessionData {
   code?: string;
@@ -21,7 +21,7 @@ interface SessionData {
 type Ack<T = undefined> = (result: CommandResult<T>) => void;
 
 function errorMessage(code: string): string {
-  return ({ ROOM_NOT_FOUND: "Partie introuvable.", INVALID_COLOR: "Couleur invalide.", INVALID_SYMBOL: "Symbole invalide.", INVALID_NAME: "Choisissez un prénom de 1 à 20 caractères.", SESSION_NOT_FOUND: "Cette session a expiré." } as Record<string, string>)[code] ?? "Action impossible.";
+  return ({ ROOM_NOT_FOUND: "Partie introuvable.", INVALID_COLOR: "Couleur invalide.", INVALID_SYMBOL: "Symbole invalide.", INVALID_NAME: "Choisissez un prénom de 1 à 20 caractères.", SESSION_NOT_FOUND: "Cette session a expiré.", INVALID_BOT_PROFILE: "Profil de robot invalide.", BOT_NOT_FOUND: "Robot introuvable.", ROOM_FULL: "La partie est complète.", INVALID_PHASE: "Cette action n’est possible que dans le lobby." } as Record<string, string>)[code] ?? "Action impossible.";
 }
 
 async function safe<T>(ack: Ack<T>, action: () => T | Promise<T>): Promise<void> {
@@ -39,8 +39,8 @@ function publicView(room: Room, publicPort: number, publicOrigin?: string): Publ
   const state = room.state;
   return {
     code: state.code, displayMode: room.displayMode, revision: state.revision, status: state.status, phase: state.phase,
-    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: getNetWorth(state, id), sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(state, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number> })),
-    activePlayerId: state.activePlayerId, turnNumber: state.turnNumber, roundNumber: state.roundNumber,
+    players: state.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({ id, name, color, symbol, connected, ready, isBot: Boolean(room.bots[id]), botProfile: room.bots[id] ?? null, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId, netWorth: getNetWorth(state, id), sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(state, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number> })),
+    activePlayerId: state.activePlayerId, botThinkingPlayerId: room.botThinkingPlayerId, turnNumber: state.turnNumber, roundNumber: state.roundNumber,
     ownership: state.ownership, lastRoll: state.lastRoll,
     pendingAssetId: state.pendingAction?.availableAssetIds[0] ?? null,
     pendingPrice: null,
@@ -88,9 +88,14 @@ function playerView(room: Room, playerId: string, sessionToken: string): PlayerG
   return { playerId, token: sessionToken, isHost: room.hostPlayerId === playerId, allowedActions: actionsFor(room.state, playerId), leverIds: room.state.players.find((player) => player.id === playerId)?.leverIds ?? [], pendingLever };
 }
 
-export function registerSocketHandlers(io: Server, store: RoomStore, publicPort: number, publicOrigin?: string): void {
+export interface SocketHandlerOptions { botDelayScale?: number }
+
+export function registerSocketHandlers(io: Server, store: RoomStore, publicPort: number, publicOrigin?: string, options: SocketHandlerOptions = {}): void {
+  const botDelayScale = Math.max(0, options.botDelayScale ?? 1);
   const auctionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const auctionPausedAt = new Map<string, number>();
+  const botTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const roomQueues = new Map<string, Promise<void>>();
   function broadcast(room: Room): void {
     io.to(room.state.code).emit("state:public", publicView(room, publicPort, publicOrigin));
     for (const client of io.sockets.sockets.values()) {
@@ -107,6 +112,115 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     for (const item of events) io.to(room.state.code).emit("game:event", item);
   }
 
+  function enqueue<T>(room: Room, task: () => Promise<T>): Promise<T> {
+    const previous = roomQueues.get(room.state.code) ?? Promise.resolve();
+    const run = previous.catch(() => undefined).then(task);
+    const tail = run.then(() => undefined, () => undefined);
+    roomQueues.set(room.state.code, tail);
+    return run.finally(() => { if (roomQueues.get(room.state.code) === tail) roomQueues.delete(room.state.code); });
+  }
+
+  function botMutation(state: GameState, botId: string, decision: BotDecision): GameState {
+    switch (decision.type) {
+      case "ROLL": return rollDice(state, botId);
+      case "BUY_ASSETS": return buyPendingAsset(state, botId, decision.assetIds);
+      case "PASS_ASSETS": return passPendingAsset(state, botId);
+      case "BUY_LEVER": return buyPendingLever(state, botId);
+      case "PASS_LEVER": return passPendingLever(state, botId);
+      case "PAY": return payPendingPayment(state, botId);
+      case "DECLARE_BANKRUPTCY": return declareBankruptcy(state, botId);
+      case "USE_LEVER": return useLever(state, botId, decision.leverId);
+      case "SELECT_AUCTION_ASSETS": return selectAuctionAssets(state, botId, decision.assetIds);
+      case "BID": return placeBid(state, botId, decision.amount);
+      case "PASS_BID": return passAuction(state, botId);
+      case "RESPOND_TRADE": return respondToTrade(state, botId, decision.accept);
+      case "END_TURN": return endTurn(state, botId);
+    }
+  }
+
+  function pendingBot(room: Room): { playerId: string; profile: BotProfile; decision: BotDecision } | null {
+    for (const player of room.state.players) {
+      const profile = room.bots[player.id];
+      if (!profile) continue;
+      const decision = decideBotAction(observeGameForBot(room.state, player.id), player.id, profile);
+      if (decision) return { playerId: player.id, profile, decision };
+    }
+    return null;
+  }
+
+  function botDelay(room: Room, decision: BotDecision): number {
+    const rolledThisRevision = room.state.recentEvents.some((event) => event.id === room.state.revision && event.type === "dice_rolled");
+    const duration = rolledThisRevision ? 2_800 + (room.state.lastRoll?.total ?? 0) * 210
+      : decision.type === "ROLL" ? 700
+        : decision.type === "BID" || decision.type === "PASS_BID" ? 800
+          : 900;
+    return Math.round(duration * botDelayScale);
+  }
+
+  function scheduleBot(room: Room): void {
+    const existing = botTimers.get(room.state.code);
+    if (existing) clearTimeout(existing);
+    botTimers.delete(room.state.code);
+    const pending = pendingBot(room);
+    room.botThinkingPlayerId = pending?.playerId ?? null;
+    if (!pending) {
+      broadcast(room);
+      return;
+    }
+    const expectedRevision = room.state.revision;
+    broadcast(room);
+    const timer = setTimeout(() => {
+      botTimers.delete(room.state.code);
+      void enqueue(room, async () => {
+        if (room.state.revision !== expectedRevision || room.botThinkingPlayerId !== pending.playerId) {
+          scheduleBot(room);
+          return;
+        }
+        const currentProfile = room.bots[pending.playerId];
+        const currentDecision = currentProfile ? decideBotAction(observeGameForBot(room.state, pending.playerId), pending.playerId, currentProfile) : null;
+        room.botThinkingPlayerId = null;
+        if (!currentDecision) {
+          scheduleBot(room);
+          return;
+        }
+        const previousState = room.state;
+        try {
+          room.state = botMutation(room.state, pending.playerId, currentDecision);
+          await store.save(room);
+        } catch (error) {
+          room.state = previousState;
+          console.error(`Décision robot impossible (${currentDecision.reason})`, error);
+          broadcast(room);
+          return;
+        }
+        publish(room);
+        scheduleAuction(room);
+        scheduleBot(room);
+      });
+    }, botDelay(room, pending.decision));
+    botTimers.set(room.state.code, timer);
+  }
+
+  async function changeRoom(room: Room, change: () => void): Promise<void> {
+    await enqueue(room, async () => {
+      const previousState = room.state;
+      const previousBots = { ...room.bots };
+      const previousThinking = room.botThinkingPlayerId;
+      try {
+        change();
+        await store.save(room);
+      } catch (error) {
+        room.state = previousState;
+        room.bots = previousBots;
+        room.botThinkingPlayerId = previousThinking;
+        throw error;
+      }
+      publish(room);
+      scheduleAuction(room);
+      scheduleBot(room);
+    });
+  }
+
   function scheduleAuction(room: Room): void {
     const existing = auctionTimers.get(room.state.code); if (existing) clearTimeout(existing);
     auctionTimers.delete(room.state.code);
@@ -116,47 +230,28 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       return;
     }
     if (room.state.phase !== "AUCTION" || !deadline) return;
-    const timer = setTimeout(async () => {
-      const before = room.state.revision;
-      const next = closeExpiredAuction(room.state, Date.now());
-      if (next.revision !== before) {
-        const previous = room.state;
-        room.state = next;
-        try {
-          await store.save(room);
-          publish(room);
-        } catch (error) {
-          room.state = previous;
-          console.error("Impossible de sauvegarder la clôture de l’enchère", error);
-        }
-      }
-      scheduleAuction(room);
+    const timer = setTimeout(() => {
+      void mutate(room, (state) => closeExpiredAuction(state, Date.now())).catch((error) => {
+        console.error("Impossible de sauvegarder la clôture de l’enchère", error);
+      });
     }, Math.max(0, deadline - Date.now()) + 5);
     auctionTimers.set(room.state.code, timer);
   }
 
   async function resumeRoom(room: Room): Promise<void> {
-    const pausedAt = auctionPausedAt.get(room.state.code);
-    let next = resumeGame(room.state);
-    if (pausedAt && next.auction?.mode === "bidding" && next.auction.deadline) {
-      next = { ...next, auction: { ...next.auction, deadline: next.auction.deadline + Date.now() - pausedAt } };
-    }
-    auctionPausedAt.delete(room.state.code);
-    const previous = room.state;
-    room.state = next;
-    try { await store.save(room); }
-    catch (error) { room.state = previous; throw error; }
-    publish(room);
-    scheduleAuction(room);
+    await changeRoom(room, () => {
+      const pausedAt = auctionPausedAt.get(room.state.code);
+      let next = resumeGame(room.state);
+      if (pausedAt && next.auction?.mode === "bidding" && next.auction.deadline) {
+        next = { ...next, auction: { ...next.auction, deadline: next.auction.deadline + Date.now() - pausedAt } };
+      }
+      auctionPausedAt.delete(room.state.code);
+      room.state = next;
+    });
   }
 
   async function mutate(room: Room, mutation: (state: GameState) => GameState): Promise<void> {
-    const previous = room.state;
-    room.state = mutation(room.state);
-    try { await store.save(room); }
-    catch (error) { room.state = previous; throw error; }
-    publish(room);
-    scheduleAuction(room);
+    await changeRoom(room, () => { room.state = mutation(room.state); });
   }
 
   function requireRoom(socket: Socket, role?: "admin" | "player"): { room: Room; session: SessionData } {
@@ -197,13 +292,13 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       const room = store.get(previous.code);
       const replacementExists = [...io.sockets.sockets.values()].some((client) => client.id !== socket.id && sessionOf(client).token === previous.token);
       if (room && !replacementExists) {
-        room.state = setPlayerConnected(room.state, previous.playerId, false);
-        const disconnectedPlayer = room.state.players.find((player) => player.id === previous.playerId);
-        const mustPause = Boolean(disconnectedPlayer && !disconnectedPlayer.bankrupt && !disconnectedPlayer.mergedIntoId);
-        if (mustPause && room.state.status === "PLAYING" && room.state.phase !== "PAUSED" && room.state.phase !== "FINISHED") room.state = pauseGame(room.state, "PLAYER_DISCONNECTED", previous.playerId);
-        await store.save(room);
-        broadcast(room);
-        scheduleAuction(room);
+        await mutate(room, (state) => {
+          let next = setPlayerConnected(state, previous.playerId!, false);
+          const disconnectedPlayer = next.players.find((player) => player.id === previous.playerId);
+          const mustPause = Boolean(disconnectedPlayer && !disconnectedPlayer.bankrupt && !disconnectedPlayer.mergedIntoId);
+          if (mustPause && next.status === "PLAYING" && next.phase !== "PAUSED" && next.phase !== "FINISHED") next = pauseGame(next, "PLAYER_DISCONNECTED", previous.playerId!);
+          return next;
+        });
       }
     }
     for (const key of ["code", "role", "token", "playerId", "isHost"] as const) delete previous[key];
@@ -247,10 +342,8 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
       Object.assign(session, { code: found.room.state.code, role: found.role, token: payload.token, playerId: found.playerId, isHost: found.isHost });
       socket.join(found.room.state.code);
       if (found.role === "player" && found.playerId) {
-        found.room.state = setPlayerConnected(found.room.state, found.playerId, true);
-        await store.save(found.room);
-      }
-      broadcast(found.room);
+        await mutate(found.room, (state) => setPlayerConnected(state, found.playerId!, true));
+      } else broadcast(found.room);
       return { code: found.room.state.code, token: payload.token, role: found.role, displayMode: found.room.displayMode, ...(found.isHost !== undefined ? { isHost: found.isHost } : {}), ...(found.playerId ? { playerId: found.playerId } : {}), ...(found.role === "admin" ? { joinUrls: getJoinUrls(found.room.state.code, publicPort, publicOrigin) } : {}) };
     }));
 
@@ -260,6 +353,26 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     });
 
     socket.on("lobby:set-ready", (payload: { ready?: boolean }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => setPlayerReady(state, session.playerId!, Boolean(payload.ready))); return undefined; }));
+    socket.on("lobby:bot-add", (payload: { profile?: BotProfile }, ack: Ack<{ playerId: string }>) => void safe(ack, async () => {
+      const { room } = requireAdmin(socket);
+      if (!isBotProfile(payload.profile)) throw new Error("INVALID_BOT_PROFILE");
+      let playerId = "";
+      await changeRoom(room, () => { playerId = store.addBot(room, payload.profile!); });
+      return { playerId };
+    }));
+    socket.on("lobby:bot-update", (payload: { playerId?: string; profile?: BotProfile }, ack: Ack) => void safe(ack, async () => {
+      const { room } = requireAdmin(socket);
+      if (!payload.playerId) throw new Error("BOT_NOT_FOUND");
+      if (!isBotProfile(payload.profile)) throw new Error("INVALID_BOT_PROFILE");
+      await changeRoom(room, () => store.updateBot(room, payload.playerId!, payload.profile!));
+      return undefined;
+    }));
+    socket.on("lobby:bot-remove", (payload: { playerId?: string }, ack: Ack) => void safe(ack, async () => {
+      const { room } = requireAdmin(socket);
+      if (!payload.playerId) throw new Error("BOT_NOT_FOUND");
+      await changeRoom(room, () => store.removeBot(room, payload.playerId!));
+      return undefined;
+    }));
     socket.on("game:start", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, startGame); return undefined; }));
     playerMutation("turn:roll", (state, playerId) => rollDice(state, playerId));
     socket.on("purchase:buy", (payload: { assetIds?: string[] }, ack: Ack) => void safe(ack, async () => { const { room, session } = requireRoom(socket, "player"); await mutate(room, (state) => buyPendingAsset(state, session.playerId!, payload.assetIds)); return undefined; }));
@@ -279,7 +392,14 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
     socket.on("admin:pause", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, pauseGame); return undefined; }));
     socket.on("admin:resume", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await resumeRoom(room); return undefined; }));
     socket.on("admin:end", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, finishGame); return undefined; }));
-    socket.on("admin:restart", (ack: Ack) => void safe(ack, async () => { const { room } = requireAdmin(socket); await mutate(room, restartGame); return undefined; }));
+    socket.on("admin:restart", (ack: Ack) => void safe(ack, async () => {
+      const { room } = requireAdmin(socket);
+      await mutate(room, (state) => {
+        const restarted = restartGame(state);
+        return { ...restarted, players: restarted.players.map((player) => room.bots[player.id] ? { ...player, connected: true, ready: true } : { ...player, ready: false }) };
+      });
+      return undefined;
+    }));
     socket.on("disconnect", () => { void detachSession(socket).catch((error) => console.error("Déconnexion incomplète", error)); });
   });
 }

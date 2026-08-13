@@ -1,9 +1,12 @@
-import type { AssetId, AuctionState, BoardSpace, FinishReason, GameEvent, GamePhase, SectorId, TradeOffer } from "@richesses-espace/game";
+import type { AssetId, AuctionState, BoardSpace, BotProfile, FinishReason, GameEvent, GamePhase, SectorId, TradeOffer } from "@richesses-espace/game";
+
+export type { BotProfile } from "@richesses-espace/game";
 
 export type DisplayMode = "TV" | "MOBILE_ONLY";
 
 export interface PublicPlayerView {
   id: string; name: string; color: string; symbol: string; connected: boolean; ready: boolean;
+  isBot: boolean; botProfile: BotProfile | null;
   position: number; lapsCompleted: number; turnsToSkip: number; capital: number; assetIds: AssetId[]; leverCount: number; bankrupt: boolean; netWorth: number;
   allianceId: string | null; mergedIntoId: string | null;
   sectorInfluence: Record<SectorId, number>;
@@ -11,7 +14,7 @@ export interface PublicPlayerView {
 
 export interface PublicGameView {
   code: string; displayMode: DisplayMode; revision: number; status: "LOBBY" | "PLAYING" | "FINISHED";
-  phase: GamePhase; players: PublicPlayerView[]; activePlayerId: string | null;
+  phase: GamePhase; players: PublicPlayerView[]; activePlayerId: string | null; botThinkingPlayerId: string | null;
   turnNumber: number; roundNumber: number; ownership: Record<AssetId, string>;
   lastRoll: { dice: [number, number]; total: number } | null;
   pendingAssetId: AssetId | null; pendingPrice: number | null;

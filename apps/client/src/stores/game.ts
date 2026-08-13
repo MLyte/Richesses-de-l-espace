@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { io, type Socket } from "socket.io-client";
-import type { CommandResult, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
+import type { BotProfile, CommandResult, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
 import type { GameEvent } from "@richesses-espace/game";
 import { playEventSound, playMoveStep, setActionReminder } from "../services/audio";
 import { playErrorHaptic, playEventHaptic } from "../services/haptics";
@@ -285,6 +285,9 @@ export const useGameStore = defineStore("game", {
       setActionReminder(Boolean(this.player?.allowedActions.some((action) => mandatoryActionNames.has(action))));
     },
     setReady(ready: boolean) { return this.command("lobby:set-ready", { ready }); },
+    addBot(profile: BotProfile) { return this.command("lobby:bot-add", { profile }); },
+    updateBot(playerId: string, profile: BotProfile) { return this.command("lobby:bot-update", { playerId, profile }); },
+    removeBot(playerId: string) { return this.command("lobby:bot-remove", { playerId }); },
     startGame() { return this.command("game:start"); },
     roll() { return this.command("turn:roll"); },
     buy(assetIds: string[]) { return this.command("purchase:buy", { assetIds }); },

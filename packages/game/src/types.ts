@@ -3,6 +3,7 @@ export type ResourceFamilyId = "minerals" | "biospheres" | "energies" | "volatil
 export type SectorId = ResourceFamilyId;
 export type AssetId = string;
 export type PlayerId = string;
+export type BotProfile = "CAUTIOUS" | "BALANCED" | "AMBITIOUS";
 
 export interface ResourceFamily { id: ResourceFamilyId; name: string; shortName: string; color: string; icon: string }
 export type Sector = ResourceFamily;
@@ -58,7 +59,7 @@ export interface TradeOffer {
 
 export type FinishReason = "ADMIN" | "LAST_SOLVENT";
 
-export type GameEventType = "player_joined" | "player_ready" | "game_started" | "game_restarted" | "dice_rolled" | "double_tax_paid" | "pawn_moved" | "space_landed" | "purchase_offered" | "asset_visited" | "payment_due" | "payment_completed" | "asset_purchased" | "purchase_passed" | "trend_drawn" | "lever_offered" | "lever_drawn" | "lever_passed" | "lever_used" | "auction_started" | "auction_bid" | "auction_passed" | "auction_won" | "trade_proposed" | "trade_accepted" | "trade_rejected" | "player_bankrupt" | "dividend_received" | "customs_applied" | "turn_skipped" | "turn_started" | "game_paused" | "game_resumed" | "game_finished";
+export type GameEventType = "player_joined" | "player_left" | "player_ready" | "game_started" | "game_restarted" | "dice_rolled" | "double_tax_paid" | "pawn_moved" | "space_landed" | "purchase_offered" | "asset_visited" | "payment_due" | "payment_completed" | "asset_purchased" | "purchase_passed" | "trend_drawn" | "lever_offered" | "lever_drawn" | "lever_passed" | "lever_used" | "auction_started" | "auction_bid" | "auction_passed" | "auction_won" | "trade_proposed" | "trade_accepted" | "trade_rejected" | "player_bankrupt" | "dividend_received" | "customs_applied" | "turn_skipped" | "turn_started" | "game_paused" | "game_resumed" | "game_finished";
 
 export type PauseReason = "ADMIN" | "PLAYER_DISCONNECTED";
 

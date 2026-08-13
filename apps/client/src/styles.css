@@ -264,6 +264,12 @@ h1 em { font-family: "Fraunces Variable", "Manrope", sans-serif; font-weight: 70
   .lobby-intro > p:not(.eyebrow) { font-size: 1.15rem; }.lobby-roster .roster-row { min-height: 72px; }.roster-row strong { font-size: 1rem; }.readiness { font-size: .84rem; }.button-help { font-size: .84rem; }
 }
 
+/* Robot players */
+.bot-label { display: inline-flex !important; align-items: center; gap: .25rem; }
+.crew-slot .bot-label { color: #6fddea; }
+.player-identity .bot-label { margin-left: auto; color: #6fddea; }
+.turn-banner small { display: inline-flex; align-items: center; gap: .28rem; color: #6fddea; font-size: .62rem; font-weight: 800; letter-spacing: .04em; }
+
 /* Ancienne couche Terra conservee pour historique, mais retiree de la cascade. */
 @media not all {
 /* Richesses de l'espace - direction artistique finale */

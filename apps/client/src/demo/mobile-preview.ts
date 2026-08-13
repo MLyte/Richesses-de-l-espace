@@ -19,8 +19,8 @@ export function createMobilePreviewGame(): PublicGameView {
   const landingPosition = BOARD.findIndex((space) => space.type === "asset" && space.assetId === landingAssetId);
   const orionPosition = BOARD.findIndex((space) => space.type === "asset" && space.assetId === "stellar-cobalt-vesta");
   const players = [
-    player({ id: "orion", name: "Orion", color: "#3784a6", symbol: "cat", connected: true, ready: true, position: orionPosition, lapsCompleted: 0, turnsToSkip: 0, capital: 78, assetIds: orionAssets, leverCount: 0, bankrupt: false, netWorth: 120, allianceId: null, mergedIntoId: null }),
-    player({ id: "lyra", name: "Lyra", color: "#e4a72f", symbol: "bird", connected: true, ready: true, position: landingPosition, lapsCompleted: 1, turnsToSkip: 0, capital: 84, assetIds: lyraAssets, leverCount: 0, bankrupt: false, netWorth: 111, allianceId: null, mergedIntoId: null })
+    player({ id: "orion", name: "Orion", color: "#3784a6", symbol: "cat", connected: true, ready: true, isBot: false, botProfile: null, position: orionPosition, lapsCompleted: 0, turnsToSkip: 0, capital: 78, assetIds: orionAssets, leverCount: 0, bankrupt: false, netWorth: 120, allianceId: null, mergedIntoId: null }),
+    player({ id: "lyra", name: "Lyra", color: "#e4a72f", symbol: "bird", connected: true, ready: true, isBot: false, botProfile: null, position: landingPosition, lapsCompleted: 1, turnsToSkip: 0, capital: 84, assetIds: lyraAssets, leverCount: 0, bankrupt: false, netWorth: 111, allianceId: null, mergedIntoId: null })
   ];
 
   return {
@@ -31,6 +31,7 @@ export function createMobilePreviewGame(): PublicGameView {
     phase: "WAITING_FOR_END_TURN",
     players,
     activePlayerId: "lyra",
+    botThinkingPlayerId: null,
     turnNumber: 8,
     roundNumber: 4,
     ownership: Object.fromEntries([...orionAssets.map((id) => [id, "orion"]), ...lyraAssets.map((id) => [id, "lyra"])]) as Record<AssetId, string>,

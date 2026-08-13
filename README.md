@@ -28,6 +28,8 @@ Ouvrez l’URL `Local` affichée dans le terminal. La page d’accueil propose :
 - **Écran commun** : une TV ou un ordinateur affiche le plateau et le QR code ;
 - **Téléphones uniquement** : le premier téléphone devient l’hôte et la partie ne dépend d’aucun écran commun.
 
+Dans le lobby de son téléphone, l’hôte peut compléter une table avec des joueurs robots. Chaque robot occupe une des six places, reste géré par le serveur et joue selon un profil **Prudent**, **Équilibré** ou **Ambitieux**. Les profils modifient la réserve de capital et la prise de risque, sans donner accès aux Technologies privées des adversaires. Les robots répondent aux échanges ordinaires, refusent les consortiums et ne proposent pas eux-mêmes de transaction.
+
 ## Règle standard
 
 1. Le téléphone actif lance deux dés. Un double verse à la Banque interstellaire la valeur d’un dé et ne donne aucun tour supplémentaire.

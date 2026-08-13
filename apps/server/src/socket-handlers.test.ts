@@ -26,12 +26,19 @@ function command<T>(socket: Socket, event: string, payload?: unknown): Promise<C
 
 const nextState = (socket: Socket) => new Promise<PublicGameView>((resolve) => socket.once("state:public", resolve));
 const nextPlayerState = (socket: Socket) => new Promise<PlayerGameView>((resolve) => socket.once("state:player", resolve));
+async function waitFor(predicate: () => boolean, timeout = 2_000): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error("Condition de test non atteinte dans le délai imparti");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
 
 beforeEach(async () => {
   httpServer = http.createServer();
   ioServer = new Server(httpServer);
   roomStore = new RoomStore();
-  registerSocketHandlers(ioServer, roomStore, 5173);
+  registerSocketHandlers(ioServer, roomStore, 5173, undefined, { botDelayScale: .1 });
   await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
   const address = httpServer.address();
   if (!address || typeof address === "string") throw new Error("Port de test indisponible");
@@ -262,6 +269,73 @@ describe("Socket.IO game flow", () => {
     expect(state.players.find((player) => player.id === joinedFirst.data!.playerId)?.connected).toBe(true);
     expect(state.phase).toBe("WAITING_FOR_ROLL");
     expect(state.pauseReason).toBeNull();
+  });
+  it("lets only the host manage persistent robot seats in the lobby", async () => {
+    const display = await openClient();
+    const created = await command<SessionResult>(display, "room:create", { displayMode: "MOBILE_ONLY" });
+    const host = await openClient();
+    const hostJoined = await command<SessionResult>(host, "room:join", { code: created.data!.code, name: "Aline", color: "#e05f42", symbol: "cat", hostToken: created.data!.token });
+    const guest = await openClient();
+    await command<SessionResult>(guest, "room:join", { code: created.data!.code, name: "Basile", color: "#3784a6", symbol: "dog" });
+
+    expect((await command(guest, "lobby:bot-add", { profile: "BALANCED" })).error?.code).toBe("UNAUTHORIZED");
+    const publicState = nextState(display);
+    const added = await command<{ playerId: string }>(host, "lobby:bot-add", { profile: "CAUTIOUS" });
+    expect(added.ok).toBe(true);
+    const botId = added.data!.playerId;
+    const withBot = await publicState;
+    expect(withBot.players.find((player) => player.id === botId)).toMatchObject({ isBot: true, botProfile: "CAUTIOUS", connected: true, ready: true });
+    expect(roomStore.get(created.data!.code)?.playerTokens.size).toBe(2);
+
+    expect((await command(host, "lobby:bot-update", { playerId: botId, profile: "AMBITIOUS" })).ok).toBe(true);
+    expect(roomStore.get(created.data!.code)?.bots[botId]).toBe("AMBITIOUS");
+    expect((await command(host, "lobby:bot-update", { playerId: botId, profile: "UNKNOWN" })).error?.code).toBe("INVALID_BOT_PROFILE");
+    expect((await command(host, "lobby:bot-remove", { playerId: botId })).ok).toBe(true);
+    expect(roomStore.get(created.data!.code)?.state.players.some((player) => player.id === botId)).toBe(false);
+
+    for (let index = 0; index < 4; index += 1) expect((await command(host, "lobby:bot-add", { profile: "BALANCED" })).ok).toBe(true);
+    expect(roomStore.get(created.data!.code)?.state.players).toHaveLength(6);
+    expect((await command(host, "lobby:bot-add", { profile: "BALANCED" })).error?.code).toBe("ROOM_FULL");
+    expect(hostJoined.data?.isHost).toBe(true);
+  });
+
+  it("pauses, resumes and restarts a server-driven robot turn without stale actions", async () => {
+    const display = await openClient();
+    const created = await command<SessionResult>(display, "room:create", { displayMode: "MOBILE_ONLY" });
+    const host = await openClient();
+    const hostJoined = await command<SessionResult>(host, "room:join", { code: created.data!.code, name: "Aline", color: "#e05f42", symbol: "cat", hostToken: created.data!.token });
+    const added = await command<{ playerId: string }>(host, "lobby:bot-add", { profile: "BALANCED" });
+    const botId = added.data!.playerId;
+    await command(host, "lobby:set-ready", { ready: true });
+    await command(host, "game:start");
+    await command(host, "turn:roll");
+    let room = roomStore.get(created.data!.code)!;
+    if (room.state.phase === "WAITING_FOR_PURCHASE") await command(host, "purchase:pass");
+    if (room.state.phase === "WAITING_FOR_LEVER_PURCHASE") await command(host, "lever:pass");
+    if (room.state.phase === "WAITING_FOR_PAYMENT") await command(host, "payment:pay");
+    if (room.state.phase === "WAITING_FOR_END_TURN") await command(host, "turn:end");
+    room = roomStore.get(created.data!.code)!;
+    expect(room.state.activePlayerId).toBe(botId);
+    expect(room.botThinkingPlayerId).toBe(botId);
+
+    await command(host, "admin:pause");
+    const pausedRevision = room.state.revision;
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(room.state.phase).toBe("PAUSED");
+    expect(room.state.revision).toBe(pausedRevision);
+    expect(room.botThinkingPlayerId).toBeNull();
+
+    await command(host, "admin:resume");
+    await waitFor(() => room.state.activePlayerId === hostJoined.data!.playerId && room.state.turnNumber >= 2);
+    expect(room.state.phase).toBe("WAITING_FOR_ROLL");
+    expect(room.state.players.find((player) => player.id === botId)?.connected).toBe(true);
+
+    await command(host, "admin:end");
+    await command(host, "admin:restart");
+    expect(room.state.phase).toBe("LOBBY");
+    expect(room.state.players.find((player) => player.id === botId)).toMatchObject({ ready: true, connected: true });
+    expect(room.state.players.find((player) => player.id === hostJoined.data!.playerId)?.ready).toBe(false);
+    expect(room.bots[botId]).toBe("BALANCED");
   });
   it("keeps a pending Technology and every session token out of public state", async () => {
     const admin = await openClient();

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import QrcodeVue from "qrcode.vue";
 import { ASSETS, LEVER_CARDS, RESOURCES, TREND_CARDS } from "@richesses-espace/game";
+import type { BotProfile } from "@richesses-espace/protocol";
 import { useGameStore } from "../stores/game";
 import LandingNotice from "../components/LandingNotice.vue";
 import WorldBoard from "../components/WorldBoard.vue";
@@ -14,7 +15,7 @@ import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import PaymentTransfer from "../components/PaymentTransfer.vue";
 import GameIcon from "../components/GameIcon.vue";
-import { HelpCircle, Maximize2, Menu, Pause } from "@lucide/vue";
+import { Bot, HelpCircle, Maximize2, Menu, Pause } from "@lucide/vue";
 import { splitPlayerWings } from "./display-layout";
 
 const store = useGameStore();
@@ -31,6 +32,8 @@ const joinUrl = computed(() => store.game?.joinUrls[0] ?? (store.game ? `${locat
 const crewSlots = computed(() => Array.from({ length: 6 }, (_, index) => store.game?.players[index] ?? null));
 const playerWings = computed(() => splitPlayerWings(store.game?.players ?? []));
 const active = computed(() => store.game?.players.find((player) => player.id === store.game?.activePlayerId));
+const botThinkingPlayer = computed(() => store.game?.players.find((player) => player.id === store.game?.botThinkingPlayerId) ?? null);
+const botProfileLabels: Record<BotProfile, string> = { CAUTIOUS: "Prudent", BALANCED: "Équilibré", AMBITIOUS: "Ambitieux" };
 const landedAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.landedAssetId));
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
 const landedOwner = computed(() => store.game?.players.find((player) => player.id === (landedAsset.value ? store.game?.ownership[landedAsset.value.id] : null)) ?? null);
@@ -109,7 +112,7 @@ async function toggleFullscreen() {
           <div v-for="(player, index) in crewSlots" :key="player?.id ?? `empty-${index}`" class="crew-slot" :class="{ occupied: player, ready: player?.ready }">
             <template v-if="player">
               <i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i>
-              <span><strong>{{ player.name }}</strong><small>{{ !player.connected ? 'hors ligne' : player.ready ? 'prêt·e à partir' : 'se prépare' }}</small></span>
+              <span><strong>{{ player.name }}</strong><small v-if="player.isBot" class="bot-label"><Bot :size="13" aria-hidden="true" /> Robot · {{ botProfileLabels[player.botProfile!] }}</small><small v-else>{{ !player.connected ? 'hors ligne' : player.ready ? 'prêt·e à partir' : 'se prépare' }}</small></span>
             </template>
             <template v-else><i class="crew-slot__empty">{{ index + 1 }}</i><span><strong>Place libre</strong><small>Scannez pour embarquer</small></span></template>
           </div>
@@ -139,7 +142,7 @@ async function toggleFullscreen() {
         <aside v-for="(wingPlayers, wingIndex) in playerWings" :key="wingIndex" :class="['players-panel', 'panel', wingIndex === 0 ? 'players-panel--left' : 'players-panel--right']" :style="{ '--wing-player-count': wingPlayers.length }" :data-tv-zone="wingIndex === 0 ? 'players-left' : 'players-right'">
           <div class="panel-heading"><span>{{ wingIndex === 0 ? 'Équipages · bâbord' : 'Équipages · tribord' }}</span><b>{{ wingPlayers.length }}</b></div>
           <div v-for="player in wingPlayers" :key="player.id" class="player-summary" :class="{ active: player.id === store.game.activePlayerId, bankrupt: player.bankrupt }">
-            <div class="player-identity"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i><strong>{{ player.name }}</strong><span v-if="!player.connected">hors ligne</span></div>
+            <div class="player-identity"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i><strong>{{ player.name }}</strong><span v-if="player.isBot" class="bot-label"><Bot :size="12" aria-hidden="true" />{{ botProfileLabels[player.botProfile!] }}</span><span v-else-if="!player.connected">hors ligne</span></div>
             <div class="player-balance"><b>{{ player.capital }}</b><small>crédits</small></div>
             <div class="player-metrics"><span>{{ player.assetIds.length }} concession{{ player.assetIds.length > 1 ? 's' : '' }}</span><span>Valeur <b>{{ player.netWorth }}</b></span><span>{{ player.leverCount }} technologie{{ player.leverCount > 1 ? 's' : '' }}</span><span v-if="player.turnsToSkip" class="skip-warning">Quarantaine · prochain tour perdu</span></div>
             <div v-if="player.bankrupt" class="bankrupt-label">Faillite</div>
@@ -152,7 +155,7 @@ async function toggleFullscreen() {
 
         <section class="board-stage" data-tv-zone="board">
           <div v-if="store.game.phase !== 'PAUSED'" class="turn-banner" data-tv-zone="turn">
-            <template v-if="active"><i :style="{ background: active.color }" /><span>Tour de</span><b>{{ active.name }}</b></template>
+            <template v-if="active"><i :style="{ background: active.color }" /><span>Tour de</span><b>{{ active.name }}</b><small v-if="botThinkingPlayer"><Bot :size="14" aria-hidden="true" /> réfléchit…</small></template>
           </div>
           <WorldBoard :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :visual-positions="store.visualPlayerPositions" />
           <PaymentTransfer v-if="store.game.pendingPayment && paymentPayer && paymentRecipient" :payer="paymentPayer" :recipient="paymentRecipient" :amount="store.game.pendingPayment.amount" />

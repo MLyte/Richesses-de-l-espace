@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, SECTORS, STARTING_CAPITAL, TREND_CARDS } from "@richesses-espace/game";
-import { PLAYER_COLORS, PLAYER_SYMBOLS } from "@richesses-espace/protocol";
+import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
 import ErrorToast from "../components/ErrorToast.vue";
 import { useAccessibleModal } from "../composables/useAccessibleModal";
 import { useGameStore } from "../stores/game";
@@ -15,7 +15,7 @@ import ResourceInfluenceScore from "../components/ResourceInfluenceScore.vue";
 import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import GameIcon from "../components/GameIcon.vue";
 import MobileRouteMap from "../components/MobileRouteMap.vue";
-import { ArrowLeftRight, Dices, HandCoins, Menu, PackageOpen, Pause, ShoppingCart, Users, X } from "@lucide/vue";
+import { ArrowLeftRight, Bot, Dices, HandCoins, Menu, PackageOpen, Pause, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
 const route = useRoute();
 const store = useGameStore();
@@ -26,6 +26,8 @@ const previewPlayerId = searchParams.get("player") === "orion" ? "orion" : "lyra
 const name = ref("");
 const color = ref<string>(PLAYER_COLORS[0]);
 const symbol = ref<string>(PLAYER_SYMBOLS[0].id);
+const newBotProfile = ref<BotProfile>("BALANCED");
+const botProfileLabels: Record<BotProfile, string> = { CAUTIOUS: "Prudent", BALANCED: "Équilibré", AMBITIOUS: "Ambitieux" };
 const colorLabels: Record<string, string> = {
   "#e05f42": "Corail",
   "#3784a6": "Bleu spatial",
@@ -108,6 +110,7 @@ const anyTargetHasResources = computed(() => tradeTargets.value.some((player) =>
 const isMyTurn = computed(() => store.game?.activePlayerId === me.value?.id);
 const isPhoneHost = computed(() => Boolean(store.player?.isHost));
 const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY");
+const botThinkingPlayer = computed(() => store.game?.players.find((player) => player.id === store.game?.botThinkingPlayerId) ?? null);
 const canHostStart = computed(() => Boolean(isPhoneHost.value && store.game && store.game.players.length >= 2 && store.game.players.every((player) => player.connected && player.ready)));
 const hasPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || allowed("END_TURN"));
 const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")));
@@ -159,6 +162,9 @@ async function run(action: () => Promise<unknown>) {
   }
   try { await action(); } catch { /* affiché */ }
 }
+function addBot() { return run(() => store.addBot(newBotProfile.value)); }
+function updateBot(playerId: string, event: Event) { return run(() => store.updateBot(playerId, (event.target as HTMLSelectElement).value as BotProfile)); }
+function removeBot(playerId: string) { return run(() => store.removeBot(playerId)); }
 async function join() {
   joining.value = true;
   try { await store.join(code, name.value, color.value, symbol.value); } catch { /* affiché */ }
@@ -216,7 +222,7 @@ async function finishAsHost() {
         <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
       </div>
     </header>
-    <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. Tour de {{ store.activePlayer?.name }}. {{ isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
+    <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. Tour de {{ store.activePlayer?.name }}. {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
     <Transition name="event"><div v-if="mobileOnly && mobileLiveNotice" :key="mobileLiveNotice" class="mobile-live-toast" role="status" aria-live="polite">{{ mobileLiveNotice }}</div></Transition>
 
     <section v-if="!store.player" class="join-screen">
@@ -237,17 +243,38 @@ async function finishAsHost() {
         <button class="primary-button" :class="{ confirmed: me.ready }" :disabled="store.pending" @click="run(() => store.setReady(!me!.ready))">{{ me.ready ? 'Prêt·e — modifier' : 'Je suis prêt·e' }}</button>
         <p class="waiting-copy">{{ me.ready ? 'La partie commencera dès que tout l’équipage sera prêt.' : 'Confirmez quand votre poste est prêt.' }}</p>
         <div v-if="isPhoneHost" class="mobile-host-lobby">
+          <section class="bot-lobby-controls" aria-labelledby="bot-controls-title">
+            <div><Bot :size="20" aria-hidden="true" /><span><strong id="bot-controls-title">Joueurs robots</strong><small>Ajoutez un adversaire autonome.</small></span></div>
+            <label>Profil
+              <select v-model="newBotProfile" :disabled="store.pending || store.game.players.length >= 6">
+                <option v-for="(label, profile) in botProfileLabels" :key="profile" :value="profile">{{ label }}</option>
+              </select>
+            </label>
+            <button type="button" class="secondary-button" :disabled="store.pending || store.game.players.length >= 6" @click="addBot"><Bot :size="18" aria-hidden="true" />{{ store.game.players.length >= 6 ? 'Table complète' : 'Ajouter un robot' }}</button>
+          </section>
           <button type="button" class="secondary-button" @click="shareInvitation">Partager le lien · {{ store.game.code }}</button>
           <button type="button" class="primary-button" :disabled="!canHostStart || store.pending" @click="run(store.startGame)">Lancer la partie</button>
           <small v-if="!canHostStart">Deux joueurs connectés et prêts sont nécessaires.</small>
         </div>
-        <div class="mini-roster"><span v-for="player in store.game.players" :key="player.id"><i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i>{{ player.name }}</span></div>
+        <div class="mini-roster lobby-player-list">
+          <article v-for="player in store.game.players" :key="player.id" :class="{ 'is-bot': player.isBot }">
+            <i class="player-token" :style="{ background: player.color }"><PlayerTokenIcon :symbol="player.symbol" /></i>
+            <span><strong>{{ player.name }}</strong><small v-if="player.isBot"><Bot :size="12" aria-hidden="true" /> Robot · {{ botProfileLabels[player.botProfile!] }}</small><small v-else>{{ player.ready ? 'Prêt·e' : 'Se prépare' }}</small></span>
+            <div v-if="isPhoneHost && player.isBot" class="bot-row-actions">
+              <select :value="player.botProfile ?? 'BALANCED'" :aria-label="`Profil de ${player.name}`" :disabled="store.pending" @change="updateBot(player.id, $event)">
+                <option v-for="(label, profile) in botProfileLabels" :key="profile" :value="profile">{{ label }}</option>
+              </select>
+              <button type="button" :aria-label="`Retirer ${player.name}`" :disabled="store.pending" @click="removeBot(player.id)"><Trash2 :size="16" aria-hidden="true" /></button>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section v-else class="controller-screen" :class="{ 'controller-screen--mobile-only': mobileOnly, 'controller-screen--map': mobileOnly }">
         <DiceAnimation v-if="store.diceAnimation && store.diceAnimation.playerId === me.id" class="dice-animation-phone" :dice="store.diceAnimation.dice" :total="store.diceAnimation.total" :rolling="store.diceAnimation.rolling" compact />
         <Transition name="event"><div v-if="personalMoneyNotice" class="personal-money-notice">{{ personalMoneyNotice }}</div></Transition>
         <div class="controller-meta"><div><span>Ronde {{ store.game.roundNumber }}</span><b>{{ me.name }}</b></div><div class="capital"><span>Capital</span><b>{{ me.capital }}</b></div></div>
+        <div v-if="botThinkingPlayer" class="bot-thinking" role="status"><Bot :size="18" aria-hidden="true" /><span><strong>{{ botThinkingPlayer.name }}</strong> réfléchit…</span></div>
         <section v-if="mobileOnly" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">
           <MobileRouteMap :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :current-player-id="me.id" :turn-number="store.game.turnNumber" :ownership="store.game.ownership" :visual-positions="store.visualPlayerPositions" />
         </section>
@@ -360,4 +387,22 @@ async function finishAsHost() {
 .mobile-host-menu button.danger { color: #fff; border-color: rgba(242, 103, 74, .75); background: #9d3e35; }
 .mobile-host-lobby { display: grid; gap: .75rem; margin: 1rem 0; }
 .mobile-host-lobby small { text-align: center; color: #52687a; }
+.bot-lobby-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem; padding: .8rem; border: 1px solid rgba(53, 208, 226, .35); border-radius: 14px; background: rgba(53, 208, 226, .08); text-align: left; }
+.bot-lobby-controls > div { grid-column: 1 / -1; display: flex; align-items: center; gap: .55rem; }
+.bot-lobby-controls > div span, .bot-lobby-controls > div strong, .bot-lobby-controls > div small { display: block; }
+.bot-lobby-controls > div small { margin-top: .12rem; text-align: left; }
+.bot-lobby-controls label { display: grid; gap: .25rem; color: #9ec2d8; font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.bot-lobby-controls select, .bot-row-actions select { min-height: 44px; padding: .5rem .65rem; color: #f3f8fc; border: 1px solid rgba(169, 189, 208, .45); border-radius: 9px; background: #102a43; font: inherit; }
+.bot-lobby-controls > button { display: flex; align-items: center; justify-content: center; gap: .4rem; min-height: 44px; align-self: end; }
+.lobby-player-list { display: grid; gap: .55rem; margin-top: 1rem; }
+.lobby-player-list article { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: .55rem; padding: .6rem .7rem; border: 1px solid rgba(114, 169, 194, .28); border-radius: 11px; background: rgba(16, 42, 67, .75); text-align: left; }
+.lobby-player-list article > span, .lobby-player-list article strong, .lobby-player-list article small { display: block; min-width: 0; }
+.lobby-player-list article strong { color: #f3f8fc; font-size: .78rem; }
+.lobby-player-list article small { margin-top: .15rem; color: #9ec2d8; font-size: .62rem; }
+.lobby-player-list article small svg { display: inline-block; margin-right: .2rem; vertical-align: -2px; }
+.bot-row-actions { display: flex; align-items: center; gap: .35rem; }
+.bot-row-actions select { min-height: 36px; max-width: 112px; padding: .3rem .45rem; font-size: .68rem; }
+.bot-row-actions button { display: grid; place-items: center; width: 36px; height: 36px; color: #ffd7cf; border: 1px solid rgba(242, 103, 74, .6); border-radius: 9px; background: rgba(157, 62, 53, .72); }
+.bot-thinking { display: flex; align-items: center; justify-content: center; gap: .5rem; margin: .7rem 0 0; padding: .65rem; color: #c9e8f4; border: 1px solid rgba(53, 208, 226, .3); border-radius: 10px; background: rgba(53, 208, 226, .08); font-size: .75rem; }
+@media (max-width: 420px) { .bot-lobby-controls { grid-template-columns: 1fr; }.bot-lobby-controls > div { grid-column: 1; }.lobby-player-list article { grid-template-columns: 28px minmax(0, 1fr); }.bot-row-actions { grid-column: 1 / -1; justify-content: flex-end; } }
 </style>

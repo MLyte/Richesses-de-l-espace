@@ -244,11 +244,12 @@ function publicView(current: GameState): PublicGameView {
     status: current.status,
     phase: current.phase,
     players: current.players.map(({ id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverIds, bankrupt, allianceId, mergedIntoId }) => ({
-      id, name, color, symbol, connected, ready, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId,
+      id, name, color, symbol, connected, ready, isBot: false, botProfile: null, position, lapsCompleted, turnsToSkip, capital, assetIds, leverCount: leverIds.length, bankrupt, allianceId, mergedIntoId,
       netWorth: getNetWorth(current, id),
       sectorInfluence: Object.fromEntries(SECTORS.map((sector) => [sector.id, getSectorInfluence(current, id, sector.id)])) as Record<(typeof SECTORS)[number]["id"], number>
     })),
     activePlayerId: current.activePlayerId,
+    botThinkingPlayerId: null,
     turnNumber: current.turnNumber,
     roundNumber: current.roundNumber,
     ownership: current.ownership,

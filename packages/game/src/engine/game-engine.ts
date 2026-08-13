@@ -74,6 +74,14 @@ export function addPlayer(state: GameState, player: Pick<PlayerState, "id" | "na
   return commit({ ...state, players: [...state.players, nextPlayer] }, [makeEvent(state, { type: "player_joined", playerId: player.id, message: `${player.name} rejoint la table.` })]);
 }
 
+export function removeLobbyPlayer(state: GameState, playerId: string): GameState {
+  if (state.phase !== "LOBBY") throw new RuleError("INVALID_PHASE", "Un joueur ne peut être retiré que dans le lobby.");
+  const player = requirePlayer(state, playerId);
+  return commit({ ...state, players: state.players.filter((item) => item.id !== playerId) }, [
+    makeEvent(state, { type: "player_left", playerId, message: `${player.name} quitte la table.` })
+  ]);
+}
+
 export function setPlayerReady(state: GameState, playerId: string, ready: boolean): GameState {
   const player = requirePlayer(state, playerId);
   if (state.phase !== "LOBBY") throw new RuleError("INVALID_PHASE", "Le lobby est fermé.");

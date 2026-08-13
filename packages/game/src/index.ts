@@ -7,4 +7,5 @@ export * from "./data/sectors";
 export * from "./data/trends";
 export * from "./data/levers";
 export * from "./engine/game-engine";
+export * from "./engine/bot-strategy";
 export * from "./engine/rng";
