@@ -1060,6 +1060,12 @@ button:disabled {
 }
 
 /* Le lobby TV doit rester entièrement lisible sans défilement, y compris en 720p. */
+@media (min-width: 901px) and (min-height: 801px) {
+  .display-shell:not(:has(.display-header--game)) { padding-bottom: 0; }
+}
+@media (min-width: 1800px) and (min-height: 900px) {
+  .lobby-display { min-height: calc(100dvh - 92px); }
+}
 @media (min-width: 901px) and (max-height: 800px) {
   .display-shell:not(:has(.display-header--game)) {
     height: 100dvh;

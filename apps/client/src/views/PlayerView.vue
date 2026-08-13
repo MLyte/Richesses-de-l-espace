@@ -456,5 +456,8 @@ async function finishAsHost() {
 .bot-thinking { display: flex; align-items: center; justify-content: center; gap: .5rem; margin: .7rem 0 0; padding: .65rem; color: #c9e8f4; border: 1px solid rgba(53, 208, 226, .3); border-radius: 10px; background: rgba(53, 208, 226, .08); font-size: .75rem; }
 .phone-lobby > .primary-button { position: static; right: auto; left: auto; width: 100%; max-width: none; min-height: 58px; margin-top: .8rem; box-shadow: 0 4px 0 rgba(0, 0, 0, .24); }
 .phone-lobby > .waiting-copy { margin: .7rem 0 1rem; line-height: 1.4; }
+@media (max-width: 760px) {
+  .controller-screen:not(.controller-screen--mobile-only) > .portfolio-fab { position: static; width: max-content; margin: .75rem 0 1rem; }
+}
 @media (max-width: 420px) { .bot-lobby-controls { grid-template-columns: 1fr; }.bot-lobby-controls > div { grid-column: 1; }.lobby-player-list article { grid-template-columns: 28px minmax(0, 1fr); }.bot-row-actions { grid-column: 1 / -1; justify-content: flex-end; } }
 </style>
