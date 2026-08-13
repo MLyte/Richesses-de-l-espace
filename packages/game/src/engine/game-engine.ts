@@ -613,7 +613,7 @@ export function placeBid(state: GameState, playerId: string, amount: number): Ga
   const player = requirePlayer(state, playerId); const auction = state.auction;
   if (state.phase !== "AUCTION" || !auction || auction.mode !== "bidding" || !auction.eligiblePlayerIds.includes(playerId) || auction.passedPlayerIds.includes(playerId) || auction.leaderId === playerId) throw new RuleError("BID_NOT_ALLOWED", "Vous ne pouvez pas enchérir maintenant.");
   const minimum = auction.currentBid ? Math.round((auction.currentBid + 0.1) * 10) / 10 : auction.minimumBid;
-  if (!Number.isFinite(amount) || Math.abs(amount * 10 - Math.round(amount * 10)) > 1e-8 || amount < minimum) throw new RuleError("BID_TOO_LOW", `L’offre minimale est de ${minimum} crédits.`);
+  if (!Number.isFinite(amount) || Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-8 || amount < minimum) throw new RuleError("BID_TOO_LOW", `L’offre minimale est de ${minimum} crédits.`);
   if (amount > player.capital) throw new RuleError("INSUFFICIENT_FUNDS", "Cette offre dépasse votre capital.");
   const next = { ...state, auction: { ...auction, currentBid: amount, leaderId: playerId, deadline: Date.now() + 10_000 } };
   return settleAuctionIfComplete(next, [makeEvent(state, { type: "auction_bid", playerId, message: `${player.name} propose ${amount} crédits.`, data: { amount, assetId: auction.assetId } })]);

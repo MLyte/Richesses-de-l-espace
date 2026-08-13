@@ -67,7 +67,7 @@ describe("référentiel Richesses de l’espace", () => {
     expect(COSMIC_RESOURCES.map((resource) => SPACE_CONCESSIONS
       .filter((item) => item.resourceId === resource.id)
       .reduce((total, item) => total + item.sharePercent, 0)))
-      .toEqual([90, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 95, 100, 95, 100, 95, 95, 100, 100, 100]);
+      .toEqual([90, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 95, 100, 100, 100, 95, 95, 100, 100, 100]);
   });
 
   it("rend chaque catalogue de monde accessible depuis une case classique", () => {

@@ -156,7 +156,7 @@ describe("bot strategy", () => {
       phase: "WAITING_FOR_TRADE",
       players: base.players.map((player) => player.id === "human" ? { ...player, assetIds: [asset.id] } : { ...player, capital: 100 }),
       ownership: { [asset.id]: "human" },
-      tradeOffer: { id: "trade", proposerId: "human", targetId: "bot", kind: "trade", offeredResourceId: asset.resourceId, requestedResourceId: null, offeredCredits: 0, requestedCredits: 1, returnPhase: "WAITING_FOR_END_TURN" }
+      tradeOffer: { id: "trade", proposerId: "human", targetId: "bot", kind: "trade", offeredResourceId: asset.resourceId, requestedResourceId: null, offeredCredits: 0, requestedCredits: 0, returnPhase: "WAITING_FOR_END_TURN" }
     };
     const alliance = { ...tradeBase, tradeOffer: { ...tradeBase.tradeOffer!, id: "alliance", kind: "alliance" as const, offeredResourceId: null, allianceTax: 0 } };
 

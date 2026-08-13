@@ -148,7 +148,7 @@ describe("Richesses de l’espace game engine", () => {
   });
 
   it("buys from the country then pays every qualified holder of the case resource", () => {
-    const featured = ASSETS.find((asset) => asset.resourceId === "aluminous-regolith" && asset.share === 30)!;
+    const featured = ASSETS.find((asset) => asset.resourceId === "hydroponic-crops" && asset.share === 30)!;
     const space = BOARD.find((item) => item.type === "asset" && ASSETS.find((asset) => asset.id === item.assetId)?.resourceId === featured.resourceId)!;
     let initial = startedGame();
     initial = { ...initial, players: initial.players.map((player) => player.id === "p2" ? { ...player, assetIds: [featured.id] } : player), ownership: { [featured.id]: "p2" } };
@@ -161,14 +161,16 @@ describe("Richesses de l’espace game engine", () => {
   });
 
   it("queues royalties for every other player holding at least 30 percent", () => {
-    const titles = ASSETS.filter((asset) => asset.resourceId === "aluminous-regolith");
+    const titles = ASSETS.filter((asset) => asset.resourceId === "hydroponic-crops");
+    const p2Titles = titles.filter((asset) => asset.share === 30);
+    const p3Titles = [titles.find((asset) => asset.share === 5)!, titles.find((asset) => asset.share === 25)!];
     let game = startedGameWithThree();
     game = {
       ...game,
-      players: game.players.map((player) => player.id === "p2" ? { ...player, assetIds: [titles[0]!.id] } : player.id === "p3" ? { ...player, assetIds: [titles[1]!.id, titles[2]!.id] } : player),
-      ownership: { [titles[0]!.id]: "p2", [titles[1]!.id]: "p3", [titles[2]!.id]: "p3" }
+      players: game.players.map((player) => player.id === "p2" ? { ...player, assetIds: p2Titles.map(({ id }) => id) } : player.id === "p3" ? { ...player, assetIds: p3Titles.map(({ id }) => id) } : player),
+      ownership: Object.fromEntries([...p2Titles.map(({ id }) => [id, "p2"]), ...p3Titles.map(({ id }) => [id, "p3"])])
     };
-    const space = BOARD.find((item) => item.type === "asset" && item.resourceId === "aluminous-regolith")!;
+    const space = BOARD.find((item) => item.type === "asset" && item.resourceId === "hydroponic-crops")!;
     game = landOnSpace(game, space.id);
     game = passPendingAsset(game, "p1");
     expect(game.pendingPayment?.recipientId).toBe("p2");
@@ -180,7 +182,7 @@ describe("Richesses de l’espace game engine", () => {
   });
 
   it("pays nothing below 30 percent of the resource", () => {
-    const title = ASSETS.find((asset) => asset.resourceId === "aluminous-regolith" && asset.share === 25)!;
+    const title = ASSETS.find((asset) => asset.resourceId === "hydroponic-crops" && asset.share === 25)!;
     const game = { ...startedGame(), players: startedGame().players.map((player) => player.id === "p2" ? { ...player, assetIds: [title.id] } : player) };
     expect(getPaymentAmount(game, title, "p2")).toBe(0);
   });
