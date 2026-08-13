@@ -112,6 +112,14 @@ const isMyTurn = computed(() => store.game?.activePlayerId === me.value?.id);
 const isPhoneHost = computed(() => Boolean(store.player?.isHost));
 const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY");
 const botThinkingPlayer = computed(() => store.game?.players.find((player) => player.id === store.game?.botThinkingPlayerId) ?? null);
+const turnTravelVisible = computed(() => {
+  const activePlayer = store.activePlayer;
+  if (!activePlayer) return false;
+  const visualPosition = store.visualPlayerPositions[activePlayer.id];
+  return store.diceAnimation?.playerId === activePlayer.id
+    || store.movingPlayerId === activePlayer.id
+    || (visualPosition !== undefined && visualPosition !== activePlayer.position);
+});
 const canHostStart = computed(() => Boolean(isPhoneHost.value && store.game && store.game.players.length >= 2 && store.game.players.every((player) => player.connected && player.ready)));
 const hasPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || allowed("END_TURN"));
 const hasFixedPrimaryTurnAction = computed(() => allowed("ROLL_DICE") || (!mobileOnly.value && allowed("END_TURN")));
@@ -224,7 +232,7 @@ async function finishAsHost() {
         </details>
       </div>
     </header>
-    <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. {{ store.game.phase === 'SHIP_SELECTION' ? 'Sélection des vaisseaux de départ.' : store.game.phase === 'SHIP_RACE' ? 'Course des sept vaisseaux en cours.' : `Tour de ${store.activePlayer?.name}.` }} {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
+    <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. {{ store.game.phase === 'SHIP_SELECTION' ? 'Sélection des vaisseaux de départ.' : store.game.phase === 'SHIP_RACE' ? `Course de ${store.game.startingRace.finishOrder.length} vaisseaux en cours.` : `Tour de ${store.activePlayer?.name}.` }} {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
     <MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />
 
     <section v-if="!store.player" class="join-screen">
@@ -307,6 +315,7 @@ async function finishAsHost() {
           <p v-else class="final-phone__waiting">L’hôte peut préparer une nouvelle partie avec le même groupe.</p>
         </div>
         <div v-else-if="me.bankrupt" class="state-message bankruptcy-state mobile-map-overlay"><p class="eyebrow">Faillite déclarée</p><h2>Vous quittez la partie.</h2><p>Vous restez spectateur jusqu’au classement final.</p></div>
+        <span v-else-if="turnTravelVisible" class="sr-only" role="status">Déplacement de {{ store.activePlayer?.name }} en cours.</span>
         <div v-else-if="currentTrade" class="trade-response mobile-map-overlay">
           <p class="eyebrow">{{ currentTrade.kind === 'alliance' ? 'Consortium conjoint proposé' : 'Transaction entre joueurs' }}</p><h2>{{ tradeProposer?.name }} propose un accord à {{ tradeTargetPlayer?.name }}.</h2>
           <p v-if="currentTrade.kind === 'alliance'">Les portefeuilles seront réunis sous le pion le plus précieux. Chaque associé versera <strong>{{ currentTrade.allianceTax }} crédits</strong> à la Banque interstellaire.</p>

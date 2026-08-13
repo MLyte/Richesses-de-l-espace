@@ -46,7 +46,7 @@ export const useGameStore = defineStore("game", {
     diceAnimation: null as DiceAnimationState | null,
     visualPlayerPositions: {} as Record<string, number>,
     movingPlayerId: null as string | null,
-    announcedTurnKey: null as string | null,
+    announcedRollCueKey: null as string | null,
     localGame: localGameBuild
   }),
   getters: {
@@ -56,7 +56,7 @@ export const useGameStore = defineStore("game", {
   actions: {
     applyLocalGameSnapshot(snapshot: LocalGameSnapshot) {
       const previous = this.game;
-      if (previous?.phase === "FINISHED" && ["LOBBY", "SHIP_SELECTION"].includes(snapshot.game.phase)) this.announcedTurnKey = null;
+      if (previous?.phase === "FINISHED" && ["LOBBY", "SHIP_SELECTION"].includes(snapshot.game.phase)) this.announcedRollCueKey = null;
       for (const player of snapshot.game.players) {
         const previousPlayer = previous?.players.find((item) => item.id === player.id);
         if (!previousPlayer) this.visualPlayerPositions[player.id] = player.position;
@@ -159,7 +159,7 @@ export const useGameStore = defineStore("game", {
           this.animatedEvent = null;
           this.diceAnimation = null;
           this.movingPlayerId = null;
-          this.announcedTurnKey = null;
+          this.announcedRollCueKey = null;
         }
         for (const player of state.players) {
           const previousPlayer = previous?.players.find((item) => item.id === player.id);
@@ -200,8 +200,6 @@ export const useGameStore = defineStore("game", {
           const event = this.eventQueue.shift()!;
           this.animatedEvent = event;
           this.addNotification(event);
-          const moneyEvent = event.type === "payment_due" || event.type === "payment_completed";
-          const concerned = event.data?.payerId === this.player?.playerId || event.data?.recipientId === this.player?.playerId;
           if (this.role === "player") playEventHaptic(event, this.player?.playerId ?? null);
 
           if (event.type === "dice_rolled") {
@@ -209,7 +207,7 @@ export const useGameStore = defineStore("game", {
             const second = Number(event.data?.second ?? 1);
             const total = Number(event.data?.total ?? first + second);
             this.diceAnimation = { eventId: event.id, playerId: event.playerId ?? "", dice: [first, second], total, rolling: true };
-            if (!moneyEvent || this.role === "admin" || concerned) playEventSound(event.type);
+            playEventSound(event.type);
             await wait(920);
             if (this.diceAnimation?.eventId === event.id) this.diceAnimation.rolling = false;
             await wait(520);
@@ -229,7 +227,7 @@ export const useGameStore = defineStore("game", {
             for (let step = 1; step <= steps; step += 1) {
               await wait(210);
               this.visualPlayerPositions[event.playerId] = (from + step) % boardLength;
-              playMoveStep(step, steps, this.role === "admin" || event.playerId === this.player?.playerId);
+              playMoveStep(step, steps);
             }
             await wait(320);
             this.visualPlayerPositions[event.playerId] = to;
@@ -245,7 +243,7 @@ export const useGameStore = defineStore("game", {
             continue;
           }
 
-          if (!moneyEvent || this.role === "admin" || concerned) playEventSound(event.type);
+          playEventSound(event.type);
           await wait(event.type === "space_landed" ? 700 : 440);
         }
       } finally {
@@ -310,7 +308,7 @@ export const useGameStore = defineStore("game", {
           this.game = null;
           this.player = null;
           this.role = null;
-          this.announcedTurnKey = null;
+          this.announcedRollCueKey = null;
           cancelPendingTurnStart();
           setActionReminder(false);
           this.error = "";
@@ -378,14 +376,19 @@ export const useGameStore = defineStore("game", {
       setActionReminder(actionRequired);
 
       const playerId = this.player?.playerId;
-      const ownsCurrentTurn = Boolean(playerId && gameAcceptsActions && this.game?.activePlayerId === playerId);
-      if (!ownsCurrentTurn || !this.game || !playerId) {
+      const canRollNow = Boolean(
+        playerId
+        && gameAcceptsActions
+        && this.game?.activePlayerId === playerId
+        && this.player?.allowedActions.includes("ROLL_DICE")
+      );
+      if (!canRollNow || !this.game || !playerId) {
         cancelPendingTurnStart();
         return;
       }
       const turnKey = `${this.game.code}:${this.game.roundNumber}:${this.game.turnNumber}:${playerId}`;
-      if (turnKey === this.announcedTurnKey) return;
-      this.announcedTurnKey = turnKey;
+      if (turnKey === this.announcedRollCueKey) return;
+      this.announcedRollCueKey = turnKey;
       playTurnStart();
     },
     syncActionReminder() {

@@ -32,7 +32,7 @@ Ouvrez l’URL `Local` affichée dans le terminal. La page d’accueil propose :
 
 Dans le lobby de son téléphone, l’hôte peut compléter une table avec des joueurs robots. Chaque robot occupe une des six places, reste géré par le serveur et joue selon un profil **Prudent**, **Équilibré** ou **Ambitieux**. Les profils modifient la réserve de capital et la prise de risque, sans donner accès aux Technologies privées des adversaires. Les robots répondent aux échanges ordinaires, refusent les consortiums et ne proposent pas eux-mêmes de transaction.
 
-Avant le premier tour, chaque joueur choisit sur son téléphone un vaisseau portant le nom et la couleur de l’un des sept secteurs stellaires. Les robots choisissent automatiquement et un vaisseau ne peut appartenir qu’à un seul consortium. Les sept vaisseaux courent ensuite ensemble : le joueur dont le vaisseau choisi obtient le meilleur classement commence, même si les vaisseaux des joueurs terminent derrière un ou plusieurs vaisseaux restés libres.
+Avant le premier tour, chaque joueur choisit sur son téléphone un vaisseau portant le nom et la couleur de l’un des sept secteurs stellaires. Les robots choisissent automatiquement et un vaisseau ne peut appartenir qu’à un seul consortium. Seuls les vaisseaux choisis courent ensuite : une partie à quatre joueurs affiche donc quatre pistes, et le premier à franchir la balise commence.
 
 ## Règle standard
 

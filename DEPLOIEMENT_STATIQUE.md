@@ -29,7 +29,7 @@ Depuis l’accueil, choisir **Partie contre les robots**. L’embarquement comme
 
 - le formulaire d’embarquement recueille le pseudo, la couleur, le pion du joueur humain et le nombre de robots, de 1 à 5 ;
 - le joueur humain choisit l’un des sept vaisseaux régionaux et les robots choisissent automatiquement parmi ceux qui restent ;
-- les sept vaisseaux disputent la course d’ouverture ; le joueur ou robot dont le choix est le mieux classé commence avec le capital prévu pour la taille de la table ;
+- seuls les vaisseaux choisis disputent la course d’ouverture ; leur nombre correspond donc au nombre de joueurs, et le premier commence avec le capital prévu pour la taille de la table ;
 - chaque robot reçoit un nom parmi 20 constellations françaises, une couleur et un animal aléatoires, sans doublon ni reprise de l’identité du joueur ;
 - ils sont Équilibrés, connectés et prêts ;
 - chaque décision passe par le moteur de règles complet ;

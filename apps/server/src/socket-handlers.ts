@@ -1,6 +1,6 @@
 import type { Server, Socket } from "socket.io";
 import {
-  BOARD, LEVER_CARDS, STARTING_RACE_SHIPS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame, finishStartingRace,
+  BOARD, LEVER_CARDS, STARTING_RACE_DURATION_MS, STARTING_RACE_SHIPS, RuleError, buyPendingAsset, buyPendingLever, closeExpiredAuction, declareBankruptcy, decideBotAction, endTurn, finishGame, finishStartingRace,
   getNetWorth, passAuction, passPendingAsset, passPendingLever, payPendingPayment,
   pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, setPlayerConnected,
   selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever, observeGameForBot,
@@ -93,7 +93,7 @@ export interface SocketHandlerOptions { botDelayScale?: number; startingRaceDura
 
 export function registerSocketHandlers(io: Server, store: RoomStore, publicPort: number, publicOrigin?: string, options: SocketHandlerOptions = {}): void {
   const botDelayScale = Math.max(0, options.botDelayScale ?? 1);
-  const startingRaceDurationMs = Math.max(0, options.startingRaceDurationMs ?? 7_000);
+  const startingRaceDurationMs = Math.max(0, options.startingRaceDurationMs ?? STARTING_RACE_DURATION_MS);
   const auctionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const auctionPausedAt = new Map<string, number>();
   const startingRaceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -164,7 +164,7 @@ export function registerSocketHandlers(io: Server, store: RoomStore, publicPort:
   function botDelay(room: Room, decision: BotDecision): number {
     const rolledThisRevision = room.state.recentEvents.some((event) => event.id === room.state.revision && event.type === "dice_rolled");
     const duration = rolledThisRevision ? 2_800 + (room.state.lastRoll?.total ?? 0) * 210
-      : decision.type === "SELECT_STARTING_SHIP" ? 650
+      : decision.type === "SELECT_STARTING_SHIP" ? 220
         : decision.type === "ROLL" ? 700
         : decision.type === "BID" || decision.type === "PASS_BID" ? 800
           : 900;

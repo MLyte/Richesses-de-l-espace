@@ -5,7 +5,7 @@ import { COUNTRIES } from "../data/countries";
 import { LEVER_CARDS } from "../data/levers";
 import { TREND_CARDS } from "../data/trends";
 import type { GameState } from "../types";
-import { STARTING_RACE_SHIPS, addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, finishStartingRace, getCurrentPrice, getPaymentAmount, getRoyaltyAmount, passAuction, passPendingAsset, passPendingLever, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
+import { STARTING_RACE_DURATION_MS, STARTING_RACE_SHIPS, addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, finishStartingRace, getCurrentPrice, getPaymentAmount, getRoyaltyAmount, passAuction, passPendingAsset, passPendingLever, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
 
 function startTurns(state: GameState): GameState {
   let next = startGame(state);
@@ -46,7 +46,7 @@ function landOnSpace(game: GameState, spaceId: string) {
 }
 
 describe("Richesses de l’espace game engine", () => {
-  it("runs the seven-ship opening race and lets the best selected finisher start", () => {
+  it("races only the selected ships and lets the first finisher start", () => {
     let game = createGame("race", "RACE", 91);
     game = addPlayer(game, { id: "p1", name: "Aline", color: "#e05f42", symbol: "cat" });
     game = addPlayer(game, { id: "p2", name: "Basile", color: "#3784a6", symbol: "dog" });
@@ -57,8 +57,9 @@ describe("Richesses de l’espace game engine", () => {
     expect(() => selectStartingShip(game, "p2", "inner-system", 1_000)).toThrowError(/choisi/);
     game = selectStartingShip(game, "p2", "stellar-farlands", 1_000);
     expect(game.phase).toBe("SHIP_RACE");
-    expect(game.startingRace.finishOrder).toHaveLength(7);
-    expect(new Set(game.startingRace.finishOrder).size).toBe(7);
+    expect(game.startingRace.finishOrder).toHaveLength(game.players.length);
+    expect(new Set(game.startingRace.finishOrder).size).toBe(game.players.length);
+    expect(game.startingRace.finishOrder).toEqual(expect.arrayContaining(["inner-system", "stellar-farlands"]));
     const selectedRanking = game.startingRace.finishOrder.filter((shipId) => Object.values(game.startingRace.selections).includes(shipId));
     const expectedWinnerId = Object.entries(game.startingRace.selections).find(([, shipId]) => shipId === selectedRanking[0])?.[0];
     expect(game.startingRace.winnerPlayerId).toBe(expectedWinnerId);
@@ -74,10 +75,10 @@ describe("Richesses de l’espace game engine", () => {
     game = startGame(setPlayerReady(setPlayerReady(game, "p1", true), "p2", true));
     game = selectStartingShip(game, "p1", "inner-system", 1_000);
     game = selectStartingShip(game, "p2", "red-belt", 1_000);
-    expect(game.startingRace.raceEndsAt).toBe(8_000);
+    expect(game.startingRace.raceEndsAt).toBe(1_000 + STARTING_RACE_DURATION_MS);
     game = pauseGame(game, "ADMIN", null, 2_000);
     game = resumeGame(game, 5_000);
-    expect(game).toMatchObject({ phase: "SHIP_RACE", startingRace: { raceEndsAt: 11_000, pausedAt: null } });
+    expect(game).toMatchObject({ phase: "SHIP_RACE", startingRace: { raceEndsAt: 4_000 + STARTING_RACE_DURATION_MS, pausedAt: null } });
   });
 
   it("starts with two ready players", () => {

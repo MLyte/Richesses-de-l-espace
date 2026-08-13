@@ -1,41 +1,48 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Rocket, Trophy } from "@lucide/vue";
-import { SPACE_REGIONS, STARTING_RACE_SHIPS, type RaceShipId } from "@richesses-espace/game";
+import { SPACE_REGIONS, STARTING_RACE_DURATION_MS, STARTING_RACE_SHIPS, type RaceShipId } from "@richesses-espace/game";
 import type { PublicGameView } from "@richesses-espace/protocol";
 
 const props = defineProps<{ game: PublicGameView; playerId?: string | null; interactive?: boolean; pending?: boolean }>();
 const emit = defineEmits<{ select: [shipId: RaceShipId] }>();
 
-const regions = STARTING_RACE_SHIPS.map((id) => SPACE_REGIONS.find((region) => region.id === id)!);
+const choiceRegions = STARTING_RACE_SHIPS.map((id) => SPACE_REGIONS.find((region) => region.id === id)!);
+const racingRegions = computed(() => props.game.startingRace.finishOrder.map((id) => SPACE_REGIONS.find((region) => region.id === id)!));
 const selectedShipId = computed(() => props.playerId ? props.game.startingRace.selections[props.playerId] ?? null : null);
 const selectedBy = (shipId: string) => {
   const entry = Object.entries(props.game.startingRace.selections).find(([, id]) => id === shipId);
   return entry ? props.game.players.find((player) => player.id === entry[0]) ?? null : null;
 };
 const finishPosition = (shipId: string) => props.game.startingRace.finishOrder.indexOf(shipId as RaceShipId) + 1;
-const finishPercent = (shipId: string) => 94 - Math.max(0, finishPosition(shipId) - 1) * 2.7;
+const finishPercent = (shipId: string) => 94 - Math.max(0, finishPosition(shipId) - 1) * 3.6;
 const elapsedSeconds = computed(() => {
   const deadline = props.game.startingRace.raceEndsAt;
-  return deadline ? Math.max(0, Math.min(6.2, (Date.now() - (deadline - 7_000)) / 1_000)) : 0;
+  return deadline ? Math.max(0, Math.min(4.75, (Date.now() - (deadline - STARTING_RACE_DURATION_MS)) / 1_000)) : 0;
 });
-const winner = computed(() => props.game.players.find((player) => player.id === props.game.startingRace.winnerPlayerId) ?? null);
-const winnerShip = computed(() => winner.value ? regions.find((region) => region.id === props.game.startingRace.selections[winner.value!.id]) ?? null : null);
+const laneStyle = (shipId: RaceShipId, index: number) => ({
+  "--ship-color": SPACE_REGIONS.find((region) => region.id === shipId)!.color,
+  "--checkpoint-1": `${14 + (index * 7) % 9}%`,
+  "--checkpoint-2": `${34 + (index * 11) % 16}%`,
+  "--checkpoint-3": `${53 + (index * 13) % 18}%`,
+  "--checkpoint-4": `${73 + (index * 5) % 11}%`,
+  "--finish-position": `calc(${finishPercent(shipId)}% - 30px)`
+});
 </script>
 
 <template>
   <section class="starting-race" :class="{ 'starting-race--selection': game.phase === 'SHIP_SELECTION', 'starting-race--running': game.phase === 'SHIP_RACE' }" aria-live="polite">
     <header>
-      <p class="eyebrow">Course d’ouverture · sept régions spatiales</p>
+      <p class="eyebrow">{{ game.phase === 'SHIP_SELECTION' ? 'Sept vaisseaux régionaux disponibles' : `Course d’ouverture · ${racingRegions.length} vaisseaux` }}</p>
       <h1 v-if="game.phase === 'SHIP_SELECTION'">Choisissez votre vaisseau</h1>
       <h1 v-else>Propulseurs allumés !</h1>
-      <p v-if="game.phase === 'SHIP_SELECTION'">Le vaisseau choisi le mieux classé permettra à son consortium de commencer — même s’il termine sixième devant votre seul rival.</p>
-      <p v-else>Le premier vaisseau choisi à franchir la balise désignera le consortium qui ouvre la trajectoire.</p>
+      <p v-if="game.phase === 'SHIP_SELECTION'">Chaque consortium choisit un vaisseau différent. Seuls les vaisseaux choisis prendront le départ.</p>
+      <p v-else>Le premier vaisseau à franchir la balise désignera le consortium qui ouvre la trajectoire.</p>
     </header>
 
     <div v-if="game.phase === 'SHIP_SELECTION'" class="ship-choice-grid">
       <button
-        v-for="region in regions"
+        v-for="region in choiceRegions"
         :key="region.id"
         type="button"
         class="ship-choice"
@@ -50,7 +57,7 @@ const winnerShip = computed(() => winner.value ? regions.find((region) => region
     </div>
 
     <div v-else class="race-track" :style="{ '--elapsed': `${elapsedSeconds}s` }">
-      <div v-for="region in regions" :key="region.id" class="race-lane" :style="{ '--ship-color': region.color, '--finish': finishPercent(region.id), '--place': finishPosition(region.id) }">
+      <div v-for="(region, index) in racingRegions" :key="region.id" class="race-lane" :style="laneStyle(region.id as RaceShipId, index)">
         <span class="race-lane__name">{{ region.name }}</span>
         <span class="race-lane__rail"><i class="racing-ship"><Rocket :size="23" aria-hidden="true" /><b v-if="selectedBy(region.id)">{{ selectedBy(region.id)?.name }}</b></i><em /></span>
         <span class="race-lane__place">{{ finishPosition(region.id) }}<sup>{{ finishPosition(region.id) === 1 ? 'er' : 'e' }}</sup></span>
@@ -62,8 +69,8 @@ const winnerShip = computed(() => winner.value ? regions.find((region) => region
       <template v-else-if="interactive"><strong>À vous de choisir.</strong><span>Un vaisseau ne peut être attribué qu’une fois.</span></template>
       <template v-else><strong>{{ Object.keys(game.startingRace.selections).length }}/{{ game.players.length }} choix confirmés</strong><span>La course commencera automatiquement.</span></template>
     </footer>
-    <footer v-else class="race-winner-reveal">
-      <Trophy :size="24" aria-hidden="true" /><span><strong>{{ winner?.name }}</strong> ouvre la trajectoire avec <b>{{ winnerShip?.name }}</b></span>
+    <footer v-else class="race-live-status">
+      <Trophy :size="22" aria-hidden="true" /><span>Verdict à la balise…</span>
     </footer>
   </section>
 </template>
@@ -83,21 +90,30 @@ const winnerShip = computed(() => winner.value ? regions.find((region) => region
 .ship-choice span:last-child, .ship-choice strong, .ship-choice small { display: block; min-width: 0; }
 .ship-choice strong { font-size: .8rem; line-height: 1.1; }
 .ship-choice small { margin-top: .25rem; color: #9fbdcf; font-size: .68rem; }
-.race-selection-status, .race-winner-reveal { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .35rem .6rem; min-height: 48px; color: #b9d6e6; text-align: center; }
-.race-selection-status strong, .race-winner-reveal strong { color: #fff; }
+.race-selection-status, .race-live-status { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .35rem .6rem; min-height: 48px; color: #b9d6e6; text-align: center; }
+.race-selection-status strong { color: #fff; }
+.race-live-status svg { color: #f6c64d; }
 .race-track { display: grid; gap: clamp(.3rem, .8vh, .55rem); }
 .race-lane { display: grid; grid-template-columns: minmax(92px, 17%) minmax(0, 1fr) 38px; align-items: center; gap: .65rem; min-height: 48px; }
 .race-lane__name { color: #c5dae7; font-size: clamp(.62rem, 1.15vw, .82rem); font-weight: 800; line-height: 1.05; }
 .race-lane__rail { position: relative; height: 33px; overflow: hidden; border-right: 3px solid rgba(255, 255, 255, .75); border-radius: 8px 0 0 8px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 6%, rgba(255,255,255,.08) 6% 6.4%), rgba(2, 13, 24, .72); }
 .race-lane__rail em { position: absolute; inset: auto 0 3px; height: 1px; background: color-mix(in srgb, var(--ship-color) 55%, transparent); }
-.racing-ship { position: absolute; z-index: 1; left: 0; top: 4px; display: flex; align-items: center; gap: .35rem; color: var(--ship-color); filter: drop-shadow(-7px 0 6px color-mix(in srgb, var(--ship-color) 65%, transparent)); animation: ship-race 6.2s cubic-bezier(.22,.64,.26,1) both; animation-delay: calc(-1 * var(--elapsed)); }
+.racing-ship { position: absolute; z-index: 1; left: 0; top: 4px; display: flex; align-items: center; gap: .35rem; color: var(--ship-color); filter: drop-shadow(-7px 0 6px color-mix(in srgb, var(--ship-color) 65%, transparent)); animation: ship-race 4.7s linear both; animation-delay: calc(-1 * var(--elapsed)); }
+.racing-ship::before { position: absolute; right: calc(100% - 4px); width: 18px; height: 5px; border-radius: 50%; background: linear-gradient(90deg, transparent, var(--ship-color)); content: ""; filter: blur(2px); animation: engine-pulse .18s ease-in-out infinite alternate; }
 .racing-ship svg { transform: rotate(45deg); }
 .racing-ship b { max-width: 88px; overflow: hidden; color: #fff; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
-.race-lane__place { opacity: 0; color: var(--ship-color); font-family: var(--font-display); font-weight: 900; animation: reveal-place .25s 6.15s forwards; animation-delay: calc(6.15s - var(--elapsed)); }
+.race-lane__place { opacity: 0; color: var(--ship-color); font-family: var(--font-display); font-weight: 900; animation: reveal-place .25s 4.5s forwards; animation-delay: calc(4.5s - var(--elapsed)); }
 .race-lane__place sup { font-size: .5em; }
-.race-winner-reveal { opacity: 0; color: #dceef8; animation: reveal-place .35s 6.25s forwards; animation-delay: calc(6.25s - var(--elapsed)); }
-.race-winner-reveal svg { color: #f6c64d; }
-@keyframes ship-race { 0% { transform: translateX(0); } 18% { transform: translateX(calc(var(--finish) * .18%)); } 42% { transform: translateX(calc(var(--finish) * .38%)); } 60% { transform: translateX(calc(var(--finish) * .66%)); } 78% { transform: translateX(calc(var(--finish) * .75%)); } 100% { transform: translateX(calc(var(--finish) * 1% - 30px)); } }
+@keyframes ship-race {
+  0%, 8% { left: 0; transform: translateX(0); animation-timing-function: cubic-bezier(.3,.05,.7,.95); }
+  10% { left: 1%; transform: translateX(2px); animation-timing-function: cubic-bezier(.18,.7,.25,1); }
+  22% { left: var(--checkpoint-1); transform: translateX(0); animation-timing-function: cubic-bezier(.45,.05,.35,1); }
+  45% { left: var(--checkpoint-2); animation-timing-function: cubic-bezier(.18,.75,.35,1); }
+  64% { left: var(--checkpoint-3); animation-timing-function: cubic-bezier(.5,.05,.3,1); }
+  82% { left: var(--checkpoint-4); animation-timing-function: cubic-bezier(.18,.75,.25,1); }
+  100% { left: var(--finish-position); transform: translateX(0); }
+}
+@keyframes engine-pulse { from { opacity: .4; transform: scaleX(.65); } to { opacity: 1; transform: scaleX(1.15); } }
 @keyframes reveal-place { to { opacity: 1; } }
 @media (max-width: 700px) {
   .starting-race { align-content: start; min-height: auto; padding: 1rem .85rem 1.5rem; }
@@ -109,7 +125,8 @@ const winnerShip = computed(() => winner.value ? regions.find((region) => region
   .racing-ship b { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .racing-ship { animation-duration: .01ms; animation-delay: 0s; }
-  .race-lane__place, .race-winner-reveal { opacity: 1; animation: none; }
+  .racing-ship { left: var(--finish-position); animation: none; }
+  .racing-ship::before { animation: none; }
+  .race-lane__place { opacity: 1; animation: none; }
 }
 </style>

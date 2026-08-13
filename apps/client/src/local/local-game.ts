@@ -392,7 +392,7 @@ export function getLocalBotTurn(): LocalBotTurn | null {
   const { playerId, decision } = pending;
   const rolledThisRevision = current.recentEvents.some((event) => event.id === current.revision && event.type === "dice_rolled");
   const delay = rolledThisRevision ? 2_800 + (current.lastRoll?.total ?? 0) * 210
-    : decision.type === "SELECT_STARTING_SHIP" ? 650
+    : decision.type === "SELECT_STARTING_SHIP" ? 220
       : decision.type === "ROLL" ? 700
       : decision.type === "BID" || decision.type === "PASS_BID" ? 800
         : 900;

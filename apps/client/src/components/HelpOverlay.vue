@@ -53,7 +53,7 @@ const tvSteps = [
             <article v-for="([number, title, copy]) in tvSteps" :key="number"><b>{{ number }}</b><div><h3>{{ title }}</h3><p>{{ copy }}</p></div></article>
           </div>
           <div class="help-rules-grid">
-            <div class="help-rule"><strong>Course d’ouverture</strong><span>Chaque joueur choisit un vaisseau régional différent sur son téléphone. Les sept vaisseaux courent, y compris ceux restés libres. Le consortium dont le choix est le mieux classé joue en premier.</span></div>
+            <div class="help-rule"><strong>Course d’ouverture</strong><span>Chaque joueur choisit un vaisseau régional différent sur son téléphone. Seuls les vaisseaux choisis courent : leur nombre correspond au nombre de joueurs, et le premier arrivé joue en premier.</span></div>
             <div class="help-rule"><strong>Droits d’extraction</strong><span>Sommez les parts de toutes les concessions de la ressource, puis appliquez le plus haut seuil atteint : 30 %, 50 %, 70 % ou 90 %. Sous 30 %, aucun droit n’est dû. Plusieurs bénéficiaires peuvent être payés.</span></div>
             <div class="help-rule"><strong>Prime d’expédition</strong><span>Recevez immédiatement 0,5 crédit par point obtenu avec les deux dés. Réglez ensuite les droits de la ressource imprimée sur la case.</span></div>
             <div class="help-rule"><strong>Portails sectoriel et galactique</strong><span>Achetez jusqu’à six concessions de ressources que vous possédez déjà. Le portail sectoriel fonctionne dès le départ dans ses secteurs ; le portail galactique couvre tout le plateau après un tour complet.</span></div>

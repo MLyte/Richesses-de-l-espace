@@ -129,30 +129,35 @@ describe("Socket.IO game flow", () => {
     await statePromise;
     await completeStartingRace(code, [first, second]);
     let state = roomStore.get(code)!.state as unknown as PublicGameView;
-    expect(state.activePlayerId).toBe(joinedFirst.data!.playerId);
+    const firstStarts = state.activePlayerId === joinedFirst.data!.playerId;
+    const active = firstStarts ? first : second;
+    const inactive = firstStarts ? second : first;
+    const activePlayerId = firstStarts ? joinedFirst.data!.playerId : joinedSecond.data!.playerId;
+    const inactivePlayerId = firstStarts ? joinedSecond.data!.playerId : joinedFirst.data!.playerId;
+    expect(state.activePlayerId).toBe(activePlayerId);
 
-    const emptyTrade = await command(first, "trade:propose", { targetId: joinedSecond.data!.playerId, offeredResourceId: null, requestedResourceId: null, offeredCredits: 2, requestedCredits: 0 });
+    const emptyTrade = await command(active, "trade:propose", { targetId: inactivePlayerId, offeredResourceId: null, requestedResourceId: null, offeredCredits: 2, requestedCredits: 0 });
     expect(emptyTrade.error?.code).toBe("INVALID_TRADE");
 
-    const forbidden = await command(second, "turn:roll");
+    const forbidden = await command(inactive, "turn:roll");
     expect(forbidden.error?.code).toBe("NOT_ACTIVE_PLAYER");
 
     statePromise = nextState(admin);
-    const rolled = await command(first, "turn:roll");
+    const rolled = await command(active, "turn:roll");
     expect(rolled.ok).toBe(true);
     state = await statePromise;
     expect(state.lastRoll?.total).toBeGreaterThanOrEqual(2);
 
     if (state.phase === "WAITING_FOR_PURCHASE") {
       statePromise = nextState(admin);
-      await command(first, "purchase:pass");
+      await command(active, "purchase:pass");
       state = await statePromise;
     }
     expect(state.phase).toBe("WAITING_FOR_END_TURN");
     statePromise = nextState(admin);
-    await command(first, "turn:end");
+    await command(active, "turn:end");
     state = await statePromise;
-    expect(state.activePlayerId).toBe(joinedSecond.data!.playerId);
+    expect(state.activePlayerId).toBe(inactivePlayerId);
 
     statePromise = nextState(admin);
     second.disconnect();
@@ -333,15 +338,18 @@ describe("Socket.IO game flow", () => {
     await command(host, "lobby:set-ready", { ready: true });
     await command(host, "game:start");
     await completeStartingRace(created.data!.code, [host]);
-    await command(host, "turn:roll");
     let room = roomStore.get(created.data!.code)!;
-    if (room.state.phase === "WAITING_FOR_PURCHASE") await command(host, "purchase:pass");
-    if (room.state.phase === "WAITING_FOR_LEVER_PURCHASE") await command(host, "lever:pass");
-    if (room.state.phase === "WAITING_FOR_PAYMENT") await command(host, "payment:pay");
-    if (room.state.phase === "WAITING_FOR_END_TURN") await command(host, "turn:end");
-    room = roomStore.get(created.data!.code)!;
+    if (room.state.activePlayerId === hostJoined.data!.playerId) {
+      expect((await command(host, "turn:roll")).ok).toBe(true);
+      if (room.state.phase === "WAITING_FOR_PURCHASE") await command(host, "purchase:pass");
+      if (room.state.phase === "WAITING_FOR_LEVER_PURCHASE") await command(host, "lever:pass");
+      if (room.state.phase === "WAITING_FOR_PAYMENT") await command(host, "payment:pay");
+      if (room.state.phase === "WAITING_FOR_END_TURN") await command(host, "turn:end");
+      room = roomStore.get(created.data!.code)!;
+    }
     expect(room.state.activePlayerId).toBe(botId);
     expect(room.botThinkingPlayerId).toBe(botId);
+    const expectedHostTurnNumber = room.state.turnNumber + 1;
 
     await command(host, "admin:pause");
     const pausedRevision = room.state.revision;
@@ -351,7 +359,7 @@ describe("Socket.IO game flow", () => {
     expect(room.botThinkingPlayerId).toBeNull();
 
     await command(host, "admin:resume");
-    await waitFor(() => room.state.activePlayerId === hostJoined.data!.playerId && room.state.turnNumber >= 2);
+    await waitFor(() => room.state.activePlayerId === hostJoined.data!.playerId && room.state.turnNumber >= expectedHostTurnNumber);
     expect(room.state.phase).toBe("WAITING_FOR_ROLL");
     expect(room.state.players.find((player) => player.id === botId)?.connected).toBe(true);
 

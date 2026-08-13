@@ -9,6 +9,7 @@ import { nextRandom, rollDie } from "./rng";
 
 export const STARTING_CAPITAL: Record<number, number> = { 2: 100, 3: 66, 4: 50, 5: 40, 6: 33 };
 export const STARTING_RACE_SHIPS = ["inner-system", "red-belt", "giant-realms", "solar-frontier", "orion-neighborhood", "exoplanet-corridor", "stellar-farlands"] as const satisfies readonly RaceShipId[];
+export const STARTING_RACE_DURATION_MS = 5_200;
 
 export class RuleError extends Error {
   constructor(public readonly code: string, message: string) { super(message); }
@@ -105,8 +106,8 @@ export function startGame(state: GameState): GameState {
   ]);
 }
 
-function shuffledRaceShips(rngState: number): { order: RaceShipId[]; rngState: number } {
-  const order = [...STARTING_RACE_SHIPS];
+function shuffledRaceShips(rngState: number, ships: RaceShipId[]): { order: RaceShipId[]; rngState: number } {
+  const order = [...ships];
   let nextState = rngState;
   for (let index = order.length - 1; index > 0; index -= 1) {
     const [value, seed] = nextRandom(nextState);
@@ -117,7 +118,7 @@ function shuffledRaceShips(rngState: number): { order: RaceShipId[]; rngState: n
   return { order, rngState: nextState };
 }
 
-export function selectStartingShip(state: GameState, playerId: string, shipId: RaceShipId, now = Date.now(), raceDurationMs = 7_000): GameState {
+export function selectStartingShip(state: GameState, playerId: string, shipId: RaceShipId, now = Date.now(), raceDurationMs = STARTING_RACE_DURATION_MS): GameState {
   if (state.phase !== "SHIP_SELECTION") throw new RuleError("INVALID_PHASE", "La sélection des vaisseaux est terminée.");
   const player = requirePlayer(state, playerId);
   if (!STARTING_RACE_SHIPS.includes(shipId)) throw new RuleError("INVALID_SHIP", "Ce vaisseau n’existe pas.");
@@ -128,13 +129,14 @@ export function selectStartingShip(state: GameState, playerId: string, shipId: R
   if (Object.keys(selections).length < state.players.length) {
     return commit({ ...state, startingRace: { ...state.startingRace, selections } }, [selectionEvent]);
   }
-  const race = shuffledRaceShips(state.rngState);
+  const selectedShips = Object.values(selections) as RaceShipId[];
+  const race = shuffledRaceShips(state.rngState, selectedShips);
   const playerByShip = new Map(Object.entries(selections).map(([id, selectedShip]) => [selectedShip, id]));
   const winnerShipId = race.order.find((id) => playerByShip.has(id))!;
   const winnerPlayerId = playerByShip.get(winnerShipId)!;
   return commit({ ...state, phase: "SHIP_RACE", rngState: race.rngState, startingRace: { selections, finishOrder: race.order, winnerPlayerId, raceEndsAt: now + raceDurationMs, pausedAt: null } }, [
     selectionEvent,
-    makeEvent(state, { type: "ship_race_started", message: "Les sept vaisseaux s’élancent vers la balise de départ." })
+    makeEvent(state, { type: "ship_race_started", message: `Les ${race.order.length} vaisseaux choisis s’élancent vers la balise de départ.` })
   ]);
 }
 
