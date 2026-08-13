@@ -34,4 +34,10 @@ describe("shared TV display layout", () => {
     expect(tvLayout).not.toContain(".world-board--tabletop .board-title");
     expect(tvLayout).toMatch(/\.board-stage \.dice-result\s*\{\s*bottom:\s*calc\(var\(--tv-track-y\) \+ var\(--tv-zone-gap\)\)/);
   });
+
+  it("keeps the lobby scroll-free on short TV viewports", () => {
+    expect(theme).toContain("@media (min-width: 901px) and (max-height: 800px)");
+    expect(theme).toMatch(/\.display-shell:not\(:has\(\.display-header--game\)\)\s*\{[^}]*height:\s*100dvh[^}]*overflow:\s*hidden/s);
+    expect(theme).toMatch(/\.lobby-rules\s*\{\s*display:\s*none/);
+  });
 });

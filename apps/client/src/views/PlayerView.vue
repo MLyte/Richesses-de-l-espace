@@ -451,13 +451,17 @@ async function finishAsHost() {
 .lobby-player-list article small { margin-top: .15rem; color: #9ec2d8; font-size: .62rem; }
 .lobby-player-list article small svg { display: inline-block; margin-right: .2rem; vertical-align: -2px; }
 .bot-row-actions { display: flex; align-items: center; gap: .35rem; }
-.bot-row-actions select { min-height: 36px; max-width: 112px; padding: .3rem .45rem; font-size: .68rem; }
-.bot-row-actions button { display: grid; place-items: center; width: 36px; height: 36px; color: #ffd7cf; border: 1px solid rgba(242, 103, 74, .6); border-radius: 9px; background: rgba(157, 62, 53, .72); }
+.bot-row-actions select { min-height: 44px; max-width: 112px; padding: .3rem .45rem; font-size: .68rem; }
+.bot-row-actions button { display: grid; place-items: center; width: 44px; height: 44px; color: #ffd7cf; border: 1px solid rgba(242, 103, 74, .6); border-radius: 9px; background: rgba(157, 62, 53, .72); }
 .bot-thinking { display: flex; align-items: center; justify-content: center; gap: .5rem; margin: .7rem 0 0; padding: .65rem; color: #c9e8f4; border: 1px solid rgba(53, 208, 226, .3); border-radius: 10px; background: rgba(53, 208, 226, .08); font-size: .75rem; }
 .phone-lobby > .primary-button { position: static; right: auto; left: auto; width: 100%; max-width: none; min-height: 58px; margin-top: .8rem; box-shadow: 0 4px 0 rgba(0, 0, 0, .24); }
 .phone-lobby > .waiting-copy { margin: .7rem 0 1rem; line-height: 1.4; }
 @media (max-width: 760px) {
   .controller-screen:not(.controller-screen--mobile-only) > .portfolio-fab { position: static; width: max-content; margin: .75rem 0 1rem; }
+  .join-form > .primary-button,
+  .trade-form > .wide-button { position: static; right: auto; bottom: auto; left: auto; width: 100%; max-width: none; margin-top: .8rem; box-shadow: none; }
+  .trade-backdrop { place-items: stretch center; padding: max(.5rem, var(--safe-top)) max(.5rem, var(--safe-right)) max(.5rem, var(--safe-bottom)) max(.5rem, var(--safe-left)); }
+  .trade-form { align-self: center; max-height: calc(var(--app-viewport-height) - max(1rem, var(--safe-top)) - max(1rem, var(--safe-bottom))); padding: 1rem; scroll-padding: 1rem; }
 }
 @media (max-width: 420px) { .bot-lobby-controls { grid-template-columns: 1fr; }.bot-lobby-controls > div { grid-column: 1; }.lobby-player-list article { grid-template-columns: 28px minmax(0, 1fr); }.bot-row-actions { grid-column: 1 / -1; justify-content: flex-end; } }
 </style>

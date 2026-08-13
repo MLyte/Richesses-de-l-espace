@@ -1099,3 +1099,17 @@ button:disabled {
   .lobby-roster .button-help { margin: .2rem .75rem 0; font-size: .66rem; line-height: 1.35; }
   .lobby-rules { display: none; }
 }
+
+/* Les dialogues mobiles restent utilisables avec encoche et clavier affiché. */
+@media (max-width: 760px) {
+  .help-backdrop {
+    place-items: stretch center;
+    padding: max(.5rem, var(--safe-top)) max(.5rem, var(--safe-right)) max(.5rem, var(--safe-bottom)) max(.5rem, var(--safe-left));
+  }
+  .help-dialog {
+    align-self: center;
+    max-height: calc(var(--app-viewport-height) - max(1rem, var(--safe-top)) - max(1rem, var(--safe-bottom)));
+    padding: 4rem 1rem 1rem;
+    scroll-padding: 4rem 1rem 1rem;
+  }
+}
