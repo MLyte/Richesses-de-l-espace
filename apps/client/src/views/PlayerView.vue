@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ASSETS, COUNTRIES, LEVER_CARDS, RESOURCES, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
+import { ASSETS, AUCTION_BID_GRACE_MS, AUCTION_INITIAL_DURATION_MS, COUNTRIES, LEVER_CARDS, RESOURCES, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
 import ErrorToast from "../components/ErrorToast.vue";
 import { useAccessibleModal } from "../composables/useAccessibleModal";
@@ -17,6 +17,7 @@ import GameIcon from "../components/GameIcon.vue";
 import MobileRouteMap from "../components/MobileRouteMap.vue";
 import MobileToastQueue from "../components/MobileToastQueue.vue";
 import StartingShipRace from "../components/StartingShipRace.vue";
+import AuctionCountdown from "../components/AuctionCountdown.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
 import { pickSpacefarerFirstName } from "./player-name-placeholder";
 import { ArrowLeftRight, Bot, Dices, HandCoins, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
@@ -102,6 +103,10 @@ const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.ga
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
 const auctionLotAssets = computed(() => store.game?.auction?.lots[store.game.auction.currentLotIndex]?.map((id) => ASSETS.find((asset) => asset.id === id)!).filter(Boolean) ?? []);
 const auctionMinimum = computed(() => store.game?.auction ? (store.game.auction.currentBid ? Math.round((store.game.auction.currentBid + .1) * 10) / 10 : store.game.auction.minimumBid) : .5);
+const auctionReferenceAmount = computed(() => store.game?.auction ? store.game.auction.currentBid || store.game.auction.minimumBid : 0);
+const recommendedBid = computed(() => store.game?.auction?.currentBid ? Math.round((store.game.auction.currentBid + 1) * 10) / 10 : auctionMinimum.value);
+const quickBidAmounts = computed(() => [1, 3, 5].map((increment) => Math.round((auctionReferenceAmount.value + increment) * 10) / 10));
+const auctionDuration = computed(() => store.game?.auction?.currentBid ? AUCTION_BID_GRACE_MS : AUCTION_INITIAL_DURATION_MS);
 const leverCards = computed(() => LEVER_CARDS.filter((card) => store.player?.leverIds.includes(card.id)));
 const pendingLeverCard = computed(() => LEVER_CARDS.find((card) => card.id === store.player?.pendingLever?.leverId) ?? null);
 const tradeTargets = computed(() => store.game?.players.filter((player) => player.id !== me.value?.id && !player.bankrupt && !player.mergedIntoId) ?? []);
@@ -110,6 +115,7 @@ const targetResources = computed(() => RESOURCES.filter((resource) => tradeTarge
 const anyTargetHasResources = computed(() => tradeTargets.value.some((player) => player.assetIds.length));
 const isMyTurn = computed(() => store.game?.activePlayerId === me.value?.id);
 const isPhoneHost = computed(() => Boolean(store.player?.isHost));
+const canResumeGame = computed(() => Boolean(store.game?.players.every((player) => player.bankrupt || player.mergedIntoId || player.connected)));
 const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY");
 const botThinkingPlayer = computed(() => store.game?.players.find((player) => player.id === store.game?.botThinkingPlayerId) ?? null);
 const turnTravelVisible = computed(() => {
@@ -148,7 +154,7 @@ const personalMoneyNotice = computed(() => {
   if (!event || !me.value || !["payment_due", "payment_completed"].includes(event.type)) return null;
   return event.data?.payerId === me.value.id || event.data?.recipientId === me.value.id ? event.message : null;
 });
-const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready", "ship_selected", "ship_race_started"]);
+const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready", "ship_selected", "ship_race_started", "auction_bid"]);
 const mobileEventNotice = computed<MobileToastNotice | null>(() => {
   const event = store.animatedEvent;
   if (!event || quietMobileEventTypes.has(event.type)) return null;
@@ -163,6 +169,7 @@ const mobileTurnNotice = computed<MobileToastNotice | null>(() => {
   };
 });
 watch(() => store.game?.auction?.mode === "selection" ? `${store.game.turnNumber}:${store.game.auction.sellerId}:${store.game.landedSpaceId}` : null, () => { auctionSelection.value = []; });
+watch(auctionMinimum, (minimum) => { bidAmount.value = minimum; }, { immediate: true });
 watch(() => store.game?.pendingPurchase ? `${store.game.turnNumber}:${store.game.landedSpaceId}` : null, () => { purchaseSelection.value = []; });
 async function run(action: () => Promise<unknown>) {
   if (mobilePreview) {
@@ -196,6 +203,7 @@ async function submitTrade() {
   if (!store.error) tradeOpen.value = false;
 }
 function placeCurrentBid() { return store.bid(Math.max(auctionMinimum.value, Number(bidAmount.value))); }
+function placeBid(amount: number) { return store.bid(amount); }
 function selectStartingShip(shipId: RaceShipId) { return run(() => store.selectStartingShip(shipId)); }
 async function shareInvitation() {
   const url = store.game?.joinUrls[0] ?? window.location.href;
@@ -224,7 +232,7 @@ async function finishAsHost() {
           <summary aria-label="Commandes de l’hôte"><Menu :size="18" aria-hidden="true" /></summary>
           <div>
             <span class="mobile-host-menu__label">Commandes de l’hôte</span>
-            <button v-if="store.game?.phase === 'PAUSED'" type="button" @click="run(store.resumeGame)">Reprendre</button>
+            <button v-if="store.game?.phase === 'PAUSED'" type="button" :disabled="store.pending || !canResumeGame" @click="run(store.resumeGame)">Reprendre</button>
             <button v-else-if="store.game?.phase !== 'FINISHED'" type="button" @click="run(store.pause)">Mettre en pause</button>
             <button v-if="store.game?.phase === 'FINISHED'" type="button" @click="run(store.restart)">{{ store.localGame ? 'Rejouer contre les robots' : 'Rejouer avec le groupe' }}</button>
             <button v-else type="button" class="danger" @click="finishAsHost">Terminer</button>
@@ -303,7 +311,7 @@ async function finishAsHost() {
         <section v-if="mobileOnly" class="mobile-map-panel mobile-map-panel--route" aria-label="Carte de la partie">
           <MobileRouteMap :board="store.game.board" :players="store.game.players" :active-player-id="store.game.activePlayerId" :current-player-id="me.id" :turn-number="store.game.turnNumber" :ownership="store.game.ownership" :visual-positions="store.visualPlayerPositions" />
         </section>
-        <div v-if="store.game.phase === 'PAUSED'" class="state-message pause-phone mobile-map-overlay"><span class="pause-phone__icon" aria-label="Partie en pause"><Pause :size="25" aria-hidden="true" /></span><h2>{{ store.game.pauseReason === 'PLAYER_DISCONNECTED' ? (pausedPlayer?.connected ? 'Connexion rétablie' : 'Connexion interrompue') : 'Pause de l’hôte' }}</h2><p v-if="pausedPlayer && !pausedPlayer.connected"><strong>{{ pausedPlayer.name }}</strong> a perdu la connexion. La partie est gelée jusqu’à son retour, sans modifier les soldes ni le tour.</p><p v-else-if="pausedPlayer"><strong>{{ pausedPlayer.name }}</strong> est revenu·e. L’hôte peut maintenant reprendre la partie depuis son téléphone.</p><p v-else>L’hôte a suspendu la partie. Gardez cette page ouverte : la reprise apparaîtra automatiquement.</p></div>
+        <div v-if="store.game.phase === 'PAUSED'" class="state-message pause-phone mobile-map-overlay"><span class="pause-phone__icon" aria-label="Partie en pause"><Pause :size="25" aria-hidden="true" /></span><h2>{{ store.game.pauseReason === 'PLAYER_DISCONNECTED' ? (pausedPlayer?.connected ? 'Connexion rétablie' : 'Connexion interrompue') : 'Partie en pause' }}</h2><p v-if="pausedPlayer && !pausedPlayer.connected"><strong>{{ pausedPlayer.name }}</strong> a quitté momentanément l’application ou perdu la connexion. La partie est gelée sans modifier les soldes ni le tour.</p><p v-else-if="pausedPlayer"><strong>{{ pausedPlayer.name }}</strong> est revenu·e. L’hôte peut maintenant reprendre la partie.</p><p v-else>La partie et ses sons sont suspendus. Reprenez quand vous êtes prêt·e.</p><button v-if="isPhoneHost" type="button" class="primary-button" :disabled="store.pending || !canResumeGame" @click="run(store.resumeGame)">{{ canResumeGame ? 'Reprendre la partie' : 'En attente des autres joueurs' }}</button></div>
         <div v-else-if="store.game.phase === 'FINISHED'" class="state-message final-phone mobile-map-overlay">
           <p class="eyebrow">Partie terminée</p>
           <h2>{{ store.game.finishReason === 'ADMIN' ? 'La partie a été arrêtée par l’hôte.' : store.game.winnerId === me.id ? 'Votre consortium reste seul en activité !' : `${store.game.players.find(player => player.id === store.game?.winnerId)?.name ?? 'La table'} remporte la partie.` }}</h2>
@@ -334,7 +342,13 @@ async function finishAsHost() {
             <p class="eyebrow">{{ store.game.auction.bankSale ? 'Faillite · vente par la banque' : 'Appel d’offres' }} · lot {{ store.game.auction.currentLotIndex + 1 }}/{{ store.game.auction.lots.length }}</p><h2>{{ auctionLotAssets.map(asset => asset.name).join(' + ') }}</h2><AssetCard :asset-id="auctionAsset.id" compact />
             <p class="auction-seller">{{ store.game.auction.bankSale ? `Concessions de ${auctionSeller?.name} remises aux registres` : `Vendeur : ${auctionSeller?.name}` }} · prix initial à 50 %</p>
             <div class="auction-current"><span>Meilleure offre</span><b>{{ store.game.auction.currentBid || store.game.auction.minimumBid }}</b><small>{{ store.game.players.find(player => player.id === store.game?.auction?.leaderId)?.name ?? 'Prix de départ' }}</small></div>
-            <div v-if="allowed('BID')" class="bid-controls"><label>Votre offre<input v-model.number="bidAmount" type="number" step="0.1" :min="auctionMinimum" :max="me.capital" /></label><div class="action-row"><button class="secondary-button" @click="run(store.passBid)">Passer</button><button class="primary-button" :disabled="me.capital < auctionMinimum" @click="run(placeCurrentBid)">Enchérir</button></div><p>Pas minimum : 0,1 crédit. Le lot est adjugé après 10 secondes sans nouvelle offre.</p></div>
+            <AuctionCountdown :deadline="store.game.auction.deadline" :duration="auctionDuration" />
+            <div v-if="allowed('BID')" class="bid-controls">
+              <div class="action-row bid-controls__primary"><button type="button" class="secondary-button" :disabled="store.pending" @click="run(store.passBid)">Passer</button><button type="button" class="primary-button" :disabled="store.pending || me.capital < recommendedBid" @click="run(() => placeBid(recommendedBid))">Enchérir à {{ recommendedBid }}</button></div>
+              <div class="quick-bids" aria-label="Enchères rapides"><button v-for="(amount, index) in quickBidAmounts" :key="amount" type="button" :disabled="store.pending || me.capital < amount" @click="run(() => placeBid(amount))">+{{ [1, 3, 5][index] }} <small>{{ amount }} cr.</small></button></div>
+              <details class="custom-bid"><summary>Autre montant</summary><label>Votre offre<input v-model.number="bidAmount" type="number" inputmode="decimal" step="0.1" :min="auctionMinimum" :max="me.capital" /></label><button type="button" class="secondary-button wide-button" :disabled="store.pending || me.capital < auctionMinimum" @click="run(placeCurrentBid)">Valider {{ Math.max(auctionMinimum, Number(bidAmount)) }} crédits</button></details>
+              <p>Fenêtre initiale de 7 secondes. Une offre tardive garantit 4 secondes pour réagir, sans relancer tout le délai.</p>
+            </div>
             <p v-else class="waiting-copy">{{ store.game.auction.sellerId === me.id ? 'Vous êtes le vendeur et recevrez le prix final.' : store.game.auction.leaderId === me.id ? 'Votre offre est en tête.' : 'Vous avez quitté cet appel d’offres.' }}</p>
           </template>
         </div>
@@ -440,5 +454,7 @@ async function finishAsHost() {
 .bot-row-actions select { min-height: 36px; max-width: 112px; padding: .3rem .45rem; font-size: .68rem; }
 .bot-row-actions button { display: grid; place-items: center; width: 36px; height: 36px; color: #ffd7cf; border: 1px solid rgba(242, 103, 74, .6); border-radius: 9px; background: rgba(157, 62, 53, .72); }
 .bot-thinking { display: flex; align-items: center; justify-content: center; gap: .5rem; margin: .7rem 0 0; padding: .65rem; color: #c9e8f4; border: 1px solid rgba(53, 208, 226, .3); border-radius: 10px; background: rgba(53, 208, 226, .08); font-size: .75rem; }
+.phone-lobby > .primary-button { position: static; right: auto; left: auto; width: 100%; max-width: none; min-height: 58px; margin-top: .8rem; box-shadow: 0 4px 0 rgba(0, 0, 0, .24); }
+.phone-lobby > .waiting-copy { margin: .7rem 0 1rem; line-height: 1.4; }
 @media (max-width: 420px) { .bot-lobby-controls { grid-template-columns: 1fr; }.bot-lobby-controls > div { grid-column: 1; }.lobby-player-list article { grid-template-columns: 28px minmax(0, 1fr); }.bot-row-actions { grid-column: 1 / -1; justify-content: flex-end; } }
 </style>

@@ -64,7 +64,7 @@ describe("mobile-only map-first experience", () => {
   it("queues readable turn and event notifications without slowing game animations", () => {
     expect(playerView).toContain('<MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />');
     expect(playerView).toContain('const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"');
-    expect(playerView).toContain('"ship_selected", "ship_race_started"');
+    expect(playerView).toContain('"ship_selected", "ship_race_started", "auction_bid"');
     expect(mobileToasts).toContain('createMobileToastQueue');
     expect(mobileToasts).toContain('class="mobile-live-toast" role="status" aria-live="polite" aria-atomic="true"');
     expect(mobileToasts).toContain("+{{ state.pendingCount }}");

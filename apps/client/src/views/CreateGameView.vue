@@ -94,6 +94,11 @@ async function createMobileGame(startFresh = false): Promise<void> {
 .install-mode button { min-height: 44px; padding: 0 .85rem; color: #06111f; border: 0; border-radius: 9px; background: #35d0e2; font: inherit; font-size: .78rem; font-weight: 800; }
 .create-game__version { margin: -1rem 0 0; color: #9ec2d8; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 @media (max-width: 1100px) and (min-width: 761px) { .create-game { place-content: start center; padding: clamp(2rem, 5vw, 4rem); } .create-game__choices { grid-template-columns: minmax(0, 560px); } }
+@media (min-width: 1101px) and (max-height: 1150px) {
+  .create-game { height: var(--app-viewport-height); min-height: 0; gap: clamp(1rem, 2vh, 1.5rem); padding-block: clamp(1rem, 2.5vh, 2rem); overflow-y: hidden; }
+  .mode-card { min-height: 280px; }
+  .new-local-game, .create-game__version { margin-top: 0; }
+}
 @media (max-width: 760px) {
   .create-game { width: 100%; max-width: 100vw; place-content: start stretch; gap: 1.7rem; padding: 1.2rem; }
   .create-game__intro, .create-game__choices, .create-game__note, .install-mode, .create-game__version { width: 100%; max-width: calc(100vw - 2.4rem); min-width: 0; }

@@ -18,7 +18,8 @@ const audioStats = {
   mayResume: false,
   oscillatorsStarted: 0,
   buffersStarted: 0,
-  sourcesStopped: 0
+  sourcesStopped: 0,
+  suspendCalls: 0
 };
 
 const audioParam = () => ({
@@ -41,6 +42,11 @@ class MockAudioContext {
   async resume(): Promise<void> {
     if (!audioStats.mayResume) throw new Error("user gesture required");
     this.state = "running";
+  }
+
+  async suspend(): Promise<void> {
+    audioStats.suspendCalls += 1;
+    this.state = "suspended";
   }
 
   createGain() {
@@ -91,6 +97,7 @@ describe("mobile audio lifecycle", () => {
     audioStats.oscillatorsStarted = 0;
     audioStats.buffersStarted = 0;
     audioStats.sourcesStopped = 0;
+    audioStats.suspendCalls = 0;
     windowEvents = new ListenerRegistry();
     documentEvents = new ListenerRegistry();
     vi.stubGlobal("AudioContext", MockAudioContext);
@@ -154,5 +161,30 @@ describe("mobile audio lifecycle", () => {
 
     expect(audioStats.oscillatorsStarted).toBe(0);
     expect(audioStats.buffersStarted).toBe(0);
+  });
+
+  it("stops current sounds in background and waits for a new gesture", async () => {
+    const audio = await import("./audio");
+    audio.installAudioLifecycle();
+    audioStats.mayResume = true;
+    windowEvents.emit("pointerdown");
+    await settleAudioPromises();
+    audio.playSound("move");
+    expect(audioStats.oscillatorsStarted).toBe(2);
+    const scheduledStops = audioStats.sourcesStopped;
+
+    audio.suspendAudioForBackground();
+    await settleAudioPromises();
+    expect(audioStats.sourcesStopped - scheduledStops).toBe(2);
+    expect(audioStats.suspendCalls).toBe(1);
+
+    audio.prepareAudioForForeground();
+    audio.playSound("move");
+    expect(audioStats.oscillatorsStarted).toBe(2);
+
+    windowEvents.emit("pointerdown");
+    await settleAudioPromises();
+    audio.playSound("move");
+    expect(audioStats.oscillatorsStarted).toBe(4);
   });
 });

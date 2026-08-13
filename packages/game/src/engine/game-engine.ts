@@ -10,6 +10,8 @@ import { nextRandom, rollDie } from "./rng";
 export const STARTING_CAPITAL: Record<number, number> = { 2: 100, 3: 66, 4: 50, 5: 40, 6: 33 };
 export const STARTING_RACE_SHIPS = ["inner-system", "red-belt", "giant-realms", "solar-frontier", "orion-neighborhood", "exoplanet-corridor", "stellar-farlands"] as const satisfies readonly RaceShipId[];
 export const STARTING_RACE_DURATION_MS = 5_200;
+export const AUCTION_INITIAL_DURATION_MS = 7_000;
+export const AUCTION_BID_GRACE_MS = 4_000;
 
 export class RuleError extends Error {
   constructor(public readonly code: string, message: string) { super(message); }
@@ -510,7 +512,7 @@ function settleBankruptcy(state: GameState, playerId: string, debts: BankruptcyD
       minimumBid: 0, currentBid: 0, leaderId: null,
       eligiblePlayerIds: players.filter((item) => !item.bankrupt && !item.mergedIntoId).map((item) => item.id), passedPlayerIds: [], deadline: null
     }, 0);
-    return commit({ ...base, phase: "AUCTION", auction }, [...events, makeEvent(state, { type: "auction_started", message: `La Banque interstellaire ouvre le Marché orbital pour les concessions de ${player.name}. Premier lot à ${auction.minimumBid} crédits pendant 10 secondes.`, data: { assetCount: player.assetIds.length, minimumBid: auction.minimumBid } })]);
+    return commit({ ...base, phase: "AUCTION", auction }, [...events, makeEvent(state, { type: "auction_started", message: `La Banque interstellaire ouvre le Marché orbital pour les concessions de ${player.name}. Premier lot à ${auction.minimumBid} crédits pendant 7 secondes.`, data: { assetCount: player.assetIds.length, minimumBid: auction.minimumBid } })]);
   }
   const next = nextPlayable(base, playerId);
   events.push(...next.skipped.map((skipped) => makeEvent(state, { type: "turn_skipped" as const, playerId: skipped.id, message: `${skipped.name} passe ce tour à la suite d’une quarantaine orbitale.` })));
@@ -534,7 +536,7 @@ function auctionMinimum(lot: string[]): number {
 
 function prepareAuctionLot(auction: AuctionState, index: number): AuctionState {
   const lot = auction.lots[index]!;
-  return { ...auction, mode: "bidding", currentLotIndex: index, assetId: lot[0]!, minimumBid: auctionMinimum(lot), currentBid: 0, leaderId: null, passedPlayerIds: [], deadline: Date.now() + 10_000 };
+  return { ...auction, mode: "bidding", currentLotIndex: index, assetId: lot[0]!, minimumBid: auctionMinimum(lot), currentBid: 0, leaderId: null, passedPlayerIds: [], deadline: Date.now() + AUCTION_INITIAL_DURATION_MS };
 }
 
 export function selectAuctionAssets(state: GameState, playerId: string, assetIds: string[]): GameState {
@@ -626,7 +628,8 @@ export function placeBid(state: GameState, playerId: string, amount: number): Ga
   const minimum = auction.currentBid ? Math.round((auction.currentBid + 0.1) * 10) / 10 : auction.minimumBid;
   if (!Number.isFinite(amount) || Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-8 || amount < minimum) throw new RuleError("BID_TOO_LOW", `L’offre minimale est de ${minimum} crédits.`);
   if (amount > player.capital) throw new RuleError("INSUFFICIENT_FUNDS", "Cette offre dépasse votre capital.");
-  const next = { ...state, auction: { ...auction, currentBid: amount, leaderId: playerId, deadline: Date.now() + 10_000 } };
+  const deadline = Math.max(auction.deadline ?? 0, Date.now() + AUCTION_BID_GRACE_MS);
+  const next = { ...state, auction: { ...auction, currentBid: amount, leaderId: playerId, deadline } };
   return settleAuctionIfComplete(next, [makeEvent(state, { type: "auction_bid", playerId, message: `${player.name} propose ${amount} crédits.`, data: { amount, assetId: auction.assetId } })]);
 }
 

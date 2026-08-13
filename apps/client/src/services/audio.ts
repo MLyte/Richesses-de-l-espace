@@ -10,32 +10,47 @@ function storedSoundPreference(): boolean {
 export const soundEnabled = ref(storedSoundPreference());
 let context: AudioContext | null = null;
 let reminderNodes: { sources: AudioScheduledSourceNode[]; gains: GainNode[] } | null = null;
+const transientSources = new Set<AudioScheduledSourceNode>();
 let reminderRequested = false;
 let pendingTurnStart = false;
 let lifecycleListenersInstalled = false;
+let appBackgrounded = false;
+let foregroundGestureRequired = false;
 
 function audioContext(): AudioContext {
   context ??= new AudioContext();
   return context;
 }
 
-function stopActionReminder(): void {
+function stopActionReminder(immediate = false): void {
   if (!reminderNodes) return;
   const ctx = context;
   if (ctx) {
-    const stopAt = ctx.currentTime + .22;
+    const stopAt = ctx.currentTime + (immediate ? 0 : .22);
     reminderNodes.gains.forEach((gain) => {
       gain.gain.cancelScheduledValues(ctx.currentTime);
       gain.gain.setValueAtTime(Math.max(gain.gain.value, .0001), ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(.0001, stopAt);
+      if (!immediate) gain.gain.exponentialRampToValueAtTime(.0001, stopAt);
     });
-    reminderNodes.sources.forEach((source) => { try { source.stop(stopAt + .04); } catch { /* déjà arrêté */ } });
+    reminderNodes.sources.forEach((source) => { try { source.stop(immediate ? stopAt : stopAt + .04); } catch { /* déjà arrêté */ } });
   }
   reminderNodes = null;
 }
 
+function trackTransientSource(source: AudioScheduledSourceNode): void {
+  transientSources.add(source);
+  source.addEventListener?.("ended", () => transientSources.delete(source), { once: true });
+}
+
+function stopTransientSounds(): void {
+  for (const source of transientSources) {
+    try { source.stop(); } catch { /* déjà arrêté */ }
+  }
+  transientSources.clear();
+}
+
 function startActionReminder(): void {
-  if (!reminderRequested || !soundEnabled.value || reminderNodes) return;
+  if (appBackgrounded || !reminderRequested || !soundEnabled.value || reminderNodes) return;
   const ctx = audioContext();
   if (ctx.state !== "running") return;
 
@@ -83,7 +98,7 @@ function startActionReminder(): void {
 }
 
 function flushImportantAudio(): void {
-  if (!soundEnabled.value || !context || context.state !== "running") return;
+  if (appBackgrounded || !soundEnabled.value || !context || context.state !== "running") return;
   if (pendingTurnStart) {
     pendingTurnStart = false;
     playSound("turn");
@@ -96,7 +111,8 @@ function flushImportantAudio(): void {
  * mobile exigent ce passage synchrone avant d'autoriser les sons ultérieurs.
  */
 export function unlockAudio(): void {
-  if (!soundEnabled.value) return;
+  if (appBackgrounded || !soundEnabled.value) return;
+  foregroundGestureRequired = false;
   try {
     const ctx = audioContext();
     if (ctx.state === "running") { flushImportantAudio(); return; }
@@ -104,7 +120,7 @@ export function unlockAudio(): void {
   } catch { /* AudioContext indisponible sur ce navigateur. */ }
 }
 
-/** Installe une seule fois le déverrouillage et la reprise après arrière-plan. */
+/** Installe une seule fois le déverrouillage audio depuis un geste utilisateur. */
 export function installAudioLifecycle(): void {
   if (lifecycleListenersInstalled || typeof window === "undefined" || typeof document === "undefined") return;
   lifecycleListenersInstalled = true;
@@ -112,10 +128,21 @@ export function installAudioLifecycle(): void {
   window.addEventListener("pointerdown", unlockFromGesture, { capture: true, passive: true });
   window.addEventListener("touchend", unlockFromGesture, { capture: true, passive: true });
   window.addEventListener("keydown", unlockFromGesture, { capture: true });
-  window.addEventListener("pageshow", unlockAudio);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") unlockAudio();
-  });
+}
+
+/** Coupe immédiatement les sons avant que le navigateur ne gèle l'application. */
+export function suspendAudioForBackground(): void {
+  appBackgrounded = true;
+  foregroundGestureRequired = true;
+  pendingTurnStart = false;
+  stopActionReminder(true);
+  stopTransientSounds();
+  if (context?.state === "running") void context.suspend().catch(() => { /* le navigateur peut déjà avoir suspendu le contexte */ });
+}
+
+/** Autorise le prochain geste utilisateur à réactiver l'audio. */
+export function prepareAudioForForeground(): void {
+  appBackgrounded = false;
 }
 
 function tone(frequency: number, offset: number, duration: number, volume: number, type: OscillatorType = "sine"): void {
@@ -129,6 +156,7 @@ function tone(frequency: number, offset: number, duration: number, volume: numbe
   gain.gain.exponentialRampToValueAtTime(volume, start + Math.min(.018, duration / 4));
   gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
   oscillator.connect(gain).connect(ctx.destination);
+  trackTransientSource(oscillator);
   oscillator.start(start);
   oscillator.stop(start + duration + .02);
 }
@@ -148,11 +176,12 @@ function softTap(offset: number, pitch = 420, volume = .045): void {
   gain.gain.value = volume;
   source.buffer = buffer;
   source.connect(filter).connect(gain).connect(ctx.destination);
+  trackTransientSource(source);
   source.start(ctx.currentTime + offset);
 }
 
 export function playSound(name: SoundName): void {
-  if (!soundEnabled.value) return;
+  if (appBackgrounded || foregroundGestureRequired || !soundEnabled.value) return;
   try {
     const ctx = audioContext();
     if (ctx.state !== "running") {
@@ -191,7 +220,7 @@ export function playSound(name: SoundName): void {
  */
 export function setActionReminder(active: boolean): void {
   reminderRequested = active;
-  if (!active || !soundEnabled.value) { stopActionReminder(); return; }
+  if (!active || appBackgrounded || foregroundGestureRequired || !soundEnabled.value) { stopActionReminder(); return; }
   try {
     const ctx = audioContext();
     if (ctx.state === "running") startActionReminder();
@@ -201,7 +230,7 @@ export function setActionReminder(active: boolean): void {
 
 /** Programme le signal de début de tour, même si l'audio attend encore un geste. */
 export function playTurnStart(): void {
-  if (!soundEnabled.value) return;
+  if (appBackgrounded || foregroundGestureRequired || !soundEnabled.value) return;
   pendingTurnStart = true;
   try {
     const ctx = audioContext();
@@ -217,7 +246,7 @@ export function cancelPendingTurnStart(): void {
 
 /** Petit contact bois/verre à chaque case, puis tintement doux sur la destination. */
 export function playMoveStep(step: number, total: number, audible = true): void {
-  if (!soundEnabled.value || !audible) return;
+  if (appBackgrounded || foregroundGestureRequired || !soundEnabled.value || !audible) return;
   try {
     const progress = total > 1 ? (step - 1) / (total - 1) : 1;
     softTap(0, 430 + progress * 170, .018);

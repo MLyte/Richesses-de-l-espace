@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import QrcodeVue from "qrcode.vue";
-import { ASSETS, LEVER_CARDS, RESOURCES, TREND_CARDS } from "@richesses-espace/game";
+import { ASSETS, AUCTION_BID_GRACE_MS, AUCTION_INITIAL_DURATION_MS, LEVER_CARDS, RESOURCES, TREND_CARDS } from "@richesses-espace/game";
 import type { BotProfile } from "@richesses-espace/protocol";
 import { useGameStore } from "../stores/game";
 import LandingNotice from "../components/LandingNotice.vue";
@@ -16,6 +16,7 @@ import PlayerTokenIcon from "../components/PlayerTokenIcon.vue";
 import PaymentTransfer from "../components/PaymentTransfer.vue";
 import GameIcon from "../components/GameIcon.vue";
 import StartingShipRace from "../components/StartingShipRace.vue";
+import AuctionCountdown from "../components/AuctionCountdown.vue";
 import { Bot, HelpCircle, Maximize2, Menu, Pause } from "@lucide/vue";
 import { splitPlayerWings } from "./display-layout";
 
@@ -46,6 +47,7 @@ const ranking = computed(() => [...(store.game?.players ?? [])].sort((a, b) => b
 const auctionLeader = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.leaderId) ?? null);
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
 const auctionLotAssets = computed(() => store.game?.auction?.lots[store.game.auction.currentLotIndex]?.map((id) => ASSETS.find((asset) => asset.id === id)!).filter(Boolean) ?? []);
+const auctionDuration = computed(() => store.game?.auction?.currentBid ? AUCTION_BID_GRACE_MS : AUCTION_INITIAL_DURATION_MS);
 const tradeProposer = computed(() => store.game?.players.find((player) => player.id === store.game?.tradeOffer?.proposerId) ?? null);
 const tradeTarget = computed(() => store.game?.players.find((player) => player.id === store.game?.tradeOffer?.targetId) ?? null);
 const revealedCard = computed(() => {
@@ -182,7 +184,7 @@ async function toggleFullscreen() {
           </div>
           <div v-else-if="store.game.auction && auctionAsset" class="market-overlay auction-overlay">
             <template v-if="store.game.auction.mode === 'selection'"><p class="eyebrow">Marché orbital · dé rouge {{ store.game.auction.redDie }}</p><h2>{{ auctionSeller?.name }} choisit {{ store.game.auction.targetCount }} concession{{ store.game.auction.targetCount > 1 ? 's' : '' }} à vendre</h2><p>La vente ne commencera qu’après confirmation des lots sur son téléphone. Une Technologie peut encore éviter cette vente.</p></template>
-            <template v-else><p class="eyebrow">{{ store.game.auction.bankSale ? 'Perte de licence · vente par la banque' : 'Marché orbital' }} · lot {{ store.game.auction.currentLotIndex + 1 }}/{{ store.game.auction.lots.length }}</p><h2>{{ auctionLotAssets.map(asset => asset.name).join(' + ') }}</h2><p>{{ store.game.auction.bankSale ? `Concessions remises aux registres après la faillite de ${auctionSeller?.name}.` : `Vendeur : ${auctionSeller?.name}.` }} Prix de départ à la moitié de la valeur d’achat.</p><div class="big-bid">{{ store.game.auction.currentBid || store.game.auction.minimumBid }}<small>crédits</small></div><p>{{ auctionLeader ? `${auctionLeader.name} mène le marché. Le délai repart pour 10 secondes.` : 'Première offre attendue sur les téléphones.' }}</p><div class="auction-participants"><span v-for="playerId in store.game.auction.eligiblePlayerIds" :key="playerId" :class="{ passed: store.game.auction.passedPlayerIds.includes(playerId) }">{{ store.game.players.find(player => player.id === playerId)?.name }} · {{ store.game.auction.passedPlayerIds.includes(playerId) ? 'retiré·e' : playerId === store.game.auction.leaderId ? 'en tête' : 'en course' }}</span></div></template>
+            <template v-else><p class="eyebrow">{{ store.game.auction.bankSale ? 'Perte de licence · vente par la banque' : 'Marché orbital' }} · lot {{ store.game.auction.currentLotIndex + 1 }}/{{ store.game.auction.lots.length }}</p><h2>{{ auctionLotAssets.map(asset => asset.name).join(' + ') }}</h2><p>{{ store.game.auction.bankSale ? `Concessions remises aux registres après la faillite de ${auctionSeller?.name}.` : `Vendeur : ${auctionSeller?.name}.` }} Prix de départ à la moitié de la valeur d’achat.</p><div class="big-bid">{{ store.game.auction.currentBid || store.game.auction.minimumBid }}<small>crédits</small></div><AuctionCountdown :deadline="store.game.auction.deadline" :duration="auctionDuration" /><p>{{ auctionLeader ? `${auctionLeader.name} mène le marché. Les autres joueurs ont encore quelques secondes pour réagir.` : 'Première offre attendue sur les téléphones.' }}</p><div class="auction-participants"><span v-for="playerId in store.game.auction.eligiblePlayerIds" :key="playerId" :class="{ passed: store.game.auction.passedPlayerIds.includes(playerId) }">{{ store.game.players.find(player => player.id === playerId)?.name }} · {{ store.game.auction.passedPlayerIds.includes(playerId) ? 'retiré·e' : playerId === store.game.auction.leaderId ? 'en tête' : 'en course' }}</span></div></template>
           </div>
           <div v-else-if="store.game.tradeOffer" class="market-overlay trade-overlay-common">
             <p class="eyebrow">{{ store.game.tradeOffer.kind === 'alliance' ? 'Consortium conjoint proposé' : 'Transaction proposée' }}</p><h2>{{ tradeProposer?.name }} ↔ {{ tradeTarget?.name }}</h2>

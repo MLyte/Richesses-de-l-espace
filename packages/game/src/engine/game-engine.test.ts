@@ -5,7 +5,7 @@ import { COUNTRIES } from "../data/countries";
 import { LEVER_CARDS } from "../data/levers";
 import { TREND_CARDS } from "../data/trends";
 import type { GameState } from "../types";
-import { STARTING_RACE_DURATION_MS, STARTING_RACE_SHIPS, addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, finishStartingRace, getCurrentPrice, getPaymentAmount, getRoyaltyAmount, passAuction, passPendingAsset, passPendingLever, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
+import { AUCTION_BID_GRACE_MS, AUCTION_INITIAL_DURATION_MS, STARTING_RACE_DURATION_MS, STARTING_RACE_SHIPS, addPlayer, buyPendingAsset, buyPendingLever, closeExpiredAuction, createGame, declareBankruptcy, endTurn, finishGame, finishStartingRace, getCurrentPrice, getPaymentAmount, getRoyaltyAmount, passAuction, passPendingAsset, passPendingLever, payPendingPayment, pauseGame, placeBid, proposeTrade, respondToTrade, restartGame, resumeGame, rollDice, selectAuctionAssets, selectStartingShip, setPlayerReady, startGame, useLever } from "./game-engine";
 
 function startTurns(state: GameState): GameState {
   let next = startGame(state);
@@ -428,7 +428,23 @@ describe("Richesses de l’espace game engine", () => {
     expect(game.players.reduce((total, player) => total + player.capital, 0)).toBe(capitalBeforeSale);
   });
 
-  it("lets the bank buy an unsold lot at half price after ten seconds", () => {
+  it("uses a short auction window and only extends late bids", () => {
+    let game = startedGameWithThree();
+    const assetId = ASSETS[0]!.id;
+    game = { ...game, ownership: { [assetId]: "p1" }, players: game.players.map((player) => player.id === "p1" ? { ...player, lapsCompleted: 1, assetIds: [assetId] } : player) };
+    game = selectAuctionAssets(landOnSpace(game, "auction-west"), "p1", [assetId]);
+    const initialDeadline = game.auction!.deadline!;
+    expect(initialDeadline - Date.now()).toBeGreaterThan(AUCTION_INITIAL_DURATION_MS - 100);
+    game = placeBid(game, "p2", game.auction!.minimumBid);
+    expect(game.auction?.deadline).toBe(initialDeadline);
+
+    const lateDeadline = Date.now() + 250;
+    game = { ...game, auction: { ...game.auction!, deadline: lateDeadline } };
+    game = placeBid(game, "p3", game.auction!.currentBid + .1);
+    expect(game.auction!.deadline! - Date.now()).toBeGreaterThan(AUCTION_BID_GRACE_MS - 100);
+  });
+
+  it("lets the bank buy an unsold lot at half price after the deadline", () => {
     let game = startedGameWithThree(); const assetId = ASSETS[0]!.id;
     game = { ...game, ownership: { [assetId]: "p1" }, players: game.players.map((player) => player.id === "p1" ? { ...player, lapsCompleted: 1, assetIds: [assetId] } : player) };
     game = landOnSpace(game, "auction-west");
