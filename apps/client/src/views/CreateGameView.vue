@@ -9,6 +9,7 @@ const router = useRouter();
 const store = useGameStore();
 const localGame = import.meta.env.VITE_LOCAL_GAME === "true";
 const mobileDevice = computed(() => window.matchMedia("(max-width: 760px), (pointer: coarse)").matches);
+const canOpenTv = computed(() => !localGame || store.hasSavedLocalGame());
 
 function createTvGame(): void {
   void router.push("/display");
@@ -30,25 +31,25 @@ async function createMobileGame(): Promise<void> {
     </div>
 
     <div class="create-game__choices">
-      <button type="button" class="mode-card mode-card--tv" :disabled="store.pending" @click="createTvGame">
+      <button type="button" class="mode-card mode-card--tv" :disabled="store.pending || !canOpenTv" @click="createTvGame">
         <span class="mode-card__icon"><MonitorUp :size="42" aria-hidden="true" /></span>
         <span class="mode-card__tag">{{ localGame ? 'Vue grand écran' : mobileDevice ? 'Avec un autre écran' : 'Recommandé sur cet appareil' }}</span>
         <strong>{{ localGame ? 'Pont d’observation' : 'Pont de commandement' }}</strong>
-        <span>{{ localGame ? 'Observez sur grand écran la partie solo sauvegardée dans ce navigateur.' : 'La carte stellaire, les trajectoires et les événements sont projetés sur une TV ou un grand écran.' }}</span>
+        <span>{{ localGame ? 'Observez sur grand écran la partie solo sauvegardée dans ce navigateur. Commencez par créer votre joueur.' : 'La carte stellaire, les trajectoires et les événements sont projetés sur une TV ou un grand écran.' }}</span>
         <small class="mode-card__mobile-note">Optionnel · recommandé sur grand écran.</small>
-        <b>{{ localGame ? 'Afficher la partie' : 'Activer le pont de commandement' }}</b>
+        <b>{{ localGame ? canOpenTv ? 'Afficher la partie' : 'Disponible après votre embarquement' : 'Activer le pont de commandement' }}</b>
       </button>
 
       <button type="button" class="mode-card mode-card--mobile" :disabled="store.pending" @click="createMobileGame">
         <span class="mode-card__icon"><Smartphone :size="42" aria-hidden="true" /></span>
         <span class="mode-card__tag">{{ localGame ? 'Joueur contre ordinateur' : mobileDevice ? 'Recommandé sur cet appareil' : 'Sans écran partagé' }}</span>
         <strong>{{ localGame ? 'Duel contre Orion' : 'Flotte mobile' }}</strong>
-        <span>{{ localGame ? 'Lancez les dés, développez vos concessions et conduisez Lyra à la victoire face au robot.' : 'Chaque téléphone affiche les actions, la carte et les positions. Le créateur partage le code et garde les commandes de bord.' }}</span>
+        <span>{{ localGame ? 'Choisissez votre pseudo, votre couleur et votre pion, puis développez vos concessions face au robot.' : 'Chaque téléphone affiche les actions, la carte et les positions. Le créateur partage le code et garde les commandes de bord.' }}</span>
         <b>{{ store.pending ? 'Chargement…' : localGame ? 'Jouer la partie' : 'Lancer depuis ce terminal' }}</b>
       </button>
     </div>
 
-    <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ localGame ? 'Vous incarnez Lyra. Orion joue automatiquement, sans tricher et sans serveur.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
+    <p class="create-game__note"><UsersRound :size="20" aria-hidden="true" /> {{ localGame ? 'Votre consortium affronte Orion, qui joue automatiquement, sans tricher et sans serveur.' : '2 à 6 joueurs, sur le même Wi-Fi ou via l’adresse Internet du serveur.' }}</p>
     <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>

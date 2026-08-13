@@ -65,7 +65,7 @@ npm run smoke           # vérification HTTP du build
 
 ### Partie solo statique
 
-Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/`. Elle permet de jouer une partie complète en incarnant Lyra contre Orion, un robot de profil Équilibré :
+Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/`. Le joueur choisit son pseudo, sa couleur et son pion avant de disputer une partie complète contre Orion, un robot de profil Équilibré :
 
 ```powershell
 npm run prepare:static

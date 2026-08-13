@@ -1,5 +1,6 @@
 import {
   BOARD,
+  RuleError,
   SECTORS,
   addPlayer,
   buyPendingAsset,
@@ -31,12 +32,18 @@ import {
   type GameEvent,
   type GameState
 } from "@richesses-espace/game";
-import type { DisplayMode, PlayerAction, PlayerGameView, PublicGameView, SessionResult, TradeProposalPayload } from "@richesses-espace/protocol";
+import { PLAYER_COLORS, PLAYER_SYMBOLS, type DisplayMode, type PlayerAction, type PlayerGameView, type PublicGameView, type SessionResult, type TradeProposalPayload } from "@richesses-espace/protocol";
 
-export const LOCAL_GAME_STORAGE_KEY = "richesses-espace:local-game:v1";
+export const LOCAL_GAME_STORAGE_KEY = "richesses-espace:local-game:v2";
 export const LOCAL_GAME_CODE = "SOLO";
-export const LOCAL_HUMAN_ID = "lyra";
+export const LOCAL_HUMAN_ID = "human";
 export const LOCAL_BOT_ID = "orion";
+
+export interface LocalPlayerSetup {
+  name: string;
+  color: string;
+  symbol: string;
+}
 
 export interface LocalGameSnapshot {
   game: PublicGameView;
@@ -60,14 +67,15 @@ function canUseStorage(): boolean {
 
 function persist(): void {
   if (!state || !canUseStorage()) return;
-  window.localStorage.setItem(LOCAL_GAME_STORAGE_KEY, JSON.stringify({ version: 1, state }));
+  window.localStorage.setItem(LOCAL_GAME_STORAGE_KEY, JSON.stringify({ version: 2, state }));
 }
 
 function restore(force = false): boolean {
   if (!canUseStorage() || (!force && state)) return Boolean(state);
+  if (force) state = null;
   try {
     const stored = JSON.parse(window.localStorage.getItem(LOCAL_GAME_STORAGE_KEY) ?? "null") as { version?: number; state?: GameState } | null;
-    if (!stored || stored.version !== 1 || !stored.state) return false;
+    if (!stored || stored.version !== 2 || !stored.state) return false;
     const ids = stored.state.players.map((player) => player.id);
     if (!ids.includes(LOCAL_HUMAN_ID) || !ids.includes(LOCAL_BOT_ID)) return false;
     state = stored.state;
@@ -77,10 +85,22 @@ function restore(force = false): boolean {
   }
 }
 
-function createLocalGame(): GameState {
+function validateSetup(setup: LocalPlayerSetup): LocalPlayerSetup {
+  const name = setup.name.trim();
+  if (!name || name.length > 20) throw new RuleError("INVALID_NAME", "Choisissez un pseudo de 1 à 20 caractères.");
+  if (name.localeCompare("Orion", "fr", { sensitivity: "base" }) === 0) throw new RuleError("NAME_TAKEN", "Orion est le nom réservé à votre adversaire.");
+  if (!(PLAYER_COLORS as readonly string[]).includes(setup.color)) throw new RuleError("INVALID_COLOR", "Choisissez une couleur proposée.");
+  if (!PLAYER_SYMBOLS.some((item) => item.id === setup.symbol)) throw new RuleError("INVALID_SYMBOL", "Choisissez un animal proposé.");
+  return { name, color: setup.color, symbol: setup.symbol };
+}
+
+function createLocalGame(setup: LocalPlayerSetup): GameState {
+  const human = validateSetup(setup);
+  const botColor = PLAYER_COLORS.find((color) => color !== human.color)!;
+  const botSymbol = PLAYER_SYMBOLS.find((symbol) => symbol.id !== human.symbol)!.id;
   let next = createGame("local-solo", LOCAL_GAME_CODE, 20_260_813);
-  next = addPlayer(next, { id: LOCAL_HUMAN_ID, name: "Lyra", color: "#e4a72f", symbol: "bird" });
-  next = addPlayer(next, { id: LOCAL_BOT_ID, name: "Orion", color: "#3784a6", symbol: "cat" });
+  next = addPlayer(next, { id: LOCAL_HUMAN_ID, ...human });
+  next = addPlayer(next, { id: LOCAL_BOT_ID, name: "Orion", color: botColor, symbol: botSymbol });
   next = setPlayerReady(next, LOCAL_HUMAN_ID, true);
   next = setPlayerReady(next, LOCAL_BOT_ID, true);
   return startGame(next);
@@ -179,7 +199,7 @@ function publicView(current: GameState, botThinkingPlayerId: string | null = nul
 }
 
 function snapshot(events: GameEvent[] = [], includePlayer = true, botThinkingPlayerId: string | null = null): LocalGameSnapshot {
-  if (!state) state = createLocalGame();
+  if (!state) throw new RuleError("LOCAL_GAME_NOT_CONFIGURED", "Choisissez d’abord votre identité de joueur.");
   const human = state.players.find((player) => player.id === LOCAL_HUMAN_ID)!;
   return {
     game: publicView(state, botThinkingPlayerId),
@@ -197,47 +217,59 @@ function snapshot(events: GameEvent[] = [], includePlayer = true, botThinkingPla
 
 export function loadLocalGame(mode: DisplayMode = "MOBILE_ONLY", includePlayer = true, forceStorageReload = false): LocalGameSnapshot {
   displayMode = mode;
-  if (!restore(forceStorageReload)) {
-    state = createLocalGame();
-    persist();
-  }
+  if (!restore(forceStorageReload)) throw new RuleError("LOCAL_GAME_NOT_CONFIGURED", "Choisissez d’abord votre identité de joueur.");
   return snapshot([], includePlayer);
 }
 
-export function resetLocalGame(mode: DisplayMode = displayMode, includePlayer = true): LocalGameSnapshot {
+export function resumeLocalGame(mode: DisplayMode = "MOBILE_ONLY", includePlayer = true, forceStorageReload = false): LocalGameSnapshot | null {
   displayMode = mode;
-  state = createLocalGame();
+  return restore(forceStorageReload) ? snapshot([], includePlayer) : null;
+}
+
+export function startLocalGame(setup: LocalPlayerSetup, mode: DisplayMode = "MOBILE_ONLY", includePlayer = true): LocalGameSnapshot {
+  displayMode = mode;
+  state = createLocalGame(setup);
   persist();
   return snapshot([], includePlayer);
 }
 
+export function hasSavedLocalGame(): boolean {
+  return restore();
+}
+
+function requireLocalState(): GameState {
+  if (state) return state;
+  if (restore() && state) return state;
+  throw new RuleError("LOCAL_GAME_NOT_CONFIGURED", "Choisissez d’abord votre identité de joueur.");
+}
+
 function applyCommand(event: string, playerId: string, payload?: unknown): void {
-  if (!state) state = createLocalGame();
+  const current = requireLocalState();
   const input = (payload ?? {}) as Record<string, unknown>;
   switch (event) {
-    case "turn:roll": state = rollDice(state, playerId); break;
-    case "purchase:buy": state = buyPendingAsset(state, playerId, input.assetIds as string[] | undefined); break;
-    case "purchase:pass": state = passPendingAsset(state, playerId); break;
-    case "lever:buy": state = buyPendingLever(state, playerId); break;
-    case "lever:pass": state = passPendingLever(state, playerId); break;
-    case "payment:pay": state = payPendingPayment(state, playerId); break;
-    case "finance:bankruptcy": state = declareBankruptcy(state, playerId); break;
-    case "lever:use": state = useLever(state, playerId, String(input.leverId ?? "")); break;
-    case "auction:select": state = selectAuctionAssets(state, playerId, input.assetIds as string[]); break;
-    case "auction:bid": state = placeBid(state, playerId, Number(input.amount)); break;
-    case "auction:pass": state = passAuction(state, playerId); break;
-    case "trade:propose": state = proposeTrade(state, playerId, input as unknown as TradeProposalPayload); break;
-    case "trade:accept": state = respondToTrade(state, playerId, true); break;
-    case "trade:reject": state = respondToTrade(state, playerId, false); break;
-    case "turn:end": state = endTurn(state, playerId); break;
-    case "admin:pause": state = pauseGame(state); break;
-    case "admin:resume": state = resumeGame(state); break;
-    case "admin:end": state = finishGame(state); break;
+    case "turn:roll": state = rollDice(current, playerId); break;
+    case "purchase:buy": state = buyPendingAsset(current, playerId, input.assetIds as string[] | undefined); break;
+    case "purchase:pass": state = passPendingAsset(current, playerId); break;
+    case "lever:buy": state = buyPendingLever(current, playerId); break;
+    case "lever:pass": state = passPendingLever(current, playerId); break;
+    case "payment:pay": state = payPendingPayment(current, playerId); break;
+    case "finance:bankruptcy": state = declareBankruptcy(current, playerId); break;
+    case "lever:use": state = useLever(current, playerId, String(input.leverId ?? "")); break;
+    case "auction:select": state = selectAuctionAssets(current, playerId, input.assetIds as string[]); break;
+    case "auction:bid": state = placeBid(current, playerId, Number(input.amount)); break;
+    case "auction:pass": state = passAuction(current, playerId); break;
+    case "trade:propose": state = proposeTrade(current, playerId, input as unknown as TradeProposalPayload); break;
+    case "trade:accept": state = respondToTrade(current, playerId, true); break;
+    case "trade:reject": state = respondToTrade(current, playerId, false); break;
+    case "turn:end": state = endTurn(current, playerId); break;
+    case "admin:pause": state = pauseGame(current); break;
+    case "admin:resume": state = resumeGame(current); break;
+    case "admin:end": state = finishGame(current); break;
     case "admin:restart": {
-      state = restartGame(state);
-      state = setPlayerReady(state, LOCAL_HUMAN_ID, true);
-      state = setPlayerReady(state, LOCAL_BOT_ID, true);
-      state = startGame(state);
+      let restarted = restartGame(current);
+      restarted = setPlayerReady(restarted, LOCAL_HUMAN_ID, true);
+      restarted = setPlayerReady(restarted, LOCAL_BOT_ID, true);
+      state = startGame(restarted);
       break;
     }
     default: throw new Error(`Action locale inconnue : ${event}`);
@@ -245,10 +277,9 @@ function applyCommand(event: string, playerId: string, payload?: unknown): void 
 }
 
 export function runLocalGameCommand(event: string, payload?: unknown): { snapshot: LocalGameSnapshot; data?: SessionResult } {
-  if (!state) state = createLocalGame();
-  const beforeRevision = state.revision;
+  const beforeRevision = requireLocalState().revision;
   applyCommand(event, LOCAL_HUMAN_ID, payload);
-  const events = state.recentEvents.filter((item) => item.id > beforeRevision);
+  const events = requireLocalState().recentEvents.filter((item) => item.id > beforeRevision);
   persist();
   return { snapshot: snapshot(events) };
 }
@@ -272,15 +303,16 @@ function botMutation(current: GameState, decision: BotDecision): GameState {
 }
 
 export function getLocalBotTurn(): LocalBotTurn | null {
-  if (!state) state = createLocalGame();
-  const decision = decideBotAction(observeGameForBot(state, LOCAL_BOT_ID), LOCAL_BOT_ID, "BALANCED");
+  const current = state ?? (restore() ? state : null);
+  if (!current) return null;
+  const decision = decideBotAction(observeGameForBot(current, LOCAL_BOT_ID), LOCAL_BOT_ID, "BALANCED");
   if (!decision) return null;
-  const rolledThisRevision = state.recentEvents.some((event) => event.id === state!.revision && event.type === "dice_rolled");
-  const delay = rolledThisRevision ? 2_800 + (state.lastRoll?.total ?? 0) * 210
+  const rolledThisRevision = current.recentEvents.some((event) => event.id === current.revision && event.type === "dice_rolled");
+  const delay = rolledThisRevision ? 2_800 + (current.lastRoll?.total ?? 0) * 210
     : decision.type === "ROLL" ? 700
       : decision.type === "BID" || decision.type === "PASS_BID" ? 800
         : 900;
-  return { playerId: LOCAL_BOT_ID, decision, expectedRevision: state.revision, delay };
+  return { playerId: LOCAL_BOT_ID, decision, expectedRevision: current.revision, delay };
 }
 
 export function runLocalBotTurn(expectedRevision: number): LocalGameSnapshot | null {

@@ -16,7 +16,8 @@ describe("local solo welcome dialog", () => {
   });
 
   it("explains the playable solo mode", () => {
-    expect(source).toContain("Une vraie partie, du premier lancer à la victoire");
+    expect(source).toContain("Votre identité, puis une vraie partie");
+    expect(source).toContain("Choisissez votre pseudo, votre couleur et votre animal");
     expect(source).toContain("Orion joue automatiquement");
     expect(source).toContain("Progression sauvegardée");
   });

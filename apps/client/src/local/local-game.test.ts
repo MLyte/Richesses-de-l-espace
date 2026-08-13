@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LOCAL_BOT_ID, LOCAL_HUMAN_ID, getLocalBotTurn, loadLocalGame, resetLocalGame, runLocalBotTurn, runLocalGameCommand } from "./local-game";
+import { LOCAL_BOT_ID, LOCAL_HUMAN_ID, getLocalBotTurn, loadLocalGame, resumeLocalGame, runLocalBotTurn, runLocalGameCommand, startLocalGame } from "./local-game";
+
+const playerSetup = { name: "Mathieu", color: "#3784a6", symbol: "cat" };
 
 function finishHumanTurn(): void {
   runLocalGameCommand("turn:roll");
@@ -14,15 +16,28 @@ describe("local player versus computer game", () => {
       localStorage: { getItem: vi.fn(() => null), setItem: vi.fn() },
       location: { origin: "https://example.test" }
     });
-    resetLocalGame();
+    startLocalGame(playerSetup);
   });
 
-  it("starts Lyra against balanced Orion", () => {
+  it("starts the chosen human identity against balanced Orion", () => {
     const initial = loadLocalGame();
     expect(initial.game.phase).toBe("WAITING_FOR_ROLL");
     expect(initial.game.activePlayerId).toBe(LOCAL_HUMAN_ID);
     expect(initial.player?.allowedActions).toContain("ROLL_DICE");
+    expect(initial.game.players[0]).toMatchObject({ id: LOCAL_HUMAN_ID, name: "Mathieu", color: "#3784a6", symbol: "cat", isBot: false });
     expect(initial.game.players.find((player) => player.id === LOCAL_BOT_ID)).toMatchObject({ isBot: true, botProfile: "BALANCED", connected: true, ready: true });
+    expect(initial.game.players.find((player) => player.id === LOCAL_BOT_ID)?.color).not.toBe(playerSetup.color);
+    expect(initial.game.players.find((player) => player.id === LOCAL_BOT_ID)?.symbol).not.toBe(playerSetup.symbol);
+  });
+
+  it("requires a valid chosen identity and reserves Orion for the computer", () => {
+    expect(() => startLocalGame({ ...playerSetup, name: "  " })).toThrow("pseudo de 1 à 20 caractères");
+    expect(() => startLocalGame({ ...playerSetup, name: "Orion" })).toThrow("nom réservé");
+  });
+
+  it("invalidates the previous forced-identity storage format", () => {
+    vi.mocked(window.localStorage.getItem).mockReturnValue(JSON.stringify({ version: 1, state: {} }));
+    expect(resumeLocalGame("MOBILE_ONLY", true, true)).toBeNull();
   });
 
   it("uses the real engine for the human turn", () => {

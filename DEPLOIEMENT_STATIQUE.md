@@ -1,6 +1,6 @@
 # Déployer la partie solo statique
 
-Cette version permet de jouer une partie complète sans serveur Node.js, Socket.IO ni PostgreSQL. Le joueur incarne Lyra face à Orion, un robot Équilibré piloté par le même moteur de décision que les robots serveur. La progression est sauvegardée automatiquement dans le navigateur.
+Cette version permet de jouer une partie complète sans serveur Node.js, Socket.IO ni PostgreSQL. Le joueur choisit son pseudo, sa couleur et son pion avant d’affronter Orion, un robot Équilibré piloté par le même moteur de décision que les robots serveur. La progression est sauvegardée automatiquement dans le navigateur.
 
 ## Générer le dossier d’upload
 
@@ -27,7 +27,8 @@ L’application utilise une navigation avec `#` après l’ouverture d’un écr
 
 Depuis l’accueil, choisir **Duel contre Orion**. La partie commence immédiatement :
 
-- Lyra est le joueur humain et commence la partie avec 100 crédits ;
+- le formulaire d’embarquement existant recueille le pseudo, la couleur et le pion du joueur humain ;
+- le joueur humain est placé en premier et commence la partie avec 100 crédits ;
 - Orion est un robot Équilibré, connecté et prêt ;
 - chaque décision passe par le moteur de règles complet ;
 - Orion joue automatiquement après un délai lisible ;

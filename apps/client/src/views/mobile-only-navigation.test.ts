@@ -7,6 +7,14 @@ const theme = readFileSync(fileURLToPath(new URL("../theme-space.css", import.me
 const mobileRoute = readFileSync(fileURLToPath(new URL("../components/MobileRouteMap.vue", import.meta.url)), "utf8");
 
 describe("mobile-only map-first experience", () => {
+  it("reuses the existing identity screen before a first solo game", () => {
+    expect(playerView).toContain('v-if="!store.player" class="join-screen"');
+    expect(playerView).toContain("Votre pseudo");
+    expect(playerView).toContain('v-for="choice in PLAYER_COLORS"');
+    expect(playerView).toContain('v-for="choice in PLAYER_SYMBOLS"');
+    expect(playerView).toContain('@submit.prevent="join"');
+  });
+
   it("uses the route as the permanent phone game surface", () => {
     expect(playerView).toContain('store.game?.displayMode === "MOBILE_ONLY"');
     expect(playerView).toContain('const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY")');

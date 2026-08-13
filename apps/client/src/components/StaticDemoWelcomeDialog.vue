@@ -34,10 +34,10 @@ onMounted(async () => {
     <div class="static-welcome__icon"><Bot :size="28" aria-hidden="true" /></div>
     <p class="eyebrow">Partie solo · joueur contre ordinateur</p>
     <h1 id="static-welcome-title">Bienvenue à bord de<br /><em>Richesses de l’espace.</em></h1>
-    <p id="static-welcome-description" class="static-welcome__intro">Vous incarnez Lyra dans une partie complète contre Orion, un robot Équilibré qui joue avec les mêmes informations et les mêmes règles que vous.</p>
+    <p id="static-welcome-description" class="static-welcome__intro">Créez votre consortium puis disputez une partie complète contre Orion, un robot Équilibré qui joue avec les mêmes informations et les mêmes règles que vous.</p>
 
     <div class="static-welcome__facts">
-      <article><Gamepad2 :size="21" aria-hidden="true" /><div><strong>Une vraie partie, du premier lancer à la victoire</strong><p>Lancez les dés, achetez des concessions, payez les droits et négociez avec Orion.</p></div></article>
+      <article><Gamepad2 :size="21" aria-hidden="true" /><div><strong>Votre identité, puis une vraie partie</strong><p>Choisissez votre pseudo, votre couleur et votre animal avant le premier lancer.</p></div></article>
       <article><Bot :size="21" aria-hidden="true" /><div><strong>Orion joue automatiquement</strong><p>Le robot réfléchit après vos actions, respecte une réserve de capital et ne connaît pas vos informations privées.</p></div></article>
       <article><Save :size="21" aria-hidden="true" /><div><strong>Progression sauvegardée</strong><p>La partie reste sur cet appareil et reprend automatiquement là où vous l’avez laissée.</p></div></article>
     </div>

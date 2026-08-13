@@ -8,9 +8,11 @@ import {
   LOCAL_GAME_CODE,
   LOCAL_GAME_STORAGE_KEY,
   getLocalBotTurn,
-  loadLocalGame,
+  hasSavedLocalGame as hasSavedLocalGameState,
+  resumeLocalGame,
   runLocalBotTurn,
   runLocalGameCommand,
+  startLocalGame,
   type LocalGameSnapshot
 } from "../local/local-game";
 
@@ -72,7 +74,13 @@ export const useGameStore = defineStore("game", {
         if (event.key !== LOCAL_GAME_STORAGE_KEY) return;
         const mode = this.game?.displayMode ?? "MOBILE_ONLY";
         const previousRevision = this.game?.revision ?? 0;
-        const next = loadLocalGame(mode, this.role !== "admin", true);
+        const next = resumeLocalGame(mode, this.role !== "admin", true);
+        if (!next) {
+          this.game = null;
+          this.player = null;
+          this.role = null;
+          return;
+        }
         next.events = next.game.recentEvents.filter((item) => item.id > previousRevision);
         this.applyLocalGameSnapshot(next);
         this.scheduleLocalBot();
@@ -96,8 +104,16 @@ export const useGameStore = defineStore("game", {
     connect() {
       if (this.localGame) {
         this.bindLocalGameSync();
-        this.applyLocalGameSnapshot(loadLocalGame("MOBILE_ONLY"));
-        this.scheduleLocalBot();
+        const saved = resumeLocalGame("MOBILE_ONLY");
+        if (saved) {
+          this.applyLocalGameSnapshot(saved);
+          this.scheduleLocalBot();
+        } else {
+          this.game = null;
+          this.player = null;
+          this.role = null;
+          this.connected = true;
+        }
         return;
       }
       if (this.socket) return;
@@ -243,7 +259,14 @@ export const useGameStore = defineStore("game", {
     async createDisplaySession() {
       if (this.localGame) {
         this.bindLocalGameSync();
-        this.applyLocalGameSnapshot(loadLocalGame("TV", false));
+        const saved = resumeLocalGame("TV", false);
+        if (saved) this.applyLocalGameSnapshot(saved);
+        else {
+          this.game = null;
+          this.player = null;
+          this.role = "admin";
+          this.connected = true;
+        }
         return;
       }
       this.connect();
@@ -260,8 +283,16 @@ export const useGameStore = defineStore("game", {
     async createMobileSession(): Promise<string | undefined> {
       if (this.localGame) {
         this.bindLocalGameSync();
-        this.applyLocalGameSnapshot(loadLocalGame("MOBILE_ONLY"));
-        this.scheduleLocalBot();
+        const saved = resumeLocalGame("MOBILE_ONLY");
+        if (saved) {
+          this.applyLocalGameSnapshot(saved);
+          this.scheduleLocalBot();
+        } else {
+          this.game = null;
+          this.player = null;
+          this.role = null;
+          this.connected = true;
+        }
         return LOCAL_GAME_CODE;
       }
       this.connect();
@@ -289,6 +320,17 @@ export const useGameStore = defineStore("game", {
       try { await this.resume(token); } catch { localStorage.removeItem(`richesses-espace:player:${code.toUpperCase()}`); }
     },
     async join(code: string, name: string, color: string, symbol: string) {
+      if (this.localGame) {
+        this.error = "";
+        try {
+          this.applyLocalGameSnapshot(startLocalGame({ name, color, symbol }, "MOBILE_ONLY"));
+          this.scheduleLocalBot();
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : "Impossible de créer la partie solo.";
+          throw error;
+        }
+        return;
+      }
       const normalizedCode = code.toUpperCase();
       const hostToken = sessionStorage.getItem(`richesses-espace:mobile-host:${normalizedCode}`) ?? undefined;
       const session = await this.command<SessionResult>("room:join", { code: normalizedCode, name, color, symbol, hostToken });
@@ -299,6 +341,7 @@ export const useGameStore = defineStore("game", {
     syncActionReminder() {
       setActionReminder(Boolean(this.player?.allowedActions.some((action) => mandatoryActionNames.has(action))));
     },
+    hasSavedLocalGame() { return hasSavedLocalGameState(); },
     setReady(ready: boolean) { return this.command("lobby:set-ready", { ready }); },
     addBot(profile: BotProfile) { return this.command("lobby:bot-add", { profile }); },
     updateBot(playerId: string, profile: BotProfile) { return this.command("lobby:bot-update", { playerId, profile }); },

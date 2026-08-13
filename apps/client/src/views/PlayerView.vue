@@ -229,7 +229,7 @@ async function finishAsHost() {
       <p class="eyebrow">Expédition {{ code }}</p>
       <h1>Embarquez pour<br><em>l’expédition.</em></h1>
       <form class="join-form" @submit.prevent="join">
-        <label>Votre prénom<input v-model="name" maxlength="20" autocomplete="name" placeholder="Mathieu" required /></label>
+        <label>Votre pseudo<input v-model="name" maxlength="20" autocomplete="nickname" placeholder="Mathieu" required /></label>
         <fieldset><legend>Votre couleur</legend><div class="color-picker"><button v-for="choice in PLAYER_COLORS" :key="choice" type="button" :aria-label="colorLabels[choice]" :aria-pressed="color === choice" :class="{ selected: color === choice }" :style="{ '--choice': choice }" @click="color = choice" /></div></fieldset>
         <fieldset><legend>Votre animal</legend><div class="symbol-picker"><button v-for="choice in PLAYER_SYMBOLS" :key="choice.id" type="button" :title="choice.label" :aria-label="choice.label" :aria-pressed="symbol === choice.id" :class="{ selected: symbol === choice.id }" @click="symbol = choice.id"><PlayerTokenIcon :symbol="choice.id" /></button></div></fieldset>
         <button class="primary-button" :disabled="joining || !name.trim()">Rejoindre la flotte</button>
