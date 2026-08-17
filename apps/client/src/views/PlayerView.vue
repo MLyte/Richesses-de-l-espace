@@ -23,7 +23,7 @@ import CapitalGainBurst from "../components/CapitalGainBurst.vue";
 import type { MobileToastNotice } from "../components/mobile-toast-queue";
 import { resolveCapitalGain } from "../components/capital-gain";
 import { pickSpacefarerName, resolvePlayerName } from "./player-name-placeholder";
-import { ArrowLeftRight, Bot, Dices, HandCoins, House, Menu, PackageOpen, Pause, RotateCcw, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
+import { ArrowLeftRight, Bot, Dices, HandCoins, House, Menu, PackageOpen, Pause, RotateCcw, Search, ShoppingCart, Trash2, Users, X } from "@lucide/vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -63,9 +63,16 @@ const auctionSelection = ref<string[]>([]);
 const purchaseSelection = ref<string[]>([]);
 const portfolioOpen = ref(false);
 const portfolioDialog = ref<HTMLElement | null>(null);
-const portfolioPage = ref(0);
+const portfolioSearch = ref("");
+const portfolioRightsFilter = ref<"all" | "inactive" | "active">("all");
+const portfolioSort = ref<"influence" | "name" | "concessions">("influence");
 const { onKeydown: onTradeKeydown } = useAccessibleModal(tradeOpen, tradeDialog, () => { tradeOpen.value = false; });
-const { onKeydown: onPortfolioKeydown } = useAccessibleModal(portfolioOpen, portfolioDialog, () => { portfolioOpen.value = false; });
+const { onKeydown: onPortfolioKeydown } = useAccessibleModal(
+  portfolioOpen,
+  portfolioDialog,
+  () => { portfolioOpen.value = false; },
+  { initialFocus: "container" }
+);
 
 onMounted(async () => {
   if (mobilePreview) {
@@ -100,14 +107,32 @@ const landedOwner = computed(() => store.game?.players.find((player) => player.i
 const pausedPlayer = computed(() => store.game?.players.find((player) => player.id === store.game?.pausePlayerId) ?? null);
 const myAssets = computed(() => ASSETS.filter((asset) => me.value?.assetIds.includes(asset.id)));
 const myResources = computed(() => RESOURCES.filter((resource) => myAssets.value.some((asset) => asset.resourceId === resource.id)));
-const resourcesPerPortfolioPage = 3;
-const resourcePortfolioPages = computed(() => Array.from({ length: Math.ceil(myResources.value.length / resourcesPerPortfolioPage) }, (_, index) =>
-  myResources.value.slice(index * resourcesPerPortfolioPage, index * resourcesPerPortfolioPage + resourcesPerPortfolioPage)
-));
-const portfolioPageCount = computed(() => Math.max(1, resourcePortfolioPages.value.length));
-const activePortfolioPage = computed(() => resourcePortfolioPages.value[portfolioPage.value] ?? null);
-const visibleResources = computed(() => activePortfolioPage.value ?? []);
-function openPortfolio() { portfolioPage.value = 0; portfolioOpen.value = true; }
+const portfolioResourceStats = (resourceId: string) => {
+  const concessions = myAssets.value.filter((asset) => asset.resourceId === resourceId);
+  return {
+    concessions: concessions.length,
+    influence: concessions.reduce((total, asset) => total + asset.sharePercent, 0)
+  };
+};
+const visibleResources = computed(() => {
+  const query = portfolioSearch.value.trim().toLocaleLowerCase("fr");
+  return myResources.value
+    .filter((resource) => {
+      const { influence } = portfolioResourceStats(resource.id);
+      const matchesSearch = !query || resource.name.toLocaleLowerCase("fr").includes(query);
+      const matchesRights = portfolioRightsFilter.value === "all"
+        || (portfolioRightsFilter.value === "active" ? influence >= 30 : influence < 30);
+      return matchesSearch && matchesRights;
+    })
+    .sort((left, right) => {
+      const leftStats = portfolioResourceStats(left.id);
+      const rightStats = portfolioResourceStats(right.id);
+      if (portfolioSort.value === "influence" && leftStats.influence !== rightStats.influence) return rightStats.influence - leftStats.influence;
+      if (portfolioSort.value === "concessions" && leftStats.concessions !== rightStats.concessions) return rightStats.concessions - leftStats.concessions;
+      return left.name.localeCompare(right.name, "fr");
+    });
+});
+function openPortfolio() { portfolioOpen.value = true; }
 const auctionAsset = computed(() => ASSETS.find((asset) => asset.id === store.game?.auction?.assetId));
 const auctionSeller = computed(() => store.game?.players.find((player) => player.id === store.game?.auction?.sellerId) ?? null);
 const auctionLotAssets = computed(() => store.game?.auction?.lots[store.game.auction.currentLotIndex]?.map((id) => ASSETS.find((asset) => asset.id === id)!).filter(Boolean) ?? []);
@@ -454,8 +479,21 @@ function goHome() { void router.push("/"); }
         <Teleport to="body">
           <div v-if="portfolioOpen" class="portfolio-backdrop" @click.self="portfolioOpen = false">
             <section ref="portfolioDialog" class="portfolio-drawer" role="dialog" aria-modal="true" aria-labelledby="portfolio-title" tabindex="-1" @keydown="onPortfolioKeydown">
-              <header><div class="section-title section-title--portfolio"><span>Portefeuille</span><b id="portfolio-title">Ressources indépendantes</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }} · {{ me.capital }}&nbsp;crédits</small></div></header>
+              <div class="portfolio-drawer__sticky-top">
+                <header><div class="section-title section-title--portfolio"><span>Portefeuille</span><b id="portfolio-title">Ressources</b><small>{{ myAssets.length }} concession{{ myAssets.length > 1 ? 's' : '' }} · {{ me.capital }}&nbsp;crédits</small></div></header>
+                <section class="portfolio-filters" aria-label="Filtrer et trier les ressources">
+                  <label class="portfolio-search"><Search :size="18" aria-hidden="true" /><span class="sr-only">Rechercher une ressource</span><input v-model="portfolioSearch" type="search" placeholder="Rechercher une ressource" autocomplete="off" /></label>
+                  <div class="portfolio-filter-chips" role="group" aria-label="Filtrer selon les droits">
+                    <button type="button" :class="{ active: portfolioRightsFilter === 'all' }" :aria-pressed="portfolioRightsFilter === 'all'" @click="portfolioRightsFilter = 'all'">Toutes</button>
+                    <button type="button" :class="{ active: portfolioRightsFilter === 'inactive' }" :aria-pressed="portfolioRightsFilter === 'inactive'" @click="portfolioRightsFilter = 'inactive'">Sans droits</button>
+                    <button type="button" :class="{ active: portfolioRightsFilter === 'active' }" :aria-pressed="portfolioRightsFilter === 'active'" @click="portfolioRightsFilter = 'active'">Droits actifs</button>
+                  </div>
+                  <label class="portfolio-sort"><span>Trier par</span><select v-model="portfolioSort"><option value="influence">Influence</option><option value="name">Nom</option><option value="concessions">Concessions</option></select></label>
+                  <small class="portfolio-filter-count" aria-live="polite">{{ visibleResources.length }} sur {{ myResources.length }} ressource{{ myResources.length > 1 ? 's' : '' }}</small>
+                </section>
+              </div>
               <div v-if="!myAssets.length" class="empty-portfolio">Vos futures parts apparaîtront ici.</div>
+              <div v-else-if="!visibleResources.length" class="empty-portfolio">Aucune ressource ne correspond à ces filtres.</div>
               <div v-else class="resource-score-list resource-score-list--drawer"><ResourceInfluenceScore v-for="resource in visibleResources" :key="resource.id" :resource-id="resource.id" :asset-ids="me.assetIds" /></div>
               <section v-if="mobileOnly && leverCards.length" class="lever-hand lever-hand--portfolio"><div class="section-title"><span>Vos technologies</span><b>{{ leverCards.length }}</b></div><article v-for="lever in leverCards" :key="lever.id"><div><strong>{{ lever.title }}</strong><p>{{ lever.description }}</p></div><button :disabled="!canUseLever(lever.kind) || store.pending" @click="run(() => store.useLever(lever.id))">Activer</button></article></section>
               <aside v-if="mobileOnly && allowed('PROPOSE_TRADE') && tradeTargets.length" class="portfolio-actions" aria-label="Transferts de concessions">
@@ -468,7 +506,6 @@ function goHome() { void router.push("/"); }
                 </div>
               </aside>
               <footer class="portfolio-drawer__footer">
-                <div v-if="portfolioPageCount > 1" class="portfolio-pager"><button type="button" :disabled="portfolioPage === 0" @click="portfolioPage -= 1">Précédent</button><span>{{ portfolioPage + 1 }} / {{ portfolioPageCount }}</span><button type="button" :disabled="portfolioPage + 1 >= portfolioPageCount" @click="portfolioPage += 1">Suivant</button></div>
                 <button class="portfolio-close" type="button" @click="portfolioOpen = false"><X :size="20" aria-hidden="true" /><span>Fermer</span></button>
               </footer>
             </section>
@@ -496,6 +533,7 @@ function goHome() { void router.push("/"); }
 </template>
 
 <style scoped>
+.controller-screen:not(.controller-screen--mobile-only) > .portfolio-fab { position: static; align-self: start; margin-top: .75rem; }
 .phone-starting-race { min-height: calc(var(--app-viewport-height) - var(--phone-header-height) - var(--safe-top)); overflow-x: hidden; overflow-y: auto; background: radial-gradient(circle at 50% 15%, rgba(53, 208, 226, .12), transparent 42%); }
 .mobile-host-menu { position: relative; z-index: var(--layer-menu); }
 .mobile-host-menu summary { display: grid; place-items: center; width: 36px; height: 36px; color: #f3f8fc; border: 1px solid rgba(66, 202, 229, .5); border-radius: 50%; background: rgba(16, 42, 67, .96); cursor: pointer; list-style: none; }

@@ -70,11 +70,11 @@ const formattedAmount = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 
 .capital-gain-burst--tv .capital-gain-burst__amount { padding: .32rem .5rem; font-size: .78rem; }
 
 @keyframes capital-gain-rise {
-  0% { opacity: 0; transform: translate(-50%, 14px) scale(.55); }
-  16% { opacity: 1; transform: translate(-50%, -9px) scale(1.12); }
-  48% { opacity: 1; transform: translate(-50%, -20px) scale(1); }
-  78% { opacity: 1; transform: translate(-50%, -27px) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -42px) scale(.92); }
+  0% { opacity: 0; transform: translate(-50%, -14px) scale(.55); }
+  16% { opacity: 1; transform: translate(-50%, 9px) scale(1.12); }
+  48% { opacity: 1; transform: translate(-50%, 20px) scale(1); }
+  78% { opacity: 1; transform: translate(-50%, 27px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, 42px) scale(.92); }
 }
 @keyframes capital-gain-halo {
   0% { opacity: 0; transform: scale(.08) rotate(-35deg); }

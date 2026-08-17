@@ -31,6 +31,13 @@ describe("WCAG interaction semantics", () => {
     expect(player).toContain('role="dialog" aria-modal="true"');
   });
 
+  it("opens the resource portfolio without focusing its search input", () => {
+    expect(modalFocus).toContain('initialFocus?: "first-control" | "container"');
+    expect(modalFocus).toContain('options.initialFocus === "container"');
+    expect(player).toContain('{ initialFocus: "container" }');
+    expect(player).not.toContain('<input v-model="portfolioSearch" autofocus');
+  });
+
   it("reports fullscreen state and the current game state", () => {
     expect(display).toContain(':aria-pressed="fullscreen"');
     expect(display).toContain("Quitter le plein écran");

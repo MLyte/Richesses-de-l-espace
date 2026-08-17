@@ -12,9 +12,21 @@ describe("mobile portfolio drawer layout", () => {
     expect(theme).not.toMatch(/\.portfolio-close\s*\{[^}]*position:\s*absolute/s);
   });
 
-  it("scrolls the resource list instead of clipping its actions", () => {
+  it("uses one continuous scrolling resource page without pagination", () => {
     expect(theme).toMatch(/\.portfolio-drawer\s*\{[^}]*overflow-y:\s*auto/s);
-    expect(theme).toMatch(/\.resource-score-list--drawer\s*\{[^}]*overflow-y:\s*auto/s);
+    expect(theme).toMatch(/\.resource-score-list--drawer\s*\{[^}]*overflow-y:\s*visible/s);
     expect(theme).toMatch(/\.resource-score-list--drawer\s+\.resource-score\s*\{[^}]*overflow:\s*visible/s);
+    expect(playerView).not.toContain("portfolioPage");
+    expect(playerView).not.toContain("portfolio-pager");
+  });
+
+  it("keeps resource filters visible above the scrolling list", () => {
+    expect(playerView).toContain('class="portfolio-drawer__sticky-top"');
+    expect(playerView).toContain('v-model="portfolioSearch"');
+    expect(playerView).toContain(":aria-pressed=\"portfolioRightsFilter === 'active'\"");
+    expect(playerView).toContain('v-model="portfolioSort"');
+    expect(playerView).toContain("Sans droits");
+    expect(playerView).toContain("Droits actifs");
+    expect(theme).toMatch(/\.portfolio-drawer__sticky-top\s*\{[^}]*position:\s*sticky[^}]*top:\s*0/s);
   });
 });

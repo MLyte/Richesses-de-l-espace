@@ -9,7 +9,16 @@ const focusableSelector = [
   "[tabindex]:not([tabindex='-1'])"
 ].join(",");
 
-export function useAccessibleModal(open: Ref<boolean>, container: Ref<HTMLElement | null>, close: () => void) {
+type AccessibleModalOptions = {
+  initialFocus?: "first-control" | "container";
+};
+
+export function useAccessibleModal(
+  open: Ref<boolean>,
+  container: Ref<HTMLElement | null>,
+  close: () => void,
+  options: AccessibleModalOptions = {}
+) {
   let opener: HTMLElement | null = null;
 
   const stop = watch(open, async (isOpen) => {
@@ -17,7 +26,8 @@ export function useAccessibleModal(open: Ref<boolean>, container: Ref<HTMLElemen
       opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       await nextTick();
       const firstControl = container.value?.querySelector<HTMLElement>(focusableSelector);
-      (firstControl ?? container.value)?.focus();
+      const initialFocus = options.initialFocus === "container" ? container.value : firstControl ?? container.value;
+      initialFocus?.focus({ preventScroll: true });
       return;
     }
     opener?.focus();

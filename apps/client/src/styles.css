@@ -1779,11 +1779,6 @@ body {
 .resource-score-list--drawer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: .7rem; margin: 0; overflow: hidden; }
 .resource-score-list--drawer .resource-score { min-width: 0; }
 .portfolio-drawer .empty-portfolio { align-self: center; color: #a9d3e3; text-align: center; }
-.portfolio-pager { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .7rem; }
-.portfolio-pager span { color: #a9d3e3; font: 700 .72rem "IBM Plex Mono", monospace; }
-.portfolio-pager button { min-height: 44px; color: #f3f8fc; border: 1px solid rgba(169, 189, 208, .42); border-radius: 10px; background: #102a43; font: inherit; font-size: .75rem; font-weight: 800; }
-.portfolio-pager button:last-child { background: #1d718d; }
-.portfolio-pager button:disabled { opacity: .38; }
 
 @media (max-width: 600px) { .resource-score-list--drawer { grid-template-columns: 1fr; } }
 /* Plateau : tuiles spatiales sobres, alignées sur les panneaux de l'application. */
@@ -1929,10 +1924,9 @@ body {
   margin-top: 1.6rem;
   padding-top: .5rem;
 }
-/* Tiroir mobile : deux ressources par page, avec une vraie taille de lecture. */
+/* Tiroir mobile : ressources lisibles dans une liste continue. */
 .resource-score-list--drawer {
   grid-template-columns: 1fr;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: .85rem;
 }
 .portfolio-drawer .resource-score {
@@ -1986,9 +1980,8 @@ body {
   align-items: baseline;
   gap: .55rem;
 }
-/* Portefeuille courant : trois ressources indépendantes restent réunies sur une page. */
+/* Portefeuille courant : rythme compact pour la liste continue. */
 .resource-score-list--drawer {
-  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: .6rem;
 }
 .portfolio-drawer .resource-score { padding: .65rem .75rem; }
@@ -2039,7 +2032,7 @@ body {
   stroke: currentColor;
   pointer-events: none;
 }
-/* Portefeuille : chaque page reste dans une seule filière de ressources. */
+/* Portefeuille : en-tête du catalogue personnel. */
 .portfolio-drawer .section-title--portfolio {
   display: flex;
   flex-wrap: wrap;
