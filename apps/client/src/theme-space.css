@@ -606,7 +606,59 @@ button:disabled {
 }
 
 /* Composition TV : zones réservées pour une lecture à distance. */
-@media (min-width: 1280px) {
+@media (min-width: 1024px) and (orientation: landscape) {
+  html:has(.display-shell),
+  body:has(.display-shell),
+  #app:has(.display-shell) {
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .display-shell:has(.display-header--game) {
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .display-header--game {
+    position: fixed;
+    z-index: 60;
+    width: auto;
+    gap: 0;
+    border: 0;
+  }
+  .display-header--game .session-code,
+  .display-header--game .round-label { display: none; }
+  .display-header--game ~ .game-display {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .game-display > .board-stage {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+  }
+  .game-display > .players-panel,
+  .game-display > .context-panel {
+    position: absolute;
+    z-index: 6;
+    margin: 0;
+  }
+  .world-board--tabletop { inset: 0; padding: 0; }
+
   .display-shell:has(.display-header--game) {
     --tv-track-x: calc(100vw / 24);
     --tv-track-y: calc(100dvh / 17);
@@ -692,7 +744,7 @@ button:disabled {
   .players-panel--count-4 .player-holdings { display: block; }
 }
 
-@media (min-width: 1280px) and (max-height: 800px) {
+@media (min-width: 1024px) and (orientation: landscape) and (max-height: 800px) {
   .display-shell:has(.display-header--game) {
     --tv-zone-gap: clamp(.5rem, 1.2vh, .75rem);
     --tv-panel-max-height: 31dvh;
@@ -701,10 +753,10 @@ button:disabled {
 
 }
 /* Écran TV : ailes joueurs latérales et centre réservé aux informations de partie. */
-@media (min-width: 1280px) {
+@media (min-width: 1024px) and (orientation: landscape) {
   .display-shell:has(.display-header--game) {
-    --tv-side-width: clamp(20rem, 26vw, 44rem);
-    --tv-center-width: clamp(27rem, 34vw, 54rem);
+    --tv-side-width: clamp(14rem, 26vw, 44rem);
+    --tv-center-width: clamp(22rem, 34vw, 54rem);
     --tv-content-bottom: calc(var(--tv-track-y) + var(--tv-zone-gap));
   }
 
@@ -712,8 +764,9 @@ button:disabled {
     top: var(--tv-panel-top);
     bottom: var(--tv-content-bottom);
     width: var(--tv-side-width);
-    height: auto;
+    height: calc(100% - var(--tv-panel-top) - var(--tv-content-bottom));
     max-height: none;
+    align-self: stretch;
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: auto repeat(var(--wing-player-count), minmax(0, 1fr));
@@ -790,6 +843,11 @@ button:disabled {
     width: var(--tv-center-width);
     transform: translateX(-50%);
   }
+}
+
+@media (min-width: 1024px) and (orientation: landscape) and (max-width: 1279px),
+       (min-width: 1024px) and (orientation: landscape) and (max-height: 800px) {
+  .players-panel .player-holdings { display: none !important; }
 }
 
 @media (max-width: 1279px) {
@@ -1114,7 +1172,7 @@ button:disabled {
   }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) and (orientation: landscape) {
   .context-panel,
   .pause-overlay,
   .result-overlay,
@@ -1129,12 +1187,29 @@ button:disabled {
   .context-panel .history-panel li:nth-child(n + 5) { display: none; }
 }
 
-/* Le lobby TV doit rester entièrement lisible sans défilement, y compris en 720p. */
-@media (min-width: 901px) and (min-height: 801px) {
-  .display-shell:not(:has(.display-header--game)) { padding-bottom: 0; }
-}
-@media (min-width: 1800px) and (min-height: 900px) {
-  .lobby-display { min-height: calc(100dvh - 92px); }
+/* Le lobby TV occupe exactement le viewport, sans bande de fond défilante. */
+@media (min-width: 901px) {
+  html:has(.display-shell),
+  body:has(.display-shell),
+  #app:has(.display-shell) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .display-shell:not(:has(.display-header--game)) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+  .display-shell:not(:has(.display-header--game)) > .lobby-display {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
 }
 @media (min-width: 901px) and (max-height: 800px) {
   .display-shell:not(:has(.display-header--game)) {

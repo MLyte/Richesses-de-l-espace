@@ -35,9 +35,28 @@ describe("shared TV display layout", () => {
     expect(tvLayout).toMatch(/\.board-stage \.dice-result\s*\{\s*bottom:\s*calc\(var\(--tv-track-y\) \+ var\(--tv-zone-gap\)\)/);
   });
 
+  it("locks the shared display to the dynamic viewport in landscape", () => {
+    expect(theme).toContain("@media (min-width: 1024px) and (orientation: landscape)");
+    expect(theme).toMatch(/html:has\(\.display-shell\),[\s\S]*#app:has\(\.display-shell\)\s*\{[^}]*height:\s*100dvh[^}]*overflow:\s*hidden/s);
+    expect(theme).toMatch(/\.display-header--game ~ \.game-display\s*\{[^}]*height:\s*100dvh[^}]*min-height:\s*0[^}]*overflow:\s*hidden/s);
+    expect(theme).toMatch(/\.game-display > \.board-stage\s*\{[^}]*position:\s*absolute[^}]*inset:\s*0[^}]*height:\s*100%/s);
+  });
+
+  it("keeps landscape player wings inside the available height", () => {
+    expect(theme).toMatch(/\.players-panel\s*\{[^}]*top:\s*var\(--tv-panel-top\)[^}]*bottom:\s*var\(--tv-content-bottom\)[^}]*height:\s*calc\(100% - var\(--tv-panel-top\) - var\(--tv-content-bottom\)\)[^}]*align-self:\s*stretch[^}]*overflow:\s*hidden/s);
+    expect(theme).toMatch(/--tv-side-width:\s*clamp\(14rem, 26vw, 44rem\)/);
+    expect(theme).toMatch(/--tv-center-width:\s*clamp\(22rem, 34vw, 54rem\)/);
+    expect(theme).toMatch(/max-width:\s*1279px[\s\S]*\.players-panel \.player-holdings\s*\{\s*display:\s*none !important/);
+  });
+
   it("keeps the lobby scroll-free on short TV viewports", () => {
     expect(theme).toContain("@media (min-width: 901px) and (max-height: 800px)");
     expect(theme).toMatch(/\.display-shell:not\(:has\(\.display-header--game\)\)\s*\{[^}]*height:\s*100dvh[^}]*overflow:\s*hidden/s);
     expect(theme).toMatch(/\.lobby-rules\s*\{\s*display:\s*none/);
+  });
+
+  it("makes the lobby header and content share exactly one viewport", () => {
+    expect(theme).toMatch(/\.display-shell:not\(:has\(\.display-header--game\)\)\s*\{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\)[^}]*height:\s*100dvh[^}]*overflow:\s*hidden/s);
+    expect(theme).toMatch(/\.display-shell:not\(:has\(\.display-header--game\)\) > \.lobby-display\s*\{[^}]*height:\s*100%[^}]*min-height:\s*0/s);
   });
 });
