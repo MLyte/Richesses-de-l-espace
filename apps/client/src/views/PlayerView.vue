@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ASSETS, AUCTION_BID_GRACE_MS, AUCTION_INITIAL_DURATION_MS, COUNTRIES, LEVER_CARDS, RESOURCES, STARTING_CAPITAL, TREND_CARDS, type RaceShipId } from "@richesses-espace/game";
 import { PLAYER_COLORS, PLAYER_SYMBOLS, type BotProfile } from "@richesses-espace/protocol";
@@ -66,6 +66,9 @@ const portfolioDialog = ref<HTMLElement | null>(null);
 const portfolioSearch = ref("");
 const portfolioRightsFilter = ref<"all" | "inactive" | "active">("all");
 const portfolioSort = ref<"influence" | "name" | "concessions">("influence");
+const phoneShell = ref<HTMLElement | null>(null);
+const hostMenu = ref<HTMLDetailsElement | null>(null);
+const hostMenuOpen = ref(false);
 const { onKeydown: onTradeKeydown } = useAccessibleModal(tradeOpen, tradeDialog, () => { tradeOpen.value = false; });
 const { onKeydown: onPortfolioKeydown } = useAccessibleModal(
   portfolioOpen,
@@ -158,6 +161,7 @@ const isMyTurn = computed(() => store.game?.activePlayerId === me.value?.id);
 const isPhoneHost = computed(() => Boolean(store.player?.isHost));
 const canResumeGame = computed(() => Boolean(store.game?.players.every((player) => player.bankrupt || player.mergedIntoId || player.connected)));
 const mobileOnly = computed(() => store.game?.displayMode === "MOBILE_ONLY");
+const mobileNotificationEnabled = computed(() => Boolean(mobileOnly.value && store.player && store.game?.phase !== "LOBBY"));
 const botThinkingPlayer = computed(() => store.game?.players.find((player) => player.id === store.game?.botThinkingPlayerId) ?? null);
 const turnTravelVisible = computed(() => {
   const activePlayer = store.activePlayer;
@@ -222,10 +226,44 @@ const mobileTurnNotice = computed<MobileToastNotice | null>(() => {
     kind: "turn"
   };
 });
+const mobileErrorNotice = computed<MobileToastNotice | null>(() => store.error && mobileNotificationEnabled.value ? {
+  key: `error:${store.error}`,
+  message: store.error,
+  kind: "error"
+} : null);
+const mandatoryActionKey = computed(() => {
+  const game = store.game;
+  if (!game) return null;
+  return [game.phase, game.activePlayerId, game.pendingAssetId, game.landedSpaceId, game.pendingPurchase?.source, game.pendingLever?.price, game.pendingPayment?.assetId, game.auction?.mode].join(":");
+});
+function closeHostMenu() {
+  hostMenuOpen.value = false;
+  if (hostMenu.value) hostMenu.value.open = false;
+}
+function syncHostMenu(event: Event) {
+  hostMenuOpen.value = (event.currentTarget as HTMLDetailsElement).open;
+}
+function onDocumentPointerDown(event: PointerEvent) {
+  if (hostMenuOpen.value && !hostMenu.value?.contains(event.target as Node)) closeHostMenu();
+}
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") closeHostMenu();
+}
+function resetMandatoryActionScroll() {
+  void nextTick(() => {
+    phoneShell.value?.scrollTo({ top: 0, behavior: "auto" });
+    window.scrollTo({ top: 0, behavior: "auto" });
+    phoneShell.value?.querySelector<HTMLElement>(".phone-starting-race, .controller-screen")?.scrollTo({ top: 0, behavior: "auto" });
+  });
+}
 watch(() => store.game?.auction?.mode === "selection" ? `${store.game.turnNumber}:${store.game.auction.sellerId}:${store.game.landedSpaceId}` : null, () => { auctionSelection.value = []; });
 watch(auctionMinimum, (minimum) => { bidAmount.value = minimum; }, { immediate: true });
 watch(() => store.game?.pendingPurchase ? `${store.game.turnNumber}:${store.game.landedSpaceId}` : null, () => { purchaseSelection.value = []; });
 watch(() => store.game?.auction?.mode === "bidding" ? `${store.game.turnNumber}:${store.game.auction.currentLotIndex}` : null, () => { auctionPassPending.value = false; });
+watch(mandatoryActionKey, () => {
+  closeHostMenu();
+  resetMandatoryActionScroll();
+});
 watch(() => me.value?.capital, (capital, previousCapital) => {
   const amount = resolveCapitalGain(previousCapital, capital);
   if (amount == null) return;
@@ -233,13 +271,25 @@ watch(() => me.value?.capital, (capital, previousCapital) => {
   window.clearTimeout(capitalGainTimer);
   capitalGainTimer = window.setTimeout(() => { capitalGain.value = null; }, 1900);
 });
-onBeforeUnmount(() => window.clearTimeout(capitalGainTimer));
+onMounted(() => {
+  document.addEventListener("pointerdown", onDocumentPointerDown);
+  document.addEventListener("keydown", onDocumentKeydown);
+});
+onBeforeUnmount(() => {
+  window.clearTimeout(capitalGainTimer);
+  document.removeEventListener("pointerdown", onDocumentPointerDown);
+  document.removeEventListener("keydown", onDocumentKeydown);
+});
 async function run(action: () => Promise<unknown>) {
   if (mobilePreview) {
     store.error = "Aperçu solo : les commandes réseau sont désactivées, mais la carte et le portefeuille restent interactifs.";
     return;
   }
   try { await action(); } catch { /* affiché */ }
+}
+async function runHostCommand(action: () => Promise<unknown>) {
+  closeHostMenu();
+  await run(action);
 }
 function addBot() { return run(() => store.addBot(newBotProfile.value)); }
 function updateBot(playerId: string, event: Event) { return run(() => store.updateBot(playerId, (event.target as HTMLSelectElement).value as BotProfile)); }
@@ -283,33 +333,34 @@ async function shareInvitation() {
   }
 }
 async function finishAsHost() {
+  closeHostMenu();
   if (window.confirm("Terminer la partie pour tous les joueurs ?")) await run(store.finish);
 }
 function goHome() { void router.push("/"); }
 </script>
 
 <template>
-  <main class="phone-shell">
+  <main ref="phoneShell" class="phone-shell" :class="{ 'phone-shell--active-game': Boolean(store.player && store.game && store.game.phase !== 'LOBBY') }">
     <header class="phone-header">
       <div class="brand compact"><span class="brand-mark"><GameIcon name="reward" /></span><span>RICHESSES DE L’ESPACE</span></div>
       <div class="phone-tools">
         <div v-if="store.player && mobileOnly && !['LOBBY', 'SHIP_SELECTION', 'SHIP_RACE'].includes(store.game?.phase ?? '')" class="phone-header__capital" role="status" aria-live="polite" :aria-label="`Capital disponible : ${store.me?.capital ?? 0} crédits`"><HandCoins :size="17" aria-hidden="true" /><strong>{{ store.me?.capital ?? 0 }}</strong><small>cr.</small><CapitalGainBurst v-if="capitalGain" :key="capitalGain.key" :amount="capitalGain.amount" /></div>
         <button v-if="store.player && mobileOnly" type="button" class="phone-resource-button" @click="openPortfolio" aria-haspopup="dialog"><PackageOpen :size="18" aria-hidden="true" /><span>Ressources</span><b>{{ myAssets.length }}</b></button>
         <HelpOverlay /><SoundToggle /><span class="connection-dot" :class="{ online: store.connected }" role="status" :aria-label="store.connected ? 'Connexion au serveur active' : 'Connexion au serveur interrompue'" />
-        <details v-if="isPhoneHost && store.game?.phase !== 'LOBBY'" class="mobile-host-menu">
+        <details v-if="isPhoneHost && store.game?.phase !== 'LOBBY'" ref="hostMenu" class="mobile-host-menu" :open="hostMenuOpen" @toggle="syncHostMenu">
           <summary aria-label="Commandes de l’hôte"><Menu :size="18" aria-hidden="true" /></summary>
           <div>
             <span class="mobile-host-menu__label">Commandes de l’hôte</span>
-            <button v-if="store.game?.phase === 'PAUSED'" type="button" :disabled="store.pending || !canResumeGame" @click="run(store.resumeGame)">Reprendre</button>
-            <button v-else-if="store.game?.phase !== 'FINISHED'" type="button" @click="run(store.pause)">Mettre en pause</button>
-            <button v-if="store.game?.phase === 'FINISHED'" type="button" @click="run(store.restart)">{{ store.localGame ? 'Rejouer contre les robots' : 'Rejouer avec le groupe' }}</button>
+            <button v-if="store.game?.phase === 'PAUSED'" type="button" :disabled="store.pending || !canResumeGame" @click="runHostCommand(store.resumeGame)">Reprendre</button>
+            <button v-else-if="store.game?.phase !== 'FINISHED'" type="button" @click="runHostCommand(store.pause)">Mettre en pause</button>
+            <button v-if="store.game?.phase === 'FINISHED'" type="button" @click="runHostCommand(store.restart)">{{ store.localGame ? 'Rejouer contre les robots' : 'Rejouer avec le groupe' }}</button>
             <button v-else type="button" class="danger" @click="finishAsHost">Terminer</button>
           </div>
         </details>
       </div>
     </header>
     <p v-if="store.game" class="sr-only" role="status" aria-live="polite">Ronde {{ store.game.roundNumber }}. {{ store.game.phase === 'SHIP_SELECTION' ? 'Sélection des vaisseaux de départ.' : store.game.phase === 'SHIP_RACE' ? `Course de ${store.game.startingRace.finishOrder.length} vaisseaux en cours.` : `Tour de ${store.activePlayer?.name}.` }} {{ botThinkingPlayer ? `${botThinkingPlayer.name} réfléchit.` : isMyTurn ? 'Une action vous attend.' : 'Suivez la progression de la flotte.' }}</p>
-    <MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />
+    <MobileToastQueue v-if="mobileNotificationEnabled" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" :error="mobileErrorNotice" @dismiss-error="store.error = ''" />
 
     <section v-if="!store.player" class="join-screen">
       <p class="eyebrow">Expédition {{ code }}</p>
@@ -447,21 +498,21 @@ function goHome() { void router.push("/"); }
         <div v-else-if="!mobileOnly && !allowed('ROLL_DICE') && !allowed('BUY_ASSET') && !allowed('PASS_ASSET') && !allowed('PAY_RETURNS') && !allowed('END_TURN')" class="spectator-state"><div class="state-message"><span class="waiting-pulse" /><h2>Tour de {{ store.activePlayer?.name }}</h2><p>Suivez les mouvements sur l’écran commun.</p></div><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /></div>
         <div v-else-if="allowed('ROLL_DICE')" class="primary-action action-card action-card--roll mobile-map-overlay"><p class="eyebrow">À vous de jouer</p><h1>Faites avancer l’expédition.</h1><button class="dice-button" :disabled="store.pending" @click="run(store.roll)"><Dices :size="28" aria-hidden="true" />Lancer les dés</button></div>
         <div v-else-if="pendingAsset && allowed('BUY_ASSET')" class="purchase-action country-purchase mobile-map-overlay">
-          <AssetCard v-if="store.game.pendingPurchase?.source === 'classic'" :asset-id="pendingAsset.id" compact />
+          <AssetCard v-if="store.game.pendingPurchase?.source === 'classic'" :asset-id="pendingAsset.id" compact variant="mobile-summary" />
           <p class="eyebrow">{{ store.game.pendingPurchase?.source === 'classic' ? `${pendingCountry?.continent} · ${pendingCountry?.name}` : store.game.pendingPurchase?.source === 'regional' ? 'Portail sectoriel' : 'Portail galactique' }}</p>
           <h2>{{ store.game.pendingPurchase?.source === 'classic' ? `Choisissez jusqu’à ${store.game.pendingPurchase?.maxAssets} concessions du monde` : store.game.pendingPurchase?.label }}</h2>
           <p v-if="store.game.pendingPurchase?.source === 'classic'">Les droits de <strong>{{ pendingResource?.name }}</strong> ont été réglés. Vous pouvez maintenant compléter votre portefeuille avec les concessions de ce monde.</p>
           <p v-else>Choisissez jusqu’à six concessions parmi les ressources que vous possédez déjà. Ce choix ne déclenche aucun droit.</p>
           <div class="auction-selection title-selection"><label v-for="title in pendingTitles" :key="title.id" :class="{ selected: purchaseSelection.includes(title.id) }"><input v-model="purchaseSelection" type="checkbox" :value="title.id" :disabled="!purchaseSelection.includes(title.id) && purchaseSelection.length >= (store.game.pendingPurchase?.maxAssets ?? 6)" /><span class="title-selection__copy"><strong>{{ title.name }}</strong><small>{{ title.share }}&nbsp;%</small></span><b>{{ title.basePrice }}&nbsp;cr.</b></label></div>
-          <div class="purchase-total"><span>{{ purchaseSelection.length }}&nbsp;concession(s)</span><b>{{ purchaseTotal }}&nbsp;crédits</b></div>
-          <div class="action-row"><button class="secondary-button" :disabled="store.pending" @click="run(store.pass)">Ne rien acheter</button><button class="primary-button" :disabled="store.pending || !purchaseSelection.length || me.capital < purchaseTotal" @click="run(() => store.buy(purchaseSelection))">Acheter la sélection</button></div>
+          <footer class="purchase-footer"><div class="purchase-total"><span>{{ purchaseSelection.length }}&nbsp;concession(s)</span><b>{{ purchaseTotal }}&nbsp;crédits</b></div>
+          <div class="action-row"><button class="secondary-button" :disabled="store.pending" @click="run(store.pass)">Ne rien acheter</button><button class="primary-button" :disabled="store.pending || !purchaseSelection.length || me.capital < purchaseTotal" @click="run(() => store.buy(purchaseSelection))">Acheter la sélection</button></div></footer>
         </div>
         <div v-else-if="payment && (allowed('PAY_RETURNS') || allowed('DECLARE_BANKRUPTCY'))" class="payment-action mobile-map-overlay">
           <AssetCard :asset-id="payment.assetId" :owner="paymentRecipient?.name ?? null" />
           <div class="payment-summary"><p class="eyebrow">Droit d’extraction obligatoire</p><h2>{{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }} à verser</h2><p v-if="allowed('DECLARE_BANKRUPTCY')">Vos liquidités sont insuffisantes. Vous pouvez d’abord vendre un portefeuille complet via « Vendre ». Sinon, la Banque interstellaire couvrira la dette et vos concessions retourneront aux registres.</p><p v-else>Ce droit rémunère {{ paymentRecipient?.name }}. Le tour ne peut pas se terminer avant votre confirmation.</p><button v-if="allowed('PAY_RETURNS')" class="primary-button payment-button" :disabled="store.pending" @click="run(store.payReturns)">Payer {{ payment.amount }} crédit{{ payment.amount > 1 ? 's' : '' }}</button><button v-if="allowed('DECLARE_BANKRUPTCY')" class="bankruptcy-button" @click="run(store.declareBankruptcy)">Perdre la licence</button></div>
         </div>
-        <div v-else-if="allowed('END_TURN')" class="end-turn-action landing-result-overlay mobile-map-overlay" role="status" aria-live="polite"><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact /><div><p class="eyebrow">Case résolue</p><h2>Vous avez pris connaissance de son effet.</h2><button class="primary-button" :disabled="store.pending" @click="run(store.endTurn)">Terminer le tour</button></div></div>
-        <div v-else-if="mobileOnly && store.game.landedSpaceId" class="landing-result-overlay landing-result-overlay--spectator mobile-map-overlay" role="status" aria-live="polite"><LandingNotice :game="store.game" compact /><p class="landing-result-overlay__waiting">Résolution en cours sur le téléphone de <strong>{{ store.activePlayer?.name }}</strong>.</p></div>
+        <div v-else-if="allowed('END_TURN')" class="end-turn-action landing-result-overlay mobile-map-overlay" role="status" aria-live="polite"><LandingNotice v-if="store.game.landedSpaceId" :game="store.game" compact mobile-summary /><div><p class="eyebrow">Case résolue</p><h2>Vous avez pris connaissance de son effet.</h2><button class="primary-button" :disabled="store.pending" @click="run(store.endTurn)">Terminer le tour</button></div></div>
+        <div v-else-if="mobileOnly && store.game.landedSpaceId" class="landing-result-overlay landing-result-overlay--spectator mobile-map-overlay" role="status" aria-live="polite"><LandingNotice :game="store.game" compact mobile-summary /><p class="landing-result-overlay__waiting">Résolution en cours sur le téléphone de <strong>{{ store.activePlayer?.name }}</strong>.</p></div>
 
         <aside v-if="!mobileOnly && allowed('PROPOSE_TRADE') && tradeTargets.length" class="title-actions" :class="{ 'title-actions--with-primary': hasFixedPrimaryTurnAction }" aria-label="Transferts de concessions">
           <p v-if="isMyTurn && me.capital === 0">Plus de liquidités : vous pouvez vendre un groupe complet avant de lancer les dés ou de terminer votre tour.</p>
@@ -528,7 +579,7 @@ function goHome() { void router.push("/"); }
       </section>
     </template>
     <section v-else class="loading-state"><span class="spinner" /><p>Connexion au relais spatial…</p></section>
-    <ErrorToast v-if="store.error" :message="store.error" @dismiss="store.error = ''" />
+    <ErrorToast v-if="store.error && !mobileNotificationEnabled" :message="store.error" @dismiss="store.error = ''" />
   </main>
 </template>
 

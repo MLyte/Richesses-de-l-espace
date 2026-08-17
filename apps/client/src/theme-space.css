@@ -499,10 +499,10 @@ h1, h2, h3, .brand, .session-code b, .round-label b, .panel-heading b { color: v
 .portfolio-search input { width: 100%; min-width: 0; min-height: 42px; padding: 0; color: #f3f8fc; border: 0; outline: 0; background: transparent; font: inherit; }
 .portfolio-search input::placeholder { color: #9fc3d3; opacity: 1; }
 .portfolio-filter-chips { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
-.portfolio-filter-chips button { min-width: 0; min-height: 42px; padding: .35rem .45rem; color: #c9e8f4; border: 1px solid #72a9c2; border-radius: 999px; background: #102a43; font: inherit; font-size: .72rem; font-weight: 800; }
+.portfolio-filter-chips button { min-width: 0; min-height: 44px; padding: .35rem .45rem; color: #c9e8f4; border: 1px solid #72a9c2; border-radius: 999px; background: #102a43; font: inherit; font-size: .72rem; font-weight: 800; }
 .portfolio-filter-chips button.active { color: #06111f; border-color: #35d0e2; background: #35d0e2; }
 .portfolio-sort { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .45rem; color: #c9e8f4; font: 700 .7rem "IBM Plex Mono", monospace; }
-.portfolio-sort select { min-width: 0; min-height: 40px; padding: 0 1.8rem 0 .6rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 10px; background: #102a43; font: inherit; }
+.portfolio-sort select { min-width: 0; min-height: 44px; padding: 0 1.8rem 0 .6rem; color: #f3f8fc; border: 1px solid #72a9c2; border-radius: 10px; background: #102a43; font: inherit; }
 .portfolio-filter-count { align-self: center; color: #c9e8f4; font: 700 .68rem "IBM Plex Mono", monospace; text-align: right; }
 .resource-score-list--drawer { grid-template-rows: none; padding-right: 0; overflow-y: visible; scrollbar-gutter: auto; }
 .portfolio-actions { display: grid; gap: .55rem; padding-top: .75rem; border-top: 1px solid rgba(114, 169, 194, .45); }
@@ -912,6 +912,24 @@ button:disabled {
     color: #f3f8fc;
     background: linear-gradient(180deg, rgba(7, 28, 48, .97), #06111f 38%);
   }
+  .controller-screen--map > .country-purchase {
+    display: grid;
+    grid-template-rows: auto auto auto auto minmax(112px, 1fr) auto;
+    gap: .45rem;
+    height: calc(var(--app-viewport-height) - var(--phone-header-height) - var(--safe-top) - 4.5rem);
+    max-height: 760px;
+    margin-top: .35rem;
+    padding: .55rem .75rem calc(.55rem + var(--safe-bottom));
+    overflow: hidden;
+  }
+  .controller-screen--map > .country-purchase > :is(.eyebrow, h2, p) { margin-block: 0; }
+  .controller-screen--map > .country-purchase > h2 { font-size: clamp(1.25rem, 5.5vw, 1.65rem); line-height: 1.05; }
+  .controller-screen--map > .country-purchase > p:not(.eyebrow) { font-size: .76rem; line-height: 1.35; }
+  .controller-screen--map > .country-purchase .auction-selection { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .controller-screen--map > .country-purchase .purchase-footer { position: sticky; bottom: 0; display: grid; gap: .45rem; padding-top: .5rem; border-top: 1px solid rgba(114,169,194,.35); background: #06111f; }
+  .controller-screen--map > .country-purchase .purchase-total { margin: 0; }
+  .controller-screen--map > .country-purchase .purchase-footer .action-row { margin: 0; padding: 0; }
+  .controller-screen--map > .country-purchase .purchase-footer .action-row button { min-height: 52px; padding: .55rem; }
   .controller-screen--map > .mobile-map-overlay :is(.action-row, .liquidation-list, .payment-button, .bankruptcy-button, .trade-response > .wide-button) {
     position: static;
     inset: auto;
@@ -954,11 +972,12 @@ button:disabled {
   .controller-screen--map > .landing-result-overlay {
     position: fixed;
     z-index: var(--layer-action);
-    inset: calc(var(--phone-header-height) + var(--safe-top) + .75rem) .75rem calc(.75rem + var(--safe-bottom));
+    inset: auto .75rem calc(.75rem + var(--safe-bottom));
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
     gap: .65rem;
     width: auto;
+    max-height: 60dvh;
     min-height: 0;
     margin: 0;
     padding: .65rem;
@@ -971,8 +990,8 @@ button:disabled {
     backdrop-filter: blur(5px);
   }
   .controller-screen--map > .landing-result-overlay > .landing-notice { align-self: start; min-height: 0; margin: 0; }
-  .controller-screen--map > .landing-result-overlay > .landing-notice > .asset-card { min-height: 185px; aspect-ratio: 16 / 9; }
-  .controller-screen--map > .landing-result-overlay > .landing-notice .landing-notice__special-card { min-height: 165px; }
+  .controller-screen--map > .landing-result-overlay > .landing-notice > .asset-card { min-height: 140px; max-height: 180px; aspect-ratio: auto; }
+  .controller-screen--map > .landing-result-overlay > .landing-notice .landing-notice__special-card { min-height: 130px; }
   .controller-screen--map > .landing-result-overlay.end-turn-action > div:last-child { position: sticky; bottom: 0; padding: .65rem; border: 1px solid rgba(114, 169, 194, .48); border-radius: 14px; background: rgba(7, 28, 48, .96); box-shadow: 0 -8px 22px rgba(0, 0, 0, .28); }
   .controller-screen--map > .landing-result-overlay.end-turn-action > div:last-child :is(.eyebrow, h2) { display: none; }
   .controller-screen--map > .landing-result-overlay.end-turn-action .primary-button { width: 100%; min-height: 58px; margin: 0; }
@@ -989,9 +1008,11 @@ button:disabled {
     min-height: 44px;
   }
   .phone-header .brand { font-size: .875rem; }
-  .phone-shell:has(.controller-screen--mobile-only) .phone-header .brand { display: none; }
-  .phone-shell:has(.controller-screen--mobile-only) .phone-tools { width: 100%; justify-content: flex-end; gap: clamp(.35rem, 2.4vw, .7rem); }
-  .phone-shell:has(.controller-screen--mobile-only) .phone-resource-button { margin-right: auto; }
+  .phone-shell--active-game .phone-header .brand { display: flex; flex: 0 0 44px; width: 44px; min-width: 44px; }
+  .phone-shell--active-game .phone-header .brand > span:not(.brand-mark) { display: none; }
+  .phone-shell--active-game .phone-header .brand-mark { margin: 0; }
+  .phone-shell--active-game .phone-tools { width: calc(100% - 44px); justify-content: flex-end; gap: clamp(.25rem, 1.8vw, .55rem); }
+  .phone-shell--active-game .phone-resource-button { margin-right: auto; }
   .controller-meta span,
   .eyebrow { font-size: .75rem; }
   .title-actions button { font-size: .8125rem; }
@@ -1021,7 +1042,9 @@ button:disabled {
 }
 
 @media (max-width: 430px) {
-  .phone-shell:has(.controller-screen--mobile-only) .phone-resource-button > span { display: none; }
+  .phone-shell--active-game .phone-resource-button > span { display: none; }
+  .help-dialog:not(.help-dialog--compact) { padding-right: 4.25rem; }
+  .help-dialog:not(.help-dialog--compact) h2 { max-width: 9.5em; font-size: clamp(1.6rem, 8vw, 2.15rem); line-height: 1.05; }
 }
 
 @media (max-width: 340px) {

@@ -117,7 +117,7 @@ describe("WCAG 2.2 AA rendered theme palette", () => {
 
   it("keeps narrow headers, short states and supporting pages readable", () => {
     expect(theme).toMatch(/\.controller-screen--map > \.mobile-map-overlay:not\([\s\S]*position:\s*relative[^}]*overflow-y:\s*visible/s);
-    expect(theme).toMatch(/\.phone-shell:has\(\.controller-screen--mobile-only\) \.phone-resource-button\s*\{[^}]*margin-right:\s*auto/s);
+    expect(theme).toMatch(/\.phone-shell--active-game \.phone-resource-button\s*\{[^}]*margin-right:\s*auto/s);
     expect(theme).toMatch(/@media \(max-width: 340px\)[\s\S]*\.phone-header \.brand > span:last-child\s*\{[^}]*display:\s*none/s);
     expect(theme).toMatch(/\.credits-shell \.back-link,[\s\S]*\.credits-grid a\s*\{[^}]*min-height:\s*44px[^}]*font-size:\s*\.875rem/s);
   });

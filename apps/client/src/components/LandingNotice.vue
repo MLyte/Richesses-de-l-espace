@@ -5,7 +5,7 @@ import type { PublicGameView } from "@richesses-espace/protocol";
 import AssetCard from "./AssetCard.vue";
 import GameIcon from "./GameIcon.vue";
 
-const props = defineProps<{ game: PublicGameView; compact?: boolean }>();
+const props = defineProps<{ game: PublicGameView; compact?: boolean; mobileSummary?: boolean }>();
 const space = computed(() => props.game.board.find((item) => item.id === props.game.landedSpaceId) ?? null);
 const asset = computed(() => {
   const landed = space.value;
@@ -45,7 +45,7 @@ const meta = computed(() => {
 
 <template>
   <section v-if="space && meta" class="landing-notice" :class="[`tone-${meta.tone}`, { compact }]">
-    <AssetCard v-if="asset" :asset-id="asset.id" :price="currentPrice" :owner="owner?.name ?? null" compact />
+    <AssetCard v-if="asset" :asset-id="asset.id" :price="currentPrice" :owner="owner?.name ?? null" compact :variant="mobileSummary ? 'mobile-summary' : 'default'" />
     <div v-else-if="space.type === 'special'" class="landing-notice__special-card" aria-hidden="true">
       <span class="landing-notice__special-icon"><GameIcon :name="meta.icon" /></span>
       <small>{{ meta.eyebrow }}</small>

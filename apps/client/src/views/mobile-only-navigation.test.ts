@@ -59,7 +59,7 @@ describe("mobile-only map-first experience", () => {
   });
 
   it("shows the landed world's image during a classic purchase", () => {
-    expect(playerView).toContain('<AssetCard v-if="store.game.pendingPurchase?.source === \'classic\'" :asset-id="pendingAsset.id" compact />');
+    expect(playerView).toContain('<AssetCard v-if="store.game.pendingPurchase?.source === \'classic\'" :asset-id="pendingAsset.id" compact variant="mobile-summary" />');
   });
 
   it("offers home navigation and a new game from the final screen", () => {
@@ -73,16 +73,25 @@ describe("mobile-only map-first experience", () => {
   });
 
   it("queues readable turn and event notifications without slowing game animations", () => {
-    expect(playerView).toContain('<MobileToastQueue v-if="mobileOnly" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" />');
+    expect(playerView).toContain('<MobileToastQueue v-if="mobileNotificationEnabled" :event="mobileEventNotice" :turn-notice="mobileTurnNotice" :error="mobileErrorNotice"');
     expect(playerView).toContain('const quietMobileEventTypes = new Set(["dice_rolled", "pawn_moved", "turn_started", "player_joined", "player_ready"');
     expect(playerView).toContain('"ship_selected", "ship_race_started", "auction_bid"');
     expect(mobileToasts).toContain('createMobileToastQueue');
-    expect(mobileToasts).toContain('class="mobile-live-toast" role="status" aria-live="polite" aria-atomic="true"');
-    expect(mobileToasts).toContain("+{{ state.pendingCount }}");
-    expect(mobileToasts).toContain("@click=\"queue.dismiss\"");
-    expect(mobileToasts).toContain('class="mobile-live-toast__dismiss"');
-    expect(mobileToasts).toMatch(/\.mobile-live-toast__dismiss\s*\{[^}]*width:\s*100%[^}]*border:\s*0/s);
+    expect(mobileToasts).toContain('class="mobile-notification-center"');
+    expect(mobileToasts).toContain('class="mobile-notification-center__history"');
+    expect(mobileToasts).toContain("state.unreadCount");
+    expect(mobileToasts).toContain("@click=\"dismissCurrent\"");
     expect(theme).not.toContain('.phone-shell:has(.player-credit-float)');
+  });
+
+  it("closes host commands and resets mandatory-action scrolling", () => {
+    expect(playerView).toContain('const hostMenuOpen = ref(false)');
+    expect(playerView).toContain('function closeHostMenu()');
+    expect(playerView).toContain('document.addEventListener("pointerdown", onDocumentPointerDown)');
+    expect(playerView).toContain('if (event.key === "Escape") closeHostMenu()');
+    expect(playerView).toContain('async function runHostCommand');
+    expect(playerView).toContain('watch(mandatoryActionKey');
+    expect(playerView).toContain('window.scrollTo({ top: 0, behavior: "auto" })');
   });
 
   it("keeps errors visible without reserving a removed navigation dock", () => {
