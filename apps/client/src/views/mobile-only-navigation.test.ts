@@ -54,8 +54,17 @@ describe("mobile-only map-first experience", () => {
     expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll\s*\{[^}]*position:\s*sticky[^}]*inset:\s*auto auto var\(--safe-bottom\)/s);
     expect(theme).toMatch(/\.controller-screen--map > \.action-card--roll > :not\(\.dice-button\)[\s\S]*display:\s*none/s);
     expect(theme).toMatch(/\.controller-screen--map > \.landing-result-overlay\s*\{[^}]*position:\s*fixed[^}]*overflow-y:\s*auto/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.landing-result-overlay\s*\{[^}]*max-height:\s*calc\(var\(--app-viewport-height\)[^}]*var\(--phone-header-height\)[^}]*var\(--safe-bottom\)/s);
+    expect(theme).toMatch(/\.controller-screen--map > \.landing-result-overlay > \.landing-notice\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/s);
     expect(theme).toContain(':not(.action-card--roll):not(.landing-result-overlay)');
     expect(theme).not.toContain('.end-turn-action > :not(div)');
+  });
+
+  it("reserves the roll dock height without covering the player roster", () => {
+    expect(theme).toMatch(/\.controller-screen--map:has\(> \.action-card--roll\) \.mobile-map-panel\s*\{[^}]*height:\s*auto[^}]*flex:\s*1 1 auto[^}]*min-height:\s*0/s);
+    expect(theme).toMatch(/\.phone-shell--active-game:has\(\.controller-screen--map > \.action-card--roll\)\s*\{[^}]*display:\s*flex[^}]*height:\s*var\(--app-viewport-height\)[^}]*overflow:\s*hidden/s);
+    expect(theme).toMatch(/\.phone-shell--active-game:has\(\.controller-screen--map > \.action-card--roll\) > \.controller-screen--map\s*\{[^}]*flex:\s*1 1 auto[^}]*min-height:\s*0[^}]*overflow:\s*hidden/s);
+    expect(mobileRoute).toContain('class="route-roster" aria-label="Position des joueurs"');
   });
 
   it("shows the landed world's image during a classic purchase", () => {

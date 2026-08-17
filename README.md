@@ -63,7 +63,7 @@ npm run dev             # serveur et client en développement
 npm run typecheck       # vérification TypeScript/Vue
 npm test                # référentiel, moteur, médias et Socket.IO
 npm run build           # client et serveur de production
-npm.cmd run prepare:static  # build solo statique vérifié, prêt à envoyer
+npm.cmd run deploy:static   # dossier solo vérifié, prêt à envoyer
 npm start               # production, après le build
 npm run smoke           # vérification HTTP du build
 ```
@@ -73,16 +73,16 @@ npm run smoke           # vérification HTTP du build
 Une version sans serveur peut être publiée sous `https://mathieuluyten.be/richesses-espace/`. Le joueur choisit son pseudo, sa couleur, son pion et de **1 à 5 robots** de profil **Équilibré**. À chaque partie, leurs noms sont tirés sans doublon parmi 20 constellations françaises ; leurs couleurs et leurs animaux sont également aléatoires et uniques dans la partie :
 
 ```powershell
-npm.cmd run prepare:static
+npm.cmd run deploy:static
 ```
 
-Cette commande génère le build solo puis vérifie automatiquement ses chemins, ses médias et les fonctions attendues. Pour mettre à jour le site statique :
+Cette commande génère le build temporaire dans `apps/client/dist`, vérifie automatiquement ses chemins, ses médias et les fonctions attendues, puis crée le seul dossier destiné à l’upload. Pour mettre à jour le site statique :
 
-1. exécutez `npm.cmd run prepare:static` depuis la racine du projet ;
-2. envoyez **tout le contenu** de `apps/client/dist-static` dans le dossier distant `/richesses-espace/` ;
-3. vérifiez que `index.html` se trouve directement dans `/richesses-espace/`, et non dans un sous-dossier `dist-static`.
+1. exécutez `npm.cmd run deploy:static` depuis la racine du projet ;
+2. envoyez **tout le contenu** de `deploy/richesses-espace` dans le dossier distant `/richesses-espace/` ;
+3. vérifiez que `index.html` se trouve directement dans `/richesses-espace/`, et non dans un sous-dossier supplémentaire.
 
-Le duel utilise le vrai moteur de règles et sauvegarde sa progression dans le navigateur. N’utilisez pas `npm run build` pour cet upload : cette commande prépare la version client-serveur multijoueur dans `apps/client/dist` et `apps/server/dist`. Le dossier `apps/client/dist` contient volontairement des chemins incompatibles avec un hébergement statique sous `/richesses-espace/`. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure complète et les limites du mode local.
+Le duel utilise le vrai moteur de règles et sauvegarde sa progression dans le navigateur. N’envoyez jamais directement `apps/client/dist`, qui est un dossier de travail pouvant contenir le dernier build multijoueur ou statique. Seul `deploy/richesses-espace` est un artefact d’upload. Consultez [DEPLOIEMENT_STATIQUE.md](DEPLOIEMENT_STATIQUE.md) pour la procédure complète et les limites du mode local.
 
 Le build de production est servi sur `http://localhost:3000/display` et écoute sur `0.0.0.0`.
 

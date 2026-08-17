@@ -7,17 +7,17 @@ Cette version permet de jouer une partie complète sans serveur Node.js, Socket.
 Depuis la racine du projet :
 
 ```powershell
-npm.cmd run prepare:static
+npm.cmd run deploy:static
 ```
 
-Le résultat se trouve dans `apps/client/dist-static`.
+Le résultat prêt à envoyer se trouve dans `deploy/richesses-espace`. Le dossier `apps/client/dist` n’est qu’un espace de build temporaire partagé avec le client multijoueur.
 
-> Ne publiez jamais `apps/client/dist` sur `mathieuluyten.be/richesses-espace`. Ce dossier est le build du serveur Node.js et ses ressources commencent par `/assets/`, ce qui provoque des erreurs 404 sur un sous-dossier. Les deux sorties sont volontairement séparées pour éviter qu’un build serveur écrase l’artefact statique.
+> Ne publiez jamais directement `apps/client/dist` sur `mathieuluyten.be/richesses-espace` : son contenu dépend de la dernière commande de build exécutée. Publiez uniquement `deploy/richesses-espace`, produit et contrôlé par `npm.cmd run deploy:static`.
 
 ## Envoyer les fichiers
 
 1. Dans la racine web de `mathieuluyten.be`, créer le dossier `richesses-espace`.
-2. Envoyer **le contenu** de `apps/client/dist-static` dans ce dossier. Le fichier `index.html` doit donc se trouver directement à l’emplacement `richesses-espace/index.html`.
+2. Envoyer **le contenu** de `deploy/richesses-espace` dans ce dossier. Le fichier `index.html` doit donc se trouver directement à l’emplacement `richesses-espace/index.html`.
 3. Ouvrir `https://mathieuluyten.be/richesses-espace/` dans une fenêtre privée.
 4. Tester l’accueil, le parcours mobile et l’interface TV.
 
@@ -41,7 +41,7 @@ Le **Pont d’observation** conserve l’écran TV validé. Dans une seconde fen
 
 ## Mettre à jour la version publiée
 
-Relancer `npm.cmd run prepare:static`, puis remplacer le contenu publié par celui du nouveau dossier `dist-static`. Les fichiers JavaScript et CSS portent un nom versionné : il faut toujours envoyer le nouvel `index.html` avec les nouveaux fichiers du dossier `assets`.
+Relancer `npm.cmd run deploy:static`, puis remplacer le contenu publié par celui du nouveau dossier `deploy/richesses-espace`. Les fichiers JavaScript et CSS portent un nom versionné : il faut toujours envoyer le nouvel `index.html` avec les nouveaux fichiers du dossier `assets`.
 
 ## Ce que cette version ne valide pas
 

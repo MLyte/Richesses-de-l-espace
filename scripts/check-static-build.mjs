@@ -1,7 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
-const dist = path.resolve("apps/client/dist-static");
+const dist = path.resolve("apps/client/dist");
 const indexPath = path.join(dist, "index.html");
 const index = await readFile(indexPath, "utf8");
 

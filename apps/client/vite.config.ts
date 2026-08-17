@@ -14,7 +14,7 @@ export default defineConfig(() => {
 
   return {
     base: process.env.VITE_APP_BASE || "/",
-    build: { outDir: localGame ? "dist-static" : "dist" },
+    build: { outDir: "dist" },
     plugins: [
       vue(),
       VitePWA({
